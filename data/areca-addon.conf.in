@@ -1,0 +1,10 @@
+[Addon]
+Name=Areca
+Comment=Queued Bamboo Vietnamese input method
+Category=InputMethod
+Version=@PROJECT_VERSION@
+Enabled=True
+Library=areca
+Type=SharedLibrary
+OnDemand=True
+Configurable=True

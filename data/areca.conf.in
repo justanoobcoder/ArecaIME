@@ -1,0 +1,8 @@
+[InputMethod]
+Name=Areca (Bamboo)
+Name[vi]=Areca (Bamboo)
+Icon=input-keyboard
+Label=vi
+LangCode=vi
+Addon=areca
+Configurable=True
