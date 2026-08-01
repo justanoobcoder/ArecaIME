@@ -178,6 +178,10 @@ submodule. Pull request, push vào `main` và chạy thủ công sẽ tạo arti
 workflow; tag `v*` hoặc tag bắt đầu bằng số còn tự động tải các gói lên GitHub
 Release tương ứng.
 
+Bộ metadata dành riêng cho AUR nằm tại [`packaging/aur`](packaging/aur). Xem
+[hướng dẫn publish `fcitx5-areca`](packaging/aur/README.md) để tạo repository
+AUR, build kiểm tra và cập nhật package theo tag GitHub.
+
 ## Build thủ công
 
 Yêu cầu:

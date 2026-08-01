@@ -1,0 +1,56 @@
+pkgname=fcitx5-areca
+pkgver=1.0.1
+pkgrel=1
+pkgdesc='Areca Vietnamese input method for Fcitx5 using the Bamboo engine'
+arch=('x86_64')
+url='https://github.com/xhkzeroone/ArecaIME'
+license=('MIT')
+depends=('fcitx5')
+makedepends=(
+  'cmake'
+  'extra-cmake-modules'
+  'git'
+  'go'
+  'ninja'
+  'pkgconf'
+)
+optdepends=('fcitx5-configtool: graphical configuration tool')
+_bamboo_commit='b2e49a2b48c7d3772a3673142a7747eccd9d5f79'
+source=(
+  "${pkgname}::git+${url}.git#tag=v${pkgver}"
+  "bamboo-core::git+https://github.com/BambooEngine/bamboo-core.git#commit=${_bamboo_commit}"
+)
+sha256sums=('SKIP' 'SKIP')
+
+prepare() {
+  git -C "${srcdir}/${pkgname}" submodule init
+  git -C "${srcdir}/${pkgname}" config \
+    submodule.bamboo/bamboo-core.url "${srcdir}/bamboo-core"
+  git -C "${srcdir}/${pkgname}" -c protocol.file.allow=always \
+    submodule update
+}
+
+build() {
+  export CXXFLAGS+=" -ffile-prefix-map=${srcdir}=."
+  export GOFLAGS="${GOFLAGS:-} -trimpath"
+  cmake -S "${srcdir}/${pkgname}" -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_TESTING=ON \
+    -DBUILD_UINPUT_SERVER=ON
+  cmake --build build --parallel
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+  cd "${srcdir}/${pkgname}/server"
+  GOCACHE="${srcdir}/go-test-cache" go test ./...
+}
+
+package() {
+  DESTDIR="${pkgdir}" cmake --install build --strip
+  install -Dm644 "${srcdir}/${pkgname}/LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${srcdir}/${pkgname}/bamboo/bamboo-core/LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.bamboo-core"
+}
