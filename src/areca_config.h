@@ -31,6 +31,9 @@ FCITX_CONFIGURATION(
                                           "/tmp/openkey-nonpreedit.sock"};
     fcitx::Option<std::string> bambooInputMethod{
         this, "BambooInputMethod", N_("Kiểu gõ Bamboo"), "Telex 2"};
+    fcitx::Option<bool> spellCheck{
+        this, "SpellCheck",
+        N_("Kiểm tra chính tả và khôi phục từ không hợp lệ"), true};
     fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"),
                               true};);
 

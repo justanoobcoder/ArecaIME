@@ -61,6 +61,33 @@ int main() {
   }
   assert(display == "chuẩn");
 
+  // At a word boundary, spell check restores an invalid Vietnamese-looking
+  // syllable to the original Latin keystrokes before appending the boundary.
+  engine.reset();
+  display.clear();
+  for (char key : std::string("awbc")) {
+    const auto result = type(engine, key);
+    const auto displayLength = fcitx::utf8::length(display);
+    const auto eraseFrom = fcitx::utf8::nextNChar(
+        display.begin(), displayLength - result.deleteCount);
+    display.erase(eraseFrom, display.end());
+    display += result.commitText;
+  }
+  assert(display == "ăbc");
+  auto checkedBoundary = type(engine, ' ');
+  assert(checkedBoundary.currentText == "ăbc");
+  assert(checkedBoundary.deleteCount == 3);
+  assert(checkedBoundary.commitText == "awbc ");
+
+  areca::BambooEngineAdapter uncheckedEngine("Telex 2", false);
+  for (char key : std::string("awbc")) {
+    type(uncheckedEngine, key);
+  }
+  auto uncheckedBoundary = type(uncheckedEngine, ' ');
+  assert(uncheckedBoundary.currentText == "ăbc");
+  assert(uncheckedBoundary.deleteCount == 0);
+  assert(uncheckedBoundary.commitText == " ");
+
   std::cout << "Bamboo adapter tests passed\n";
   return 0;
 }

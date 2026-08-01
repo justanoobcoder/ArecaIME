@@ -18,7 +18,8 @@ public:
 
 class BambooEngineAdapter final : public VietnameseEngine {
 public:
-  explicit BambooEngineAdapter(std::string inputMethod = "Telex 2");
+  explicit BambooEngineAdapter(std::string inputMethod = "Telex 2",
+                               bool spellCheck = true);
   ~BambooEngineAdapter() override;
 
   BambooEngineAdapter(const BambooEngineAdapter &) = delete;
@@ -32,6 +33,7 @@ public:
 
 private:
   uint64_t handle_ = 0;
+  bool spellCheck_ = true;
   std::string renderedText_;
 };
 

@@ -58,7 +58,8 @@ bool hasCtrlAltSuperMeta(const fcitx::Key &key) {
 
 ArecaEngine::ArecaEngine(fcitx::Instance *instance)
     : instance_(instance), stateFactory_([this](fcitx::InputContext &) {
-        return new InputState(config_.bambooInputMethod.value());
+        return new InputState(config_.bambooInputMethod.value(),
+                              config_.spellCheck.value());
       }),
       uinputBackend_(instance_->eventLoop(), config_.socketPath.value()),
       scheduler_(
@@ -387,14 +388,18 @@ void ArecaEngine::applyConfig() {
   }
 
   const auto inputMethod = config_.bambooInputMethod.value();
+  const bool spellCheck = config_.spellCheck.value();
   instance_->inputContextManager().foreach (
-      [this, &inputMethod](fcitx::InputContext *inputContext) {
+      [this, &inputMethod, spellCheck](fcitx::InputContext *inputContext) {
         auto *state = stateFor(*inputContext);
-        if (state && state->inputMethod != inputMethod) {
+        if (state && (state->inputMethod != inputMethod ||
+                      state->spellCheck != spellCheck)) {
           try {
             scheduler_.resetContext(*inputContext);
-            state->engine = std::make_unique<BambooEngineAdapter>(inputMethod);
+            state->engine = std::make_unique<BambooEngineAdapter>(
+                inputMethod, spellCheck);
             state->inputMethod = inputMethod;
+            state->spellCheck = spellCheck;
           } catch (const std::exception &error) {
             FCITX_ERROR() << "areca: cannot select Bamboo method: "
                           << error.what();

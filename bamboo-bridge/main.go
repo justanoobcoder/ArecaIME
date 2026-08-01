@@ -69,6 +69,22 @@ func ArecaBambooProcess(id C.uint64_t, key C.uint32_t) *C.char {
 	return C.CString(engine.GetProcessedString(bamboo.VietnameseMode))
 }
 
+//export ArecaBambooFinalizeWord
+func ArecaBambooFinalizeWord(id C.uint64_t, spellCheck C.int) *C.char {
+	engine := engineFor(id)
+	if engine == nil {
+		return nil
+	}
+
+	text := engine.GetProcessedString(bamboo.VietnameseMode)
+	if spellCheck != 0 && bamboo.HasAnyVietnameseRune(text) && !engine.IsValid(true) {
+		engine.RestoreLastWord(false)
+		text = engine.GetProcessedString(bamboo.EnglishMode)
+	}
+	engine.Reset()
+	return C.CString(text)
+}
+
 //export ArecaBambooBackspace
 func ArecaBambooBackspace(id C.uint64_t) *C.char {
 	engine := engineFor(id)

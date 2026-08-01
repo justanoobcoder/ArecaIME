@@ -12,6 +12,7 @@ uint64_t ArecaBambooCreate(char *inputMethod);
 void ArecaBambooDestroy(uint64_t id);
 int ArecaBambooCanProcess(uint64_t id, uint32_t key);
 char *ArecaBambooProcess(uint64_t id, uint32_t key);
+char *ArecaBambooFinalizeWord(uint64_t id, int spellCheck);
 char *ArecaBambooBackspace(uint64_t id);
 void ArecaBambooReset(uint64_t id);
 }
@@ -38,7 +39,9 @@ std::vector<std::pair<uint32_t, size_t>> codepoints(const std::string &text) {
 
 } // namespace
 
-BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod) {
+BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod,
+                                         bool spellCheck)
+    : spellCheck_(spellCheck) {
   handle_ = ArecaBambooCreate(inputMethod.data());
   if (!handle_) {
     throw std::runtime_error("unknown Bamboo input method: " + inputMethod);
@@ -56,13 +59,30 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
   BambooResult result;
   result.currentText = renderedText_;
 
-  // Bamboo treats characters outside the active input method as word
-  // boundaries. They are committed literally and start a fresh composition.
+  // Finalize the current word before committing a boundary. With spell check
+  // enabled, Bamboo restores an invalid Vietnamese-looking word to the raw
+  // Latin keystrokes that produced it.
   if (!ArecaBambooCanProcess(handle_, codepoint)) {
-    ArecaBambooReset(handle_);
+    char *raw = ArecaBambooFinalizeWord(handle_, spellCheck_ ? 1 : 0);
+    if (!raw) {
+      throw std::runtime_error("Bamboo word finalization failed");
+    }
+    std::string next(raw);
+    std::free(raw);
+    next += utf8Text;
+
+    const auto oldChars = codepoints(renderedText_);
+    const auto newChars = codepoints(next);
+    size_t prefix = 0;
+    while (prefix + 1 < oldChars.size() && prefix + 1 < newChars.size() &&
+           oldChars[prefix].first == newChars[prefix].first) {
+      ++prefix;
+    }
+    result.deleteCount =
+        static_cast<uint32_t>((oldChars.size() - 1) - prefix);
+    result.commitText = next.substr(newChars[prefix].second);
     renderedText_.clear();
     result.newText.clear();
-    result.commitText = utf8Text;
     return result;
   }
 
