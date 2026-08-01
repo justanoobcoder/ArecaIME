@@ -128,26 +128,20 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
                  << " commit=" << result.commitText;
   }
   if (!result.deleteCount) {
-    if (result.commitText == rawText) {
-      // Lotus leaves an unchanged key on the application's native key path.
-      // The original press was filtered before queueing, so replay a complete
-      // press/release pair here after the scheduler delay.
-      forwardOriginalKey(inputContext, originalKey);
-      if (debugProvider_()) {
-        FCITX_INFO() << "areca: apply unchanged key by forward key="
-                     << originalKey.toString() << " text=" << rawText;
-      }
-    } else {
-      RewritePlan directCommit;
-      directCommit.commitText = result.commitText;
-      directCommitBackend_.apply(inputContext, directCommit, {});
-      if (debugProvider_()) {
-        FCITX_INFO() << "areca: apply transformed no-delete commit="
-                     << result.commitText << " raw=" << rawText;
-      }
+    // The original text key was filtered before it entered the queue. Commit
+    // its Bamboo result through the input-method protocol instead of replaying
+    // a synthetic key press/release from this timer callback. Keeping ordinary
+    // text commits and later deleteSurroundingText calls on the same protocol
+    // path avoids racing an application update produced by forwardKey().
+    RewritePlan directCommit;
+    directCommit.commitText = result.commitText;
+    directCommitBackend_.apply(inputContext, directCommit, {});
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: apply no-delete by commit text="
+                   << result.commitText << " raw=" << rawText;
     }
-    // Native forwarding and commitString both need the same settle window
-    // before a following queued rewrite inspects surrounding text.
+    // Wait for the client to settle before a following queued rewrite inspects
+    // or modifies surrounding text.
     finishKeyAfterCommit();
     return;
   }

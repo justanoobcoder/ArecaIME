@@ -17,7 +17,7 @@
 namespace areca {
 namespace {
 
-fcitx::KeySym lotusKeypadKeySym(fcitx::KeySym sym) {
+fcitx::KeySym normalizeKeypadKeySym(fcitx::KeySym sym) {
   if (sym >= FcitxKey_KP_0 && sym <= FcitxKey_KP_9) {
     return static_cast<fcitx::KeySym>(FcitxKey_0 + (sym - FcitxKey_KP_0));
   }
@@ -122,7 +122,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   const auto rawSym = event.rawKey().sym();
   const bool isBackspace =
       key.check(FcitxKey_BackSpace) || rawKey.check(FcitxKey_BackSpace);
-  const auto textSym = lotusKeypadKeySym(normalizedKey.sym());
+  const auto textSym = normalizeKeypadKeySym(normalizedKey.sym());
   const bool isEnter = textSym == FcitxKey_Return ||
                        rawSym == FcitxKey_Return ||
                        rawSym == FcitxKey_KP_Enter;
@@ -151,8 +151,8 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
     return;
   }
 
-  // Injected uinput Backspaces are the only special keys consumed here. All
-  // other special-key behavior below mirrors fcitx5-lotus.
+  // Injected uinput Backspaces are the only special keys consumed here. Other
+  // special keys follow the native forwarding policy below.
   if (isBackspace) {
     const auto injectedAction = uinputBackend_.handleInjectedBackspacePress();
     if (injectedAction ==
@@ -203,14 +203,14 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
     return;
   }
 
-  // Lotus forwards Delete without changing the Bamboo history.
+  // Delete is forwarded without changing the Bamboo history.
   if (textSym == FcitxKey_Delete || rawSym == FcitxKey_Delete) {
     event.forward();
     return;
   }
 
-  // Lotus handles Backspace and Return explicitly: update/reset Bamboo and
-  // forward the original event instead of converting either key to text.
+  // Handle Backspace and Return explicitly: update/reset Bamboo and forward
+  // the original event instead of converting either key to text.
   if (isBackspace) {
     cancelProtectedStateReset(*inputContext);
     if (state && state->engine) {

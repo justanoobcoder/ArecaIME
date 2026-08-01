@@ -84,14 +84,16 @@ commitText  = "ă"
 ```
 
 Ký tự Bamboo không xử lý được được xem như word boundary: adapter reset
-composition và để scheduler forward/commit ký tự gốc.
+composition và để scheduler commit ký tự gốc.
 
 ## Backend selection
 
 Khi `deleteCount == 0`:
 
-- Nếu `commitText` giống raw key, scheduler replay press/release của phím gốc.
-- Nếu Bamboo tạo text khác raw key, addon commit trực tiếp.
+- Scheduler luôn dùng `commitString()` cho kết quả Bamboo, kể cả khi
+  `commitText` giống raw key. Text key gốc đã bị filter trước khi vào queue;
+  không replay press/release tổng hợp từ timer vì thao tác đó có thể chạy đua
+  với một `deleteSurroundingText()` kế tiếp.
 
 Khi `deleteCount > 0`:
 

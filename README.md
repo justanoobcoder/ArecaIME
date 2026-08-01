@@ -27,9 +27,7 @@ Xin cảm ơn tác giả Bamboo cùng những người được dự án Bamboo 
 - Trần Kỳ Nam, tác giả `GoTiengViet`.
 
 Mã nguồn và license nguyên bản được giữ trong submodule
-[`bamboo/bamboo-core`](bamboo/bamboo-core). Areca cũng tham khảo kinh nghiệm xử
-lý phím đặc biệt của [fcitx5-lotus](https://github.com/LotusInputMethod/fcitx5-lotus),
-nhưng không dùng engine của dự án này.
+[`bamboo/bamboo-core`](bamboo/bamboo-core).
 
 ## Ý tưởng thiết kế
 
@@ -51,7 +49,7 @@ Fcitx5 keyEvent
        ▼
  InputScheduler ──► BambooEngineAdapter ──► BambooResult
                                              │
-                         deleteCount == 0 ────┤──► forward/commit
+                         deleteCount == 0 ────┤──► commitString
                                              │
                          deleteCount > 0  ────┘
                                              │
@@ -213,7 +211,7 @@ Debug=True
 | `KeyIntervalMs` | Thời gian tối thiểu một key phải nằm trong queue và khoảng cách tối thiểu giữa hai lần xử lý Bamboo; không thể nhỏ hơn 20 ms. |
 | `BackspaceDelayMs` | Delay giữa hai Backspace do uinput server phát. |
 | `AfterBackspaceWaitMs` | Thời gian server chờ sau Backspace cuối trước khi trả `DONE`. |
-| `PostCommitDelayMs` | Settling window sau mọi commit/forward, tính từ `DONE` đối với uinput. |
+| `PostCommitDelayMs` | Settling window sau mọi text commit, tính từ `DONE` đối với uinput. |
 | `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
 | `SocketPath` | Đường dẫn Unix socket dùng chung giữa addon và server. |
 | `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
