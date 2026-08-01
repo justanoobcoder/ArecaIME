@@ -1,0 +1,271 @@
+name: Build Linux packages
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+      - "[0-9]*"
+
+concurrency:
+  group: package-linux-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve package version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(sed -nE \
+              's/^project\(fcitx5-areca VERSION ([^ ]+) .*/\1/p' \
+              CMakeLists.txt)"
+          fi
+          if [[ -z "$version" ]]; then
+            echo "Could not resolve the Areca package version" >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+  ubuntu:
+    name: Ubuntu 24.04+
+    runs-on: ubuntu-24.04
+    needs: version
+    env:
+      VERSION: ${{ needs.version.outputs.value }}
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ubuntu 24.04 build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            extra-cmake-modules \
+            golang-go \
+            ruby \
+            ruby-dev \
+            fcitx5 \
+            fcitx5-config-qt \
+            fcitx5-frontend-gtk3 \
+            fcitx5-frontend-qt5 \
+            libfcitx5core-dev \
+            libfcitx5config-dev \
+            libfcitx5utils-dev
+          sudo gem install --no-document fpm
+
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-pkg -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DBUILD_TESTING=ON \
+            -DBUILD_UINPUT_SERVER=ON
+          cmake --build build-pkg --parallel
+          ctest --test-dir build-pkg --output-on-failure
+          (cd server && go test ./...)
+
+      - name: Package DEB
+        run: |
+          set -euo pipefail
+          mkdir -p pkgroot dist
+          DESTDIR="$PWD/pkgroot" cmake --install build-pkg --strip
+          fpm -s dir -t deb \
+            -n fcitx5-areca \
+            -v "$VERSION" \
+            --architecture amd64 \
+            --description "Areca Vietnamese input method for Fcitx5" \
+            --url "https://github.com/xhkzeroone/ArecaIME" \
+            --license MIT \
+            --depends fcitx5 \
+            --depends fcitx5-frontend-gtk3 \
+            --depends fcitx5-frontend-qt5 \
+            -C pkgroot \
+            -p "dist/fcitx5-areca_${VERSION}_ubuntu24_amd64.deb" \
+            .
+          dpkg-deb -c "dist/fcitx5-areca_${VERSION}_ubuntu24_amd64.deb"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fcitx5-areca-ubuntu24-deb
+          path: dist/*.deb
+          if-no-files-found: error
+
+  arch:
+    name: Arch Linux rolling
+    runs-on: ubuntu-24.04
+    needs: version
+    env:
+      VERSION: ${{ needs.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Create source archive including Bamboo
+        run: |
+          set -euo pipefail
+          mkdir -p arch-pkg dist
+          git ls-files --recurse-submodules -z | \
+            tar --null --files-from=- --create --gzip \
+              --transform="s,^,fcitx5-areca-${VERSION}/," \
+              --file="arch-pkg/fcitx5-areca-${VERSION}.tar.gz"
+          cp packaging/arch/PKGBUILD arch-pkg/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" arch-pkg/PKGBUILD
+
+      - name: Build and test Pacman package in Arch Linux
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            archlinux:latest \
+            bash -lc '
+              set -euo pipefail
+              pacman -Syu --noconfirm
+              pacman -S --needed --noconfirm \
+                base-devel \
+                cmake \
+                extra-cmake-modules \
+                fcitx5 \
+                go \
+                ninja \
+                pkgconf
+              useradd --create-home builder
+              chown -R builder:builder arch-pkg
+              su builder -c \
+                "cd /work/arch-pkg && makepkg --noconfirm --check"
+              mv arch-pkg/*.pkg.tar.zst dist/
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fcitx5-areca-arch-pacman
+          path: dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  fedora:
+    name: Fedora latest
+    runs-on: ubuntu-24.04
+    needs: version
+    env:
+      VERSION: ${{ needs.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build, test and package in Fedora latest
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          docker run --rm \
+            -e VERSION="$VERSION" \
+            -v "$PWD:/work" \
+            -w /work \
+            fedora:latest \
+            bash -lc '
+              set -euo pipefail
+              dnf install -y \
+                gcc-c++ \
+                make \
+                cmake \
+                ninja-build \
+                pkgconf-pkg-config \
+                extra-cmake-modules \
+                golang \
+                ruby \
+                ruby-devel \
+                rpm-build \
+                fcitx5 \
+                fcitx5-devel \
+                fcitx5-configtool
+              gem install --no-document fpm
+
+              cmake -S . -B build-pkg-fedora -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/usr \
+                -DBUILD_TESTING=ON \
+                -DBUILD_UINPUT_SERVER=ON
+              cmake --build build-pkg-fedora --parallel
+              ctest --test-dir build-pkg-fedora --output-on-failure
+              (cd server && go test ./...)
+
+              mkdir -p pkgroot-fedora
+              DESTDIR="$PWD/pkgroot-fedora" \
+                cmake --install build-pkg-fedora --strip
+              fpm -s dir -t rpm \
+                -n fcitx5-areca \
+                -v "$VERSION" \
+                --architecture x86_64 \
+                --description "Areca Vietnamese input method for Fcitx5" \
+                --url "https://github.com/xhkzeroone/ArecaIME" \
+                --license MIT \
+                --depends fcitx5 \
+                -C pkgroot-fedora \
+                -p "dist/fcitx5-areca-${VERSION}.fedora-latest.x86_64.rpm" \
+                .
+              rpm -qpl \
+                "dist/fcitx5-areca-${VERSION}.fedora-latest.x86_64.rpm"
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fcitx5-areca-fedora-rpm
+          path: dist/*.rpm
+          if-no-files-found: error
+
+  release:
+    name: Publish tagged release
+    runs-on: ubuntu-24.04
+    needs:
+      - ubuntu
+      - arch
+      - fedora
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload packages to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "$tag" \
+              --notes "Areca packages for Ubuntu 24.04+, Arch Linux and Fedora."
+          fi
+          find artifacts -type f -print0 | \
+            xargs -0 gh release upload "$tag" --clobber

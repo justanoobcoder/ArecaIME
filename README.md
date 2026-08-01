@@ -161,6 +161,23 @@ khởi chạy Fcitx bằng một `WAYLAND_SOCKET` riêng; khi đó `fcitx5 -rd` 
 có thể không thay được instance đang giữ addon cũ. Xem cách xác nhận và xử lý
 trong [Hướng dẫn debug](docs/DEBUGGING.md).
 
+## Build package trên GitHub
+
+Workflow [Build Linux packages](.github/workflows/package-linux.yml) chỉ build
+ba dòng distro đang được hỗ trợ cho release:
+
+- Ubuntu 24.04 trở lên: gói `.deb` được build trên Ubuntu 24.04 để giữ mốc
+  tương thích tối thiểu.
+- Arch Linux rolling: gói `.pkg.tar.zst` từ
+  [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD).
+- Fedora mới nhất: gói `.rpm` được build bên trong image `fedora:latest`.
+
+Mỗi nhánh đều build addon cùng uinput server và chạy toàn bộ CTest/Go test
+trước khi tạo artifact. Bamboo được checkout và đưa vào source archive theo
+submodule. Pull request, push vào `main` và chạy thủ công sẽ tạo artifact của
+workflow; tag `v*` hoặc tag bắt đầu bằng số còn tự động tải cả ba gói lên GitHub
+Release tương ứng.
+
 ## Build thủ công
 
 Yêu cầu:
