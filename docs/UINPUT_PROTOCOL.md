@@ -1,7 +1,7 @@
 # Protocol Unix socket và uinput
 
 Areca addon là client; `areca-uinput-server` là server. Hai bên giao tiếp bằng
-Unix stream socket, mặc định tại `/tmp/openkey-nonpreedit.sock`. Mỗi message là
+Unix stream socket, mặc định tại `/tmp/areca-uinput.sock`. Mỗi message là
 một dòng ASCII kết thúc bằng `\n`.
 
 ## PLAN
@@ -84,7 +84,7 @@ sau khi `DONE` được nhận và text đã commit.
 
 ```bash
 cd server
-ARECA_UINPUT_SERVER_LOG=1 go run . -socket /tmp/openkey-nonpreedit.sock
+ARECA_UINPUT_SERVER_LOG=1 go run . -socket /tmp/areca-uinput.sock
 ```
 
 Server cần quyền ghi `/dev/uinput`. Installer tạo group/rule và user service

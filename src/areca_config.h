@@ -25,7 +25,20 @@ private:
 };
 
 FCITX_CONFIGURATION(
-    ArecaConfig,
+    MacroEntry,
+    fcitx::Option<std::string> key{this, "Key", N_("Từ viết tắt"), ""};
+    fcitx::Option<std::string> value{this, "Value", N_("Nội dung thay thế"),
+                                     ""};);
+
+FCITX_CONFIGURATION(
+    MacroTableConfig,
+    fcitx::OptionWithAnnotation<std::vector<MacroEntry>,
+                                fcitx::ListDisplayOptionAnnotation>
+        macros{this, "Macro", N_("Danh sách macro"), {}, {}, {},
+               fcitx::ListDisplayOptionAnnotation("Key")};);
+
+FCITX_CONFIGURATION(
+    AdvancedConfig,
     fcitx::Option<int, fcitx::IntConstrain> keyIntervalMs{
         this, "KeyIntervalMs", N_("Khoảng cách xử lý phím tối thiểu (ms)"), 20,
         fcitx::IntConstrain(20, 1000)};
@@ -44,7 +57,29 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<std::string> socketPath{this, "SocketPath",
                                           N_("Unix socket của uinput server"),
-                                          "/tmp/openkey-nonpreedit.sock"};
+                                          "/tmp/areca-uinput.sock"};);
+
+FCITX_CONFIGURATION(
+    ArecaConfig,
+    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyKeyIntervalMs{
+        this, "KeyIntervalMs", N_("Khoảng cách xử lý phím tối thiểu (ms)"), 20,
+        fcitx::IntConstrain(20, 1000)};
+    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyBackspaceDelayMs{
+        this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 5,
+        fcitx::IntConstrain(0, 1000)};
+    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyAfterBackspaceWaitMs{
+        this, "AfterBackspaceWaitMs",
+        N_("Thời gian chờ sau Backspace cuối (ms)"), 10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyPostCommitDelayMs{
+        this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyResetDelayMs{
+        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 120,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::HiddenOption<std::string> legacySocketPath{
+        this, "SocketPath", N_("Unix socket của uinput server"),
+        "/tmp/areca-uinput.sock"};
     fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
         bambooInputMethod{
         this, "BambooInputMethod", N_("Kiểu gõ Bamboo"), "Telex 2"};
@@ -57,6 +92,17 @@ FCITX_CONFIGURATION(
     fcitx::Option<bool> modernStyle{
         this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"),
         true};
+    fcitx::Option<bool> enableMacro{this, "EnableMacro", N_("Bật macro"),
+                                    true};
+    fcitx::Option<bool> capitalizeMacro{
+        this, "CapitalizeMacro", N_("Tự đổi hoa/thường cho nội dung macro"),
+        true};
+    fcitx::SubConfigOption macroEditor{
+        this, "MacroEditor", N_("Chỉnh sửa macro"),
+        "fcitx://config/addon/areca/macro"};
+    fcitx::SubConfigOption advancedEditor{
+        this, "AdvancedEditor", N_("Cấu hình nâng cao"),
+        "fcitx://config/addon/areca/advanced"};
     fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"),
                               true};);
 

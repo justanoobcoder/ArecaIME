@@ -125,7 +125,8 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     FCITX_INFO() << "areca: bamboo result current=" << result.currentText
                  << " new=" << result.newText
                  << " delete=" << result.deleteCount
-                 << " commit=" << result.commitText;
+                 << " commit=" << result.commitText
+                 << " macro=" << result.macroExpanded;
   }
   if (!result.deleteCount) {
     // The original text key was filtered before it entered the queue. Commit

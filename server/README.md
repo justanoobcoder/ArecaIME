@@ -99,18 +99,18 @@ Từ thư mục `server`:
 
 ```bash
 ARECA_UINPUT_SERVER_LOG=1 \
-go run . -socket /tmp/openkey-nonpreedit.sock
+go run . -socket /tmp/areca-uinput.sock
 ```
 
 Hoặc dùng binary đã build:
 
 ```bash
 ARECA_UINPUT_SERVER_LOG=1 \
-./areca-uinput-server -socket /tmp/openkey-nonpreedit.sock
+./areca-uinput-server -socket /tmp/areca-uinput.sock
 ```
 
 Đường dẫn socket phải giống `SocketPath` trong
-`~/.config/fcitx5/conf/areca.conf`. Không chạy đồng thời hai server trên cùng
+`~/.config/fcitx5/conf/areca-advanced.conf`. Không chạy đồng thời hai server trên cùng
 socket; process khởi động sau sẽ xoá socket path cũ trước khi listen.
 
 ## Tuỳ chọn dòng lệnh
@@ -118,7 +118,7 @@ socket; process khởi động sau sẽ xoá socket path cũ trước khi listen
 ```text
 -socket PATH
     Unix socket path. Mặc định lấy từ ARECA_UINPUT_SOCKET, nếu không có thì
-    dùng /tmp/openkey-nonpreedit.sock.
+    dùng /tmp/areca-uinput.sock.
 
 -priority=true|false
     Thử đặt process nice = -10. Mặc định true.
@@ -134,7 +134,7 @@ go run . -priority=false
 
 | Biến | Ý nghĩa | Mặc định |
 | --- | --- | --- |
-| `ARECA_UINPUT_SOCKET` | Unix socket path nếu không truyền `-socket`. | `/tmp/openkey-nonpreedit.sock` |
+| `ARECA_UINPUT_SOCKET` | Unix socket path nếu không truyền `-socket`. | `/tmp/areca-uinput.sock` |
 | `ARECA_UINPUT_SERVER_LOG` | Bật log runtime. | `false` |
 | `ARECA_UINPUT_SERVER_DEBUG` | Alias bật log runtime. | `false` |
 | `ARECA_UINPUT_SERVER_PRIORITY` | Cho phép thử đặt nice `-10`. | `true` |

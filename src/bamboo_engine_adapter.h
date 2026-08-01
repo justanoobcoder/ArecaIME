@@ -8,6 +8,11 @@
 
 namespace areca {
 
+struct MacroDefinition {
+  std::string key;
+  std::string value;
+};
+
 class VietnameseEngine {
 public:
   virtual ~VietnameseEngine() = default;
@@ -22,7 +27,10 @@ public:
   explicit BambooEngineAdapter(std::string inputMethod = "Telex 2",
                                bool spellCheck = true,
                                bool modernStyle = true,
-                               std::string outputCharset = "Unicode");
+                               std::string outputCharset = "Unicode",
+                               bool macroEnabled = true,
+                               bool capitalizeMacro = true,
+                               std::vector<MacroDefinition> macros = {});
   ~BambooEngineAdapter() override;
 
   BambooEngineAdapter(const BambooEngineAdapter &) = delete;
@@ -42,6 +50,8 @@ private:
   uint64_t handle_ = 0;
   bool spellCheck_ = true;
   std::string outputCharset_;
+  bool macroEnabled_ = true;
+  bool capitalizeMacro_ = true;
   std::string renderedText_;
 };
 

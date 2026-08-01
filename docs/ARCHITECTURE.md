@@ -20,6 +20,14 @@ Wayland, Fcitx5 và uinput.
 | `UinputSocketBackend` | Nonblocking Unix socket, pending state, sentinel filter và commit sau `DONE`. |
 | `PendingRewriteState` | Giữ transaction, input context, commit text và tiến độ event của đúng một rewrite. |
 
+## Phân tách cấu hình
+
+Cấu hình chính ở `conf/areca.conf` chỉ chứa các tuỳ chọn dùng thường xuyên.
+Timing và Unix socket nằm trong sub-config **Cấu hình nâng cao** tại
+`conf/areca-advanced.conf`, dùng cùng cơ chế panel con với trình sửa macro.
+Các field timing/socket cũ trong `areca.conf` được giữ ẩn để migrate cấu hình;
+file nâng cao, nếu có, luôn được load sau và được ưu tiên.
+
 ## Vòng đời text key
 
 1. Fcitx5 gọi `ArecaEngine::keyEvent()`.
@@ -99,6 +107,16 @@ cho giao diện cấu hình. Adapter giữ Bamboo state ở Unicode nội bộ, 
 chuỗi mới bằng `OutputCharset` trước khi tính common prefix. Vì vậy
 `currentText`, `newText`, `deleteCount` và `commitText` luôn mô tả đúng chuỗi
 thực tế đã commit vào ứng dụng, kể cả `Unicode tổ hợp`, VNI Windows hoặc VIQR.
+
+## Macro expansion
+
+Macro table là sub-config riêng gồm các cặp `Key/Value`. Khi xử lý một word
+boundary, bridge lấy word hiện tại ở `PunctuationMode`, lookup key không phân
+biệt hoa/thường và expand trước spell-check. Nếu `CapitalizeMacro` bật, key viết
+thường tạo replacement viết thường, key toàn chữ hoa tạo replacement toàn chữ
+hoa, còn kiểu mixed-case giữ nguyên value cấu hình. Adapter reset Bamboo sau
+match, nối boundary, encode theo charset rồi tính delta rewrite. Vì thế macro
+không có đường commit đặc biệt và vẫn tuân thủ mọi queue/pending invariant.
 
 ## Backend selection
 

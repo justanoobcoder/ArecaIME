@@ -94,7 +94,7 @@ Kiểm tra socket và process:
 
 ```bash
 systemctl --user show areca-uinput-server.service -p MainPID -p ExecMainStatus
-ls -l /tmp/openkey-nonpreedit.sock
+ls -l /tmp/areca-uinput.sock
 ```
 
 ## Quyền `/dev/uinput`
@@ -147,13 +147,18 @@ fail-closed state. Không retry transaction cũ bằng tay.
 
 ## Cấu hình cũ che default mới
 
-Fcitx giữ file `~/.config/fcitx5/conf/areca.conf`. Ví dụ source đổi
-`ResetDelayMs` mặc định thành 120 không tự sửa dòng `ResetDelayMs=250` đã tồn
-tại. Kiểm tra trực tiếp:
+Timing và socket hiện được lưu trong
+`~/.config/fcitx5/conf/areca-advanced.conf`. Ví dụ source đổi `ResetDelayMs`
+mặc định thành 120 không tự sửa dòng `ResetDelayMs=250` đã tồn tại. Kiểm tra
+trực tiếp:
 
 ```bash
 grep -E '^(KeyIntervalMs|PostCommitDelayMs|ResetDelayMs|SocketPath)=' \
-  ~/.config/fcitx5/conf/areca.conf
+  ~/.config/fcitx5/conf/areca-advanced.conf
 ```
+
+Bản nâng cấp vẫn đọc các giá trị timing/socket cũ trong `areca.conf` khi file
+nâng cao chưa có. Sau khi mở và lưu panel **Cấu hình nâng cao**, hãy kiểm tra
+file mới ở trên.
 
 Sau khi sửa config, reload/restart Fcitx rồi kiểm tra log timing thực tế.

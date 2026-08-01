@@ -18,6 +18,8 @@ void ArecaBambooReset(uint64_t id);
 char *ArecaBambooInputMethodNames();
 char *ArecaBambooCharsetNames();
 char *ArecaBambooEncode(char *charset, char *input);
+void ArecaBambooAddMacro(uint64_t id, char *key, char *value);
+char *ArecaBambooExpandMacro(uint64_t id, int capitalize);
 }
 
 namespace areca {
@@ -66,11 +68,18 @@ std::vector<std::string> splitLines(char *raw) {
 
 BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod,
                                          bool spellCheck, bool modernStyle,
-                                         std::string outputCharset)
-    : spellCheck_(spellCheck), outputCharset_(std::move(outputCharset)) {
+                                         std::string outputCharset,
+                                         bool macroEnabled,
+                                         bool capitalizeMacro,
+                                         std::vector<MacroDefinition> macros)
+    : spellCheck_(spellCheck), outputCharset_(std::move(outputCharset)),
+      macroEnabled_(macroEnabled), capitalizeMacro_(capitalizeMacro) {
   handle_ = ArecaBambooCreate(inputMethod.data(), modernStyle ? 1 : 0);
   if (!handle_) {
     throw std::runtime_error("unknown Bamboo input method: " + inputMethod);
+  }
+  for (auto &macro : macros) {
+    ArecaBambooAddMacro(handle_, macro.key.data(), macro.value.data());
   }
 }
 
@@ -89,7 +98,16 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
   // enabled, Bamboo restores an invalid Vietnamese-looking word to the raw
   // Latin keystrokes that produced it.
   if (!ArecaBambooCanProcess(handle_, codepoint)) {
-    char *raw = ArecaBambooFinalizeWord(handle_, spellCheck_ ? 1 : 0);
+    char *raw = macroEnabled_
+                    ? ArecaBambooExpandMacro(handle_,
+                                             capitalizeMacro_ ? 1 : 0)
+                    : nullptr;
+    if (raw) {
+      result.macroExpanded = true;
+      ArecaBambooReset(handle_);
+    } else {
+      raw = ArecaBambooFinalizeWord(handle_, spellCheck_ ? 1 : 0);
+    }
     if (!raw) {
       throw std::runtime_error("Bamboo word finalization failed");
     }

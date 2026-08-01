@@ -10,6 +10,7 @@ struct BambooResult {
   std::string newText;
   uint32_t deleteCount = 0;
   std::string commitText;
+  bool macroExpanded = false;
 };
 
 struct RewritePlan {

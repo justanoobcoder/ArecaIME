@@ -17,6 +17,12 @@
 namespace areca {
 namespace {
 
+constexpr const char *kMacroConfigPath = "conf/areca-macro-table.conf";
+constexpr const char *kAdvancedConfigPath = "conf/areca-advanced.conf";
+constexpr const char *kLegacyDefaultSocketPath =
+    "/tmp/openkey-nonpreedit.sock";
+constexpr const char *kDefaultSocketPath = "/tmp/areca-uinput.sock";
+
 fcitx::KeySym normalizeKeypadKeySym(fcitx::KeySym sym) {
   if (sym >= FcitxKey_KP_0 && sym <= FcitxKey_KP_9) {
     return static_cast<fcitx::KeySym>(FcitxKey_0 + (sym - FcitxKey_KP_0));
@@ -61,9 +67,13 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
         return new InputState(config_.bambooInputMethod.value(),
                               config_.spellCheck.value(),
                               config_.modernStyle.value(),
-                              config_.outputCharset.value());
+                              config_.outputCharset.value(),
+                              config_.enableMacro.value(),
+                              config_.capitalizeMacro.value(), macroRevision_,
+                              macroDefinitions());
       }),
-      uinputBackend_(instance_->eventLoop(), config_.socketPath.value()),
+      uinputBackend_(instance_->eventLoop(),
+                     advancedConfig_.socketPath.value()),
       scheduler_(
           instance_->eventLoop(),
           [this](fcitx::InputContext &inputContext) -> VietnameseEngine * {
@@ -300,7 +310,7 @@ void ArecaEngine::scheduleProtectedStateReset(fcitx::InputContext &inputContext,
   const std::weak_ptr<void> lifetime = lifetime_;
   const uint64_t deadline =
       fcitx::now(CLOCK_MONOTONIC) +
-      static_cast<uint64_t>(config_.resetDelayMs.value()) * 1000;
+      static_cast<uint64_t>(advancedConfig_.resetDelayMs.value()) * 1000;
 
   state.delayedResetTimer = instance_->eventLoop().addTimeEvent(
       CLOCK_MONOTONIC, deadline, 0,
@@ -358,21 +368,90 @@ void ArecaEngine::performContextStateReset(fcitx::InputContext &inputContext,
 
 const fcitx::Configuration *ArecaEngine::getConfig() const { return &config_; }
 
+const fcitx::Configuration *
+ArecaEngine::getSubConfig(const std::string &path) const {
+  if (path == "macro") {
+    return &macroTable_;
+  }
+  if (path == "advanced") {
+    return &advancedConfig_;
+  }
+  return nullptr;
+}
+
 void ArecaEngine::setConfig(const fcitx::RawConfig &config) {
   config_.load(config, true);
   applyConfig();
   save();
 }
 
+void ArecaEngine::setSubConfig(const std::string &path,
+                               const fcitx::RawConfig &config) {
+  if (path == "advanced") {
+    advancedConfig_.load(config, true);
+    fcitx::safeSaveAsIni(advancedConfig_,
+                         fcitx::StandardPathsType::PkgConfig,
+                         kAdvancedConfigPath);
+    applyConfig();
+    return;
+  }
+  if (path != "macro") {
+    return;
+  }
+  macroTable_.load(config, true);
+  fcitx::safeSaveAsIni(macroTable_, fcitx::StandardPathsType::PkgConfig,
+                       kMacroConfigPath);
+  ++macroRevision_;
+  applyConfig();
+}
+
 void ArecaEngine::reloadConfig() {
   fcitx::readAsIni(config_, fcitx::StandardPathsType::PkgConfig,
                    "conf/areca.conf");
+  // Seed the new advanced panel from the legacy fields before loading its own
+  // file. Existing installations therefore retain their timing and socket;
+  // once the advanced file exists, its values take precedence.
+  advancedConfig_.keyIntervalMs.setValue(
+      config_.legacyKeyIntervalMs.value());
+  advancedConfig_.backspaceDelayMs.setValue(
+      config_.legacyBackspaceDelayMs.value());
+  advancedConfig_.afterBackspaceWaitMs.setValue(
+      config_.legacyAfterBackspaceWaitMs.value());
+  advancedConfig_.postCommitDelayMs.setValue(
+      config_.legacyPostCommitDelayMs.value());
+  advancedConfig_.resetDelayMs.setValue(config_.legacyResetDelayMs.value());
+  advancedConfig_.socketPath.setValue(config_.legacySocketPath.value());
+  fcitx::readAsIni(advancedConfig_, fcitx::StandardPathsType::PkgConfig,
+                   kAdvancedConfigPath);
+  if (advancedConfig_.socketPath.value() == kLegacyDefaultSocketPath) {
+    advancedConfig_.socketPath.setValue(kDefaultSocketPath);
+  }
+  fcitx::readAsIni(macroTable_, fcitx::StandardPathsType::PkgConfig,
+                   kMacroConfigPath);
+  ++macroRevision_;
   applyConfig();
 }
 
 void ArecaEngine::save() {
   fcitx::safeSaveAsIni(config_, fcitx::StandardPathsType::PkgConfig,
                        "conf/areca.conf");
+  fcitx::safeSaveAsIni(macroTable_, fcitx::StandardPathsType::PkgConfig,
+                       kMacroConfigPath);
+  fcitx::safeSaveAsIni(advancedConfig_,
+                       fcitx::StandardPathsType::PkgConfig,
+                       kAdvancedConfigPath);
+}
+
+std::vector<MacroDefinition> ArecaEngine::macroDefinitions() const {
+  std::vector<MacroDefinition> result;
+  const auto &entries = macroTable_.macros.value();
+  result.reserve(entries.size());
+  for (const auto &entry : entries) {
+    if (!entry.key.value().empty() && !entry.value.value().empty()) {
+      result.push_back({entry.key.value(), entry.value.value()});
+    }
+  }
+  return result;
 }
 
 InputState *ArecaEngine::stateFor(fcitx::InputContext &inputContext) const {
@@ -380,14 +459,15 @@ InputState *ArecaEngine::stateFor(fcitx::InputContext &inputContext) const {
 }
 
 SchedulerTiming ArecaEngine::timing() const {
-  return {static_cast<uint32_t>(config_.keyIntervalMs.value()),
-          static_cast<uint32_t>(config_.backspaceDelayMs.value()),
-          static_cast<uint32_t>(config_.afterBackspaceWaitMs.value()),
-          static_cast<uint32_t>(config_.postCommitDelayMs.value())};
+  return {static_cast<uint32_t>(advancedConfig_.keyIntervalMs.value()),
+          static_cast<uint32_t>(advancedConfig_.backspaceDelayMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.afterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value())};
 }
 
 void ArecaEngine::applyConfig() {
-  uinputBackend_.setSocketPath(config_.socketPath.value());
+  uinputBackend_.setSocketPath(advancedConfig_.socketPath.value());
   uinputBackend_.setDebug(debugEnabled());
   if (uinputBackend_.hasPending()) {
     return;
@@ -397,22 +477,33 @@ void ArecaEngine::applyConfig() {
   const bool spellCheck = config_.spellCheck.value();
   const bool modernStyle = config_.modernStyle.value();
   const auto outputCharset = config_.outputCharset.value();
+  const bool macroEnabled = config_.enableMacro.value();
+  const bool capitalizeMacro = config_.capitalizeMacro.value();
+  const auto macros = macroDefinitions();
   instance_->inputContextManager().foreach (
-      [this, &inputMethod, spellCheck, modernStyle,
-       &outputCharset](fcitx::InputContext *inputContext) {
+      [this, &inputMethod, spellCheck, modernStyle, &outputCharset,
+       macroEnabled, capitalizeMacro,
+       &macros](fcitx::InputContext *inputContext) {
         auto *state = stateFor(*inputContext);
         if (state && (state->inputMethod != inputMethod ||
                       state->spellCheck != spellCheck ||
                       state->modernStyle != modernStyle ||
-                      state->outputCharset != outputCharset)) {
+                      state->outputCharset != outputCharset ||
+                      state->macroEnabled != macroEnabled ||
+                      state->capitalizeMacro != capitalizeMacro ||
+                      state->macroRevision != macroRevision_)) {
           try {
             scheduler_.resetContext(*inputContext);
             state->engine = std::make_unique<BambooEngineAdapter>(
-                inputMethod, spellCheck, modernStyle, outputCharset);
+                inputMethod, spellCheck, modernStyle, outputCharset,
+                macroEnabled, capitalizeMacro, macros);
             state->inputMethod = inputMethod;
             state->spellCheck = spellCheck;
             state->modernStyle = modernStyle;
             state->outputCharset = outputCharset;
+            state->macroEnabled = macroEnabled;
+            state->capitalizeMacro = capitalizeMacro;
+            state->macroRevision = macroRevision_;
           } catch (const std::exception &error) {
             FCITX_ERROR() << "areca: cannot select Bamboo method: "
                           << error.what();

@@ -13,6 +13,16 @@ areca::BambooResult type(areca::BambooEngineAdapter &engine, char key) {
   return engine.process(static_cast<unsigned char>(key), std::string(1, key));
 }
 
+void applyToDisplay(std::string &display,
+                    const areca::BambooResult &result) {
+  const auto displayLength = fcitx::utf8::length(display);
+  assert(displayLength >= result.deleteCount);
+  const auto eraseFrom = fcitx::utf8::nextNChar(
+      display.begin(), displayLength - result.deleteCount);
+  display.erase(eraseFrom, display.end());
+  display += result.commitText;
+}
+
 } // namespace
 
 int main() {
@@ -134,6 +144,44 @@ int main() {
   assert(combiningResult.newText == "a\u0301");
   assert(combiningResult.deleteCount == 0);
   assert(combiningResult.commitText == "\u0301");
+
+  const std::vector<areca::MacroDefinition> macros = {
+      {"bt", "Be There"}, {"vn", "Việt Nam"}};
+  areca::BambooEngineAdapter macroEngine("Telex 2", true, true, "Unicode",
+                                         true, true, macros);
+  display.clear();
+  for (char key : std::string("bt ")) {
+    const auto result = type(macroEngine, key);
+    applyToDisplay(display, result);
+    if (key == ' ') {
+      assert(result.macroExpanded);
+    }
+  }
+  assert(display == "be there ");
+
+  areca::BambooEngineAdapter uppercaseMacroEngine(
+      "Telex 2", true, true, "Unicode", true, true, macros);
+  display.clear();
+  for (char key : std::string("BT ")) {
+    applyToDisplay(display, type(uppercaseMacroEngine, key));
+  }
+  assert(display == "BE THERE ");
+
+  areca::BambooEngineAdapter disabledMacroEngine(
+      "Telex 2", true, true, "Unicode", false, true, macros);
+  display.clear();
+  for (char key : std::string("bt ")) {
+    applyToDisplay(display, type(disabledMacroEngine, key));
+  }
+  assert(display == "bt ");
+
+  areca::BambooEngineAdapter encodedMacroEngine(
+      "Telex 2", true, true, "Unicode tổ hợp", true, false, macros);
+  display.clear();
+  for (char key : std::string("vn ")) {
+    applyToDisplay(display, type(encodedMacroEngine, key));
+  }
+  assert(display == "Viê\u0323t Nam ");
 
   std::cout << "Bamboo adapter tests passed\n";
   return 0;

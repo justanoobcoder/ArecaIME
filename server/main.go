@@ -558,7 +558,7 @@ func (s *connectionState) session(sessionID uint64) *sessionRunner {
 func main() {
 	defaultSocketPath := envString("ARECA_UINPUT_SOCKET", "OPENKEY_NONPREEDIT_SERVER_SOCK")
 	if defaultSocketPath == "" {
-		defaultSocketPath = "/tmp/openkey-nonpreedit.sock"
+		defaultSocketPath = "/tmp/areca-uinput.sock"
 	}
 	socketPath := flag.String("socket", defaultSocketPath, "unix socket path")
 	priority := flag.Bool("priority",

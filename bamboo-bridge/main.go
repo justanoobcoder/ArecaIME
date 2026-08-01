@@ -10,15 +10,17 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 
 	bamboo "github.com/BambooEngine/bamboo-core"
 )
 
 var engines = struct {
 	sync.Mutex
-	next uint64
-	byID map[uint64]bamboo.IEngine
-}{next: 1, byID: make(map[uint64]bamboo.IEngine)}
+	next   uint64
+	byID   map[uint64]bamboo.IEngine
+	macros map[uint64]map[string]string
+}{next: 1, byID: make(map[uint64]bamboo.IEngine), macros: make(map[uint64]map[string]string)}
 
 //export ArecaBambooCreate
 func ArecaBambooCreate(inputMethod *C.char, modernStyle C.int) C.uint64_t {
@@ -41,6 +43,7 @@ func ArecaBambooCreate(inputMethod *C.char, modernStyle C.int) C.uint64_t {
 	id := engines.next
 	engines.next++
 	engines.byID[id] = engine
+	engines.macros[id] = make(map[string]string)
 	engines.Unlock()
 	return C.uint64_t(id)
 }
@@ -49,7 +52,60 @@ func ArecaBambooCreate(inputMethod *C.char, modernStyle C.int) C.uint64_t {
 func ArecaBambooDestroy(id C.uint64_t) {
 	engines.Lock()
 	delete(engines.byID, uint64(id))
+	delete(engines.macros, uint64(id))
 	engines.Unlock()
+}
+
+//export ArecaBambooAddMacro
+func ArecaBambooAddMacro(id C.uint64_t, key *C.char, value *C.char) {
+	if key == nil || value == nil {
+		return
+	}
+	normalizedKey := strings.ToLower(C.GoString(key))
+	macroValue := C.GoString(value)
+	if normalizedKey == "" || macroValue == "" {
+		return
+	}
+	engines.Lock()
+	defer engines.Unlock()
+	if table := engines.macros[uint64(id)]; table != nil {
+		table[normalizedKey] = macroValue
+	}
+}
+
+func matchMacroCase(key string, value string) string {
+	runes := []rune(key)
+	if len(runes) == 0 {
+		return value
+	}
+	if unicode.IsLower(runes[0]) {
+		return strings.ToLower(value)
+	}
+	for _, current := range runes[1:] {
+		if unicode.IsLower(current) {
+			return value
+		}
+	}
+	return strings.ToUpper(value)
+}
+
+//export ArecaBambooExpandMacro
+func ArecaBambooExpandMacro(id C.uint64_t, capitalize C.int) *C.char {
+	engine := engineFor(id)
+	if engine == nil {
+		return nil
+	}
+	key := engine.GetProcessedString(bamboo.PunctuationMode)
+	engines.Lock()
+	value := engines.macros[uint64(id)][strings.ToLower(key)]
+	engines.Unlock()
+	if value == "" {
+		return nil
+	}
+	if capitalize != 0 {
+		value = matchMacroCase(key, value)
+	}
+	return C.CString(value)
 }
 
 func engineFor(id C.uint64_t) bamboo.IEngine {

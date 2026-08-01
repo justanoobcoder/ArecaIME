@@ -193,7 +193,21 @@ protocol.
 
 ## Cấu hình
 
-Fcitx5 lưu cấu hình người dùng tại `~/.config/fcitx5/conf/areca.conf`:
+Mở cấu hình Areca trong `fcitx5-configtool`. Các tuỳ chọn thường dùng nằm ngay
+trong màn hình chính và được lưu tại `~/.config/fcitx5/conf/areca.conf`:
+
+```ini
+BambooInputMethod=Telex 2
+OutputCharset=Unicode
+SpellCheck=True
+ModernStyle=True
+EnableMacro=True
+CapitalizeMacro=True
+Debug=True
+```
+
+Chọn **Cấu hình nâng cao** để mở panel timing/socket riêng. Các giá trị trong
+panel này được lưu tại `~/.config/fcitx5/conf/areca-advanced.conf`:
 
 ```ini
 KeyIntervalMs=20
@@ -201,32 +215,50 @@ BackspaceDelayMs=5
 AfterBackspaceWaitMs=10
 PostCommitDelayMs=20
 ResetDelayMs=120
-SocketPath=/tmp/openkey-nonpreedit.sock
-BambooInputMethod=Telex 2
-OutputCharset=Unicode
-SpellCheck=True
-ModernStyle=True
-Debug=True
+SocketPath=/tmp/areca-uinput.sock
 ```
 
-| Tuỳ chọn | Ý nghĩa |
-| --- | --- |
-| `KeyIntervalMs` | Thời gian tối thiểu một key phải nằm trong queue và khoảng cách tối thiểu giữa hai lần xử lý Bamboo; không thể nhỏ hơn 20 ms. |
-| `BackspaceDelayMs` | Delay giữa hai Backspace do uinput server phát. |
-| `AfterBackspaceWaitMs` | Thời gian server chờ sau Backspace cuối trước khi trả `DONE`. |
-| `PostCommitDelayMs` | Settling window sau mọi text commit, tính từ `DONE` đối với uinput. |
-| `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
-| `SocketPath` | Đường dẫn Unix socket dùng chung giữa addon và server. |
-| `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
-| `OutputCharset` | Bảng mã do Bamboo cung cấp, mặc định `Unicode`; gồm Unicode dựng sẵn/tổ hợp cùng các bảng mã tương thích cũ như TCVN3, VNI Windows, VIQR… |
-| `SpellCheck` | Dùng bộ kiểm tra cấu trúc âm tiết của Bamboo; tại word boundary, tự khôi phục từ tiếng Việt không hợp lệ về chuỗi phím Latin ban đầu. |
-| `ModernStyle` | `True` đặt dấu kiểu `hoà`, `thuý`; `False` dùng kiểu `hòa`, `thúy`. |
-| `Debug` | Bật log chi tiết của addon. |
+| Panel | Tuỳ chọn | Ý nghĩa |
+| --- | --- | --- |
+| Chính | `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
+| Chính | `OutputCharset` | Bảng mã do Bamboo cung cấp, mặc định `Unicode`; gồm Unicode dựng sẵn/tổ hợp cùng các bảng mã tương thích cũ như TCVN3, VNI Windows, VIQR… |
+| Chính | `SpellCheck` | Dùng bộ kiểm tra cấu trúc âm tiết của Bamboo; tại word boundary, tự khôi phục từ tiếng Việt không hợp lệ về chuỗi phím Latin ban đầu. |
+| Chính | `ModernStyle` | `True` đặt dấu kiểu `hoà`, `thuý`; `False` dùng kiểu `hòa`, `thúy`. |
+| Chính | `EnableMacro` | Bật thay thế từ viết tắt tại dấu cách hoặc dấu câu. |
+| Chính | `CapitalizeMacro` | Tự đổi nội dung macro thành chữ thường/toàn chữ hoa theo cách viết key. |
+| Chính | `Debug` | Bật log chi tiết của addon. |
+| Nâng cao | `KeyIntervalMs` | Thời gian tối thiểu một key phải nằm trong queue và khoảng cách tối thiểu giữa hai lần xử lý Bamboo; không thể nhỏ hơn 20 ms. |
+| Nâng cao | `BackspaceDelayMs` | Delay giữa hai Backspace do uinput server phát. |
+| Nâng cao | `AfterBackspaceWaitMs` | Thời gian server chờ sau Backspace cuối trước khi trả `DONE`. |
+| Nâng cao | `PostCommitDelayMs` | Settling window sau mọi text commit, tính từ `DONE` đối với uinput. |
+| Nâng cao | `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
+| Nâng cao | `SocketPath` | Đường dẫn Unix socket dùng chung giữa addon và server. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.
-Hãy sửa file người dùng hoặc dùng giao diện cấu hình Fcitx5 rồi reload addon.
+Khi nâng cấp từ bản cũ, Areca tự đọc timing/socket còn nằm trong `areca.conf`;
+nếu `areca-advanced.conf` đã tồn tại thì file mới luôn được ưu tiên. Hãy sửa file
+người dùng hoặc dùng giao diện cấu hình Fcitx5 rồi reload addon.
 Danh sách `BambooInputMethod` và `OutputCharset` trong giao diện được lấy động
 từ `bamboo-core`, không được hard-code trong addon.
+
+## Macro
+
+Mở cấu hình Areca trong `fcitx5-configtool`, chọn **Chỉnh sửa macro** rồi thêm
+các cặp `Từ viết tắt → Nội dung thay thế`. Macro được lookup không phân biệt
+hoa/thường và chỉ expand khi gặp word boundary, nên key vẫn có thể được gõ như
+một phần của từ dài hơn.
+
+Ví dụ với macro `bt → Be There` và `CapitalizeMacro=True`:
+
+```text
+bt<Space>  → be there␠
+BT<Space>  → BE THERE␠
+Bt<Space>  → Be There␠
+```
+
+Expansion chạy trước spell-check, được encode theo `OutputCharset`, sau đó đi
+qua cùng scheduler và rewrite backend như kết quả Bamboo bình thường. Dữ liệu
+được lưu tại `~/.config/fcitx5/conf/areca-macro-table.conf`.
 
 ## Trạng thái và giới hạn hiện tại
 

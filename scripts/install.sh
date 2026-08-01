@@ -11,7 +11,7 @@ if [[ -v ARECA_UINPUT_SOCKET ]]; then
   ARECA_SOCKET_PATH="$ARECA_UINPUT_SOCKET"
   ARECA_SOCKET_EXPLICIT=1
 else
-  ARECA_SOCKET_PATH="/tmp/openkey-nonpreedit.sock"
+  ARECA_SOCKET_PATH="/tmp/areca-uinput.sock"
   ARECA_SOCKET_EXPLICIT=0
 fi
 ARECA_INSTALL_DEPS=1
@@ -149,7 +149,7 @@ Environment:
   PREFIX=/usr
   BUILD_DIR=./build
   BUILD_TYPE=RelWithDebInfo
-  ARECA_UINPUT_SOCKET=/tmp/openkey-nonpreedit.sock
+  ARECA_UINPUT_SOCKET=/tmp/areca-uinput.sock
 EOF
       exit 0
       ;;
@@ -247,7 +247,7 @@ ARECA_SERVER_BIN="$ARECA_PREFIX/libexec/areca-uinput-server"
 
 if [[ "$ARECA_SOCKET_EXPLICIT" == 1 ]]; then
   ARECA_CONFIG_DIR="$ARECA_TARGET_HOME/.config/fcitx5/conf"
-  ARECA_CONFIG_FILE="$ARECA_CONFIG_DIR/areca.conf"
+  ARECA_CONFIG_FILE="$ARECA_CONFIG_DIR/areca-advanced.conf"
   ARECA_CONFIG_TMP="$(mktemp)"
   trap 'rm -f "$ARECA_CONFIG_TMP"' EXIT
   if [[ -f "$ARECA_CONFIG_FILE" ]]; then

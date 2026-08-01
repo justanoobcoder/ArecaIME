@@ -19,20 +19,31 @@ namespace areca {
 
 struct InputState final : public fcitx::InputContextProperty {
   explicit InputState(std::string inputMethod, bool spellCheck,
-                      bool modernStyle, std::string outputCharset)
+                      bool modernStyle, std::string outputCharset,
+                      bool macroEnabled, bool capitalizeMacro,
+                      uint64_t macroRevision,
+                      std::vector<MacroDefinition> macros)
       : inputMethod(std::move(inputMethod)),
         spellCheck(spellCheck),
         modernStyle(modernStyle),
         outputCharset(std::move(outputCharset)),
+        macroEnabled(macroEnabled), capitalizeMacro(capitalizeMacro),
+        macroRevision(macroRevision),
         engine(std::make_unique<BambooEngineAdapter>(this->inputMethod,
                                                      this->spellCheck,
                                                      this->modernStyle,
-                                                     this->outputCharset)) {}
+                                                     this->outputCharset,
+                                                     this->macroEnabled,
+                                                     this->capitalizeMacro,
+                                                     std::move(macros))) {}
 
   std::string inputMethod;
   bool spellCheck;
   bool modernStyle;
   std::string outputCharset;
+  bool macroEnabled;
+  bool capitalizeMacro;
+  uint64_t macroRevision;
   std::unique_ptr<VietnameseEngine> engine;
   SurroundingReliabilityState surroundingReliability;
   std::unique_ptr<fcitx::EventSourceTime> delayedResetTimer;
@@ -51,7 +62,11 @@ public:
              fcitx::InputContextEvent &event) override;
 
   const fcitx::Configuration *getConfig() const override;
+  const fcitx::Configuration *
+  getSubConfig(const std::string &path) const override;
   void setConfig(const fcitx::RawConfig &config) override;
+  void setSubConfig(const std::string &path,
+                    const fcitx::RawConfig &config) override;
   void reloadConfig() override;
   void save() override;
 
@@ -65,10 +80,14 @@ private:
   void cancelProtectedStateReset(fcitx::InputContext &inputContext);
   void performContextStateReset(fcitx::InputContext &inputContext,
                                 InputState &state);
+  std::vector<MacroDefinition> macroDefinitions() const;
 
   fcitx::Instance *instance_;
   std::shared_ptr<void> lifetime_ = std::make_shared<int>(0);
   ArecaConfig config_;
+  AdvancedConfig advancedConfig_;
+  MacroTableConfig macroTable_;
+  uint64_t macroRevision_ = 1;
   fcitx::FactoryFor<InputState> stateFactory_;
   ReliabilityChecker reliabilityChecker_;
   SurroundingTextBackend surroundingBackend_;
