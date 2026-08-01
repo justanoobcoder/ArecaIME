@@ -72,6 +72,60 @@ int main() {
   }
   assert(display == "chuẩn");
 
+  // Crossing a word boundary with Backspace restores the finalized Bamboo
+  // composition, so the previous word can still be edited.
+  engine.reset();
+  display.clear();
+  for (char key : std::string("as ")) {
+    applyToDisplay(display, type(engine, key));
+  }
+  assert(display == "á ");
+  display.pop_back();
+  engine.backspace();
+  const auto retonePreviousWord = type(engine, 'f');
+  assert(retonePreviousWord.currentText == "á");
+  applyToDisplay(display, retonePreviousWord);
+  assert(display == "à");
+
+  // Multiple trailing boundaries must all be crossed before restoring the
+  // preceding word.
+  engine.reset();
+  display.clear();
+  for (char key : std::string("as  ")) {
+    applyToDisplay(display, type(engine, key));
+  }
+  assert(display == "á  ");
+  display.pop_back();
+  engine.backspace();
+  display.pop_back();
+  engine.backspace();
+  const auto retoneAfterTwoSpaces = type(engine, 'f');
+  assert(retoneAfterTwoSpaces.currentText == "á");
+  applyToDisplay(display, retoneAfterTwoSpaces);
+  assert(display == "à");
+
+  engine.reset();
+  display.clear();
+  for (char key : std::string("as ")) {
+    applyToDisplay(display, type(engine, key));
+  }
+  display.pop_back();
+  engine.backspace();
+  display.clear();
+  engine.backspace();
+  const auto afterDeletingPreviousWord = type(engine, 'b');
+  assert(afterDeletingPreviousWord.currentText.empty());
+  applyToDisplay(display, afterDeletingPreviousWord);
+  assert(display == "b");
+
+  engine.reset();
+  display.clear();
+  for (char key : std::string("as b")) {
+    applyToDisplay(display, type(engine, key));
+  }
+  const auto newWordTone = type(engine, 's');
+  assert(newWordTone.currentText == "b");
+
   // At a word boundary, spell check restores an invalid Vietnamese-looking
   // syllable to the original Latin keystrokes before appending the boundary.
   engine.reset();

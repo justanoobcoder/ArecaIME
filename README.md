@@ -263,6 +263,10 @@ Expansion chạy trước spell-check, được encode theo `OutputCharset`, sau
 qua cùng scheduler và rewrite backend như kết quả Bamboo bình thường. Dữ liệu
 được lưu tại `~/.config/fcitx5/conf/areca-macro-table.conf`.
 
+Areca giữ lại composition Bamboo của từ vừa chốt. Vì vậy sau khi Backspace qua
+dấu cách hoặc dấu câu, có thể tiếp tục sửa dấu hay xoá từ vừa gõ thay vì Bamboo
+coi đó là một từ hoàn toàn mới.
+
 ## Trạng thái và giới hạn hiện tại
 
 - Mode hiện tại là queued rewrite trực tiếp vào ứng dụng; chưa có giao diện

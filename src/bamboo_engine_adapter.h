@@ -53,6 +53,9 @@ private:
   bool macroEnabled_ = true;
   bool capitalizeMacro_ = true;
   std::string renderedText_;
+  std::string finalizedRenderedText_;
+  uint32_t trailingBoundaryCount_ = 0;
+  bool finalizedWordAvailable_ = false;
 };
 
 } // namespace areca

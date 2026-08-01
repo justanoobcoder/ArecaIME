@@ -14,6 +14,8 @@
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 
+#include "surrounding_text_cache.h"
+
 namespace areca {
 namespace {
 
@@ -253,6 +255,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
       FCITX_INFO() << "areca: update Bamboo and forward Backspace";
     }
     event.forward();
+    updateSurroundingCacheAfterDelete(*inputContext, -1, 1);
     return;
   }
 

@@ -191,7 +191,9 @@ func ArecaBambooFinalizeWord(id C.uint64_t, spellCheck C.int) *C.char {
 		engine.RestoreLastWord(false)
 		text = engine.GetProcessedString(bamboo.EnglishMode)
 	}
-	engine.Reset()
+	// Keep the finalized composition alive. The C++ adapter resets it lazily
+	// when a new word starts, or reuses it when Backspace crosses the trailing
+	// word boundary.
 	return C.CString(text)
 }
 

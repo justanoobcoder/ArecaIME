@@ -98,6 +98,12 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
   // enabled, Bamboo restores an invalid Vietnamese-looking word to the raw
   // Latin keystrokes that produced it.
   if (!ArecaBambooCanProcess(handle_, codepoint)) {
+    if (finalizedWordAvailable_) {
+      ++trailingBoundaryCount_;
+      result.commitText = encode(utf8Text);
+      return result;
+    }
+
     char *raw = macroEnabled_
                     ? ArecaBambooExpandMacro(handle_,
                                              capitalizeMacro_ ? 1 : 0)
@@ -111,8 +117,9 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
     if (!raw) {
       throw std::runtime_error("Bamboo word finalization failed");
     }
-    std::string next(raw);
+    std::string finalized(raw);
     std::free(raw);
+    std::string next = finalized;
     next += utf8Text;
     next = encode(next);
 
@@ -126,9 +133,25 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
     result.deleteCount =
         static_cast<uint32_t>((oldChars.size() - 1) - prefix);
     result.commitText = next.substr(newChars[prefix].second);
+    if (!result.macroExpanded && !finalized.empty()) {
+      finalizedRenderedText_ = encode(finalized);
+      finalizedWordAvailable_ = true;
+      trailingBoundaryCount_ = 1;
+    } else {
+      finalizedRenderedText_.clear();
+      finalizedWordAvailable_ = false;
+      trailingBoundaryCount_ = 0;
+    }
     renderedText_.clear();
     result.newText.clear();
     return result;
+  }
+
+  if (finalizedWordAvailable_) {
+    ArecaBambooReset(handle_);
+    finalizedRenderedText_.clear();
+    finalizedWordAvailable_ = false;
+    trailingBoundaryCount_ = 0;
   }
 
   char *raw = ArecaBambooProcess(handle_, codepoint);
@@ -156,9 +179,23 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
 void BambooEngineAdapter::reset() {
   ArecaBambooReset(handle_);
   renderedText_.clear();
+  finalizedRenderedText_.clear();
+  finalizedWordAvailable_ = false;
+  trailingBoundaryCount_ = 0;
 }
 
 void BambooEngineAdapter::backspace() {
+  if (finalizedWordAvailable_) {
+    if (trailingBoundaryCount_ > 1) {
+      --trailingBoundaryCount_;
+      return;
+    }
+    trailingBoundaryCount_ = 0;
+    finalizedWordAvailable_ = false;
+    renderedText_ = std::move(finalizedRenderedText_);
+    return;
+  }
+
   char *raw = ArecaBambooBackspace(handle_);
   if (!raw) {
     throw std::runtime_error("Bamboo Backspace processing failed");

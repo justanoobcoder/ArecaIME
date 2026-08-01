@@ -125,6 +125,12 @@ vẫn đi qua scheduler như mọi text key khác và mang cờ buộc `commitSt
 replay phím vật lý không có Shift có thể vẫn tạo chữ thường. Reset, Backspace,
 di chuyển con trỏ và shortcut sẽ xoá trạng thái chờ để tránh viết hoa nhầm.
 
+Sau khi finalize một từ, adapter giữ composition Bamboo của từ đó và đếm các
+dấu cách/dấu câu đã commit phía sau. Backspace đi ngược qua các boundary này;
+khi boundary cuối bị xoá, composition vừa finalize được phục hồi để lần gõ kế
+tiếp có thể sửa dấu hoặc Backspace tiếp tục xoá từ. Composition chỉ bị bỏ khi
+người dùng bắt đầu một từ mới hoặc khi protected reset thực sự chạy.
+
 ## Backend selection
 
 Khi `deleteCount == 0`:
