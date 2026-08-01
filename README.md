@@ -202,6 +202,7 @@ BambooInputMethod=Telex 2
 OutputCharset=Unicode
 SpellCheck=True
 ModernStyle=True
+AutoCapitalizeAfterPunctuation=False
 EnableMacro=True
 CapitalizeMacro=True
 Debug=True
@@ -225,6 +226,7 @@ SocketPath=/tmp/areca-uinput.sock
 | Chính | `OutputCharset` | Bảng mã do Bamboo cung cấp, mặc định `Unicode`; gồm Unicode dựng sẵn/tổ hợp cùng các bảng mã tương thích cũ như TCVN3, VNI Windows, VIQR… |
 | Chính | `SpellCheck` | Dùng bộ kiểm tra cấu trúc âm tiết của Bamboo; tại word boundary, tự khôi phục từ tiếng Việt không hợp lệ về chuỗi phím Latin ban đầu. |
 | Chính | `ModernStyle` | `True` đặt dấu kiểu `hoà`, `thuý`; `False` dùng kiểu `hòa`, `thúy`. |
+| Chính | `AutoCapitalizeAfterPunctuation` | Tự viết hoa chữ ASCII đầu tiên sau `.`, `!`, `?` và khoảng trắng; `Enter` kích hoạt trực tiếp. Nhiều khoảng trắng vẫn giữ trạng thái chờ. |
 | Chính | `EnableMacro` | Bật thay thế từ viết tắt tại dấu cách hoặc dấu câu. |
 | Chính | `CapitalizeMacro` | Tự đổi nội dung macro thành chữ thường/toàn chữ hoa theo cách viết key. |
 | Chính | `Debug` | Bật log chi tiết của addon. |

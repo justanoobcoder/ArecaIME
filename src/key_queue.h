@@ -15,6 +15,7 @@ struct QueuedKey {
   uint64_t enqueuedAtUsec = 0;
   uint32_t codepoint = 0;
   std::string utf8Text;
+  bool forceTextCommit = false;
   fcitx::Key originalKey;
   fcitx::TrackableObjectReference<fcitx::InputContext> inputContext;
 };

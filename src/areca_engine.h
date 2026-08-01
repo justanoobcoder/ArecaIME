@@ -12,6 +12,7 @@
 #include "input_mode.h"
 #include "input_scheduler.h"
 #include "reliability_checker.h"
+#include "sentence_capitalizer.h"
 #include "surrounding_text_backend.h"
 #include "uinput_socket_backend.h"
 
@@ -45,6 +46,7 @@ struct InputState final : public fcitx::InputContextProperty {
   bool capitalizeMacro;
   uint64_t macroRevision;
   std::unique_ptr<VietnameseEngine> engine;
+  SentenceCapitalizationState sentenceCapitalization;
   SurroundingReliabilityState surroundingReliability;
   std::unique_ptr<fcitx::EventSourceTime> delayedResetTimer;
 };

@@ -39,7 +39,7 @@ public:
 
   void enqueue(fcitx::InputContext &inputContext,
                const fcitx::Key &originalKey, uint32_t codepoint,
-               std::string utf8Text);
+               std::string utf8Text, bool forceTextCommit = false);
   void resetContext(fcitx::InputContext &inputContext);
 
   size_t queuedKeyCount() const { return queue_.size(); }
@@ -51,7 +51,7 @@ private:
   void processNext(uint64_t nowUsec);
   void applyResult(fcitx::InputContext &inputContext, VietnameseEngine &engine,
                    const BambooResult &result, const std::string &rawText,
-                   const fcitx::Key &originalKey);
+                   const fcitx::Key &originalKey, bool forceTextCommit);
   void forwardOriginalKey(fcitx::InputContext &inputContext,
                           const fcitx::Key &key);
   void finishKey();

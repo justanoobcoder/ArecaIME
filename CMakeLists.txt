@@ -57,6 +57,7 @@ add_library(areca MODULE
     src/browser_autocomplete.cpp
     src/input_scheduler.cpp
     src/reliability_checker.cpp
+    src/sentence_capitalizer.cpp
     src/surrounding_text_cache.cpp
     src/surrounding_text_backend.cpp
     src/uinput_socket_backend.cpp
@@ -114,4 +115,15 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-browser-autocomplete-test PRIVATE Fcitx5::Utils)
     add_test(NAME browser-autocomplete COMMAND areca-browser-autocomplete-test)
+
+    add_executable(areca-sentence-capitalizer-test
+        tests/sentence_capitalizer_test.cpp
+        src/sentence_capitalizer.cpp)
+    target_compile_features(areca-sentence-capitalizer-test PRIVATE cxx_std_17)
+    target_compile_options(areca-sentence-capitalizer-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-sentence-capitalizer-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-sentence-capitalizer-test PRIVATE Fcitx5::Utils)
+    add_test(NAME sentence-capitalizer COMMAND areca-sentence-capitalizer-test)
 endif()

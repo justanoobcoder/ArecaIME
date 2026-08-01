@@ -118,6 +118,13 @@ hoa, còn kiểu mixed-case giữ nguyên value cấu hình. Adapter reset Bambo
 match, nối boundary, encode theo charset rồi tính delta rewrite. Vì thế macro
 không có đường commit đặc biệt và vẫn tuân thủ mọi queue/pending invariant.
 
+Nếu `AutoCapitalizeAfterPunctuation` bật, state theo từng input context theo dõi
+`.`, `!`, `?` rồi khoảng trắng, hoặc `Enter`. Chữ ASCII thường kế tiếp được đổi
+thành keysym hoa trước khi enqueue và trước khi Bamboo xử lý. Phím đã đổi hoa
+vẫn đi qua scheduler như mọi text key khác và mang cờ buộc `commitString`, vì
+replay phím vật lý không có Shift có thể vẫn tạo chữ thường. Reset, Backspace,
+di chuyển con trỏ và shortcut sẽ xoá trạng thái chờ để tránh viết hoa nhầm.
+
 ## Backend selection
 
 Khi `deleteCount == 0`:

@@ -92,6 +92,9 @@ FCITX_CONFIGURATION(
     fcitx::Option<bool> modernStyle{
         this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"),
         true};
+    fcitx::Option<bool> autoCapitalizeAfterPunctuation{
+        this, "AutoCapitalizeAfterPunctuation",
+        N_("Tự viết hoa sau dấu kết câu (. ! ? Enter)"), false};
     fcitx::Option<bool> enableMacro{this, "EnableMacro", N_("Bật macro"),
                                     true};
     fcitx::Option<bool> capitalizeMacro{

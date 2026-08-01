@@ -18,7 +18,8 @@ public:
   virtual ~InputModeHandler() = default;
   virtual void handleTextKey(fcitx::InputContext &inputContext,
                              const fcitx::Key &originalKey,
-                             uint32_t codepoint, std::string utf8Text) = 0;
+                             uint32_t codepoint, std::string utf8Text,
+                             bool forceTextCommit = false) = 0;
   virtual void reset(fcitx::InputContext &inputContext) = 0;
 };
 
@@ -29,9 +30,10 @@ public:
 
   void handleTextKey(fcitx::InputContext &inputContext,
                      const fcitx::Key &originalKey, uint32_t codepoint,
-                     std::string utf8Text) override {
+                     std::string utf8Text,
+                     bool forceTextCommit = false) override {
     scheduler_.enqueue(inputContext, originalKey, codepoint,
-                       std::move(utf8Text));
+                       std::move(utf8Text), forceTextCommit);
   }
 
   void reset(fcitx::InputContext &inputContext) override {

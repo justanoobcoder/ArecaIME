@@ -22,12 +22,13 @@ InputScheduler::InputScheduler(fcitx::EventLoop &eventLoop,
 
 void InputScheduler::enqueue(fcitx::InputContext &inputContext,
                              const fcitx::Key &originalKey, uint32_t codepoint,
-                             std::string utf8Text) {
+                             std::string utf8Text, bool forceTextCommit) {
   QueuedKey key;
   key.sequence = nextSequence_++;
   key.enqueuedAtUsec = fcitx::now(CLOCK_MONOTONIC);
   key.codepoint = codepoint;
   key.utf8Text = std::move(utf8Text);
+  key.forceTextCommit = forceTextCommit;
   key.originalKey = originalKey;
   key.inputContext = inputContext.watch();
   if (debugProvider_()) {
@@ -108,7 +109,7 @@ void InputScheduler::processNext(uint64_t nowUsec) {
   try {
     applyResult(*inputContext, *engine,
                 engine->process(key.codepoint, key.utf8Text), key.utf8Text,
-                key.originalKey);
+                key.originalKey, key.forceTextCommit);
   } catch (const std::exception &error) {
     FCITX_ERROR() << "areca: Bamboo processing failed: " << error.what();
     engine->reset();
@@ -120,7 +121,8 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
                                  VietnameseEngine &engine,
                                  const BambooResult &result,
                                  const std::string &rawText,
-                                 const fcitx::Key &originalKey) {
+                                 const fcitx::Key &originalKey,
+                                 bool forceTextCommit) {
   if (debugProvider_()) {
     FCITX_INFO() << "areca: bamboo result current=" << result.currentText
                  << " new=" << result.newText
@@ -129,7 +131,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
                  << " macro=" << result.macroExpanded;
   }
   if (!result.deleteCount) {
-    if (result.commitText == rawText) {
+    if (!forceTextCommit && result.commitText == rawText) {
       // Preserve the application's native key path when Bamboo did not
       // transform the physical key.
       forwardOriginalKey(inputContext, originalKey);
@@ -147,7 +149,8 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
       }
       if (debugProvider_()) {
         FCITX_INFO() << "areca: apply transformed no-delete by commit text="
-                     << result.commitText << " raw=" << rawText;
+                     << result.commitText << " raw=" << rawText
+                     << " forced=" << forceTextCommit;
       }
     }
     // Retain the settling barrier before the next key.

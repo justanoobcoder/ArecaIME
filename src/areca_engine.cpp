@@ -194,6 +194,9 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   if (inputContext->capabilityFlags().test(fcitx::CapabilityFlag::Password)) {
     cancelProtectedStateReset(*inputContext);
     inputMode_->reset(*inputContext);
+    if (state) {
+      state->sentenceCapitalization.reset();
+    }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: password field; forward key directly key="
                    << event.rawKey().toString();
@@ -208,8 +211,11 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
       rawSym == FcitxKey_Escape || hasCtrlAltSuperMeta(rawKey);
   if (resetAndForward) {
     cancelProtectedStateReset(*inputContext);
-    if (state && state->engine) {
-      state->engine->reset();
+    if (state) {
+      state->sentenceCapitalization.reset();
+      if (state->engine) {
+        state->engine->reset();
+      }
     }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: reset Bamboo and forward special key="
@@ -221,6 +227,9 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
 
   // Delete is forwarded without changing the Bamboo history.
   if (textSym == FcitxKey_Delete || rawSym == FcitxKey_Delete) {
+    if (state) {
+      state->sentenceCapitalization.reset();
+    }
     event.forward();
     return;
   }
@@ -229,6 +238,9 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   // the original event instead of converting either key to text.
   if (isBackspace) {
     cancelProtectedStateReset(*inputContext);
+    if (state) {
+      state->sentenceCapitalization.reset();
+    }
     if (state && state->engine) {
       try {
         state->engine->backspace();
@@ -246,8 +258,16 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
 
   if (isEnter) {
     cancelProtectedStateReset(*inputContext);
-    if (state && state->engine) {
-      state->engine->reset();
+    if (state) {
+      if (config_.autoCapitalizeAfterPunctuation.value()) {
+        capitalizeAfterSentenceBoundary(state->sentenceCapitalization,
+                                        textSym);
+      } else {
+        state->sentenceCapitalization.reset();
+      }
+      if (state->engine) {
+        state->engine->reset();
+      }
     }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: reset Bamboo and forward Enter key="
@@ -260,8 +280,18 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   // Match OpenKey's text path: normalize the logical Fcitx key first, then
   // derive both the codepoint and UTF-8 from that same keysym. rawKey remains
   // reserved for special-key recognition and forwarding the original event.
-  const uint32_t codepoint = fcitx::Key::keySymToUnicode(textSym);
-  const auto utf8Text = fcitx::Key::keySymToUTF8(textSym);
+  auto effectiveTextSym = textSym;
+  if (state) {
+    if (config_.autoCapitalizeAfterPunctuation.value()) {
+      effectiveTextSym = capitalizeAfterSentenceBoundary(
+          state->sentenceCapitalization, effectiveTextSym);
+    } else {
+      state->sentenceCapitalization.reset();
+    }
+  }
+  const bool wasAutoCapitalized = effectiveTextSym != textSym;
+  const uint32_t codepoint = fcitx::Key::keySymToUnicode(effectiveTextSym);
+  const auto utf8Text = fcitx::Key::keySymToUTF8(effectiveTextSym);
   if (!codepoint || utf8Text.empty()) {
     event.forward();
     return;
@@ -271,6 +301,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
     FCITX_INFO() << "areca: normalized text raw=" << rawKey.toString()
                  << " logical=" << key.toString()
                  << " normalized=" << normalizedKey.toString()
+                 << " auto_capitalized=" << wasAutoCapitalized
                  << " utf8=" << utf8Text << " codepoint=" << codepoint;
   }
 
@@ -281,7 +312,11 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   // Accept synchronously so the frontend never forwards this text key. The
   // actual Bamboo processing and commit happen later through the queue.
   event.filterAndAccept();
-  inputMode_->handleTextKey(*inputContext, rawKey, codepoint, utf8Text);
+  const fcitx::Key queuedKey =
+      wasAutoCapitalized ? fcitx::Key(effectiveTextSym, rawKey.states())
+                         : rawKey;
+  inputMode_->handleTextKey(*inputContext, queuedKey, codepoint, utf8Text,
+                            wasAutoCapitalized);
   if (debugEnabled()) {
     FCITX_INFO() << "areca: filter and queue text key text=" << utf8Text;
   }
@@ -355,11 +390,12 @@ void ArecaEngine::cancelProtectedStateReset(fcitx::InputContext &inputContext) {
 }
 
 void ArecaEngine::performContextStateReset(fcitx::InputContext &inputContext,
-                                           InputState &) {
+                                           InputState &state) {
   // This is the only reset entry point for mutable typing state. The active
   // mode owns all of its composition/queue/backend-facing state, so future
   // PreeditOnly or SurroundingOnly modes inherit the same protection barrier.
   inputMode_->reset(inputContext);
+  state.sentenceCapitalization.reset();
 
   // surroundingReliability deliberately survives: it is the cached verdict
   // for this input field, not transient composition state.
