@@ -1,6 +1,6 @@
 # Areca IME
 
-Areca là bộ gõ tiếng Việt cho Linux dưới dạng addon Fcitx5, viết bằng C++17 và
+Areca là bộ gõ tiếng Việt cho Linux dưới dạng addon Fcitx5, viết bằng C++20 và
 chạy chủ yếu trên Wayland. Areca dùng trực tiếp `bamboo-core` để xử lý tiếng
 Việt, nhưng tự quản lý thời điểm xử lý phím và cách sửa nội dung đã hiển thị.
 
@@ -183,7 +183,7 @@ Release tương ứng.
 Yêu cầu:
 
 - CMake 3.20 trở lên.
-- Compiler hỗ trợ C++17.
+- Compiler hỗ trợ C++20.
 - Go.
 - Fcitx5 Core, Config và Utils development packages.
 - Ninja hoặc Make.

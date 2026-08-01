@@ -66,7 +66,7 @@ add_library(areca MODULE
     src/uinput_socket_backend.cpp
     src/word_segment.cpp)
 set_target_properties(areca PROPERTIES PREFIX "" OUTPUT_NAME "areca")
-target_compile_features(areca PRIVATE cxx_std_17)
+target_compile_features(areca PRIVATE cxx_std_20)
 target_compile_options(areca PRIVATE -Wall -Wextra -Wpedantic)
 target_include_directories(areca PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(areca PRIVATE
@@ -111,7 +111,7 @@ if(BUILD_TESTING)
     add_executable(areca-bamboo-test
         tests/bamboo_engine_adapter_test.cpp
         src/bamboo_engine_adapter.cpp)
-    target_compile_features(areca-bamboo-test PRIVATE cxx_std_17)
+    target_compile_features(areca-bamboo-test PRIVATE cxx_std_20)
     target_compile_options(areca-bamboo-test PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(areca-bamboo-test PRIVATE -UNDEBUG)
     target_include_directories(areca-bamboo-test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -122,7 +122,7 @@ if(BUILD_TESTING)
     add_executable(areca-word-segment-test
         tests/word_segment_test.cpp
         src/word_segment.cpp)
-    target_compile_features(areca-word-segment-test PRIVATE cxx_std_17)
+    target_compile_features(areca-word-segment-test PRIVATE cxx_std_20)
     target_compile_options(areca-word-segment-test PRIVATE
         -Wall -Wextra -Wpedantic -UNDEBUG)
     target_include_directories(areca-word-segment-test PRIVATE
@@ -133,7 +133,7 @@ if(BUILD_TESTING)
     add_executable(areca-browser-autocomplete-test
         tests/browser_autocomplete_test.cpp
         src/browser_autocomplete.cpp)
-    target_compile_features(areca-browser-autocomplete-test PRIVATE cxx_std_17)
+    target_compile_features(areca-browser-autocomplete-test PRIVATE cxx_std_20)
     target_compile_options(areca-browser-autocomplete-test PRIVATE
         -Wall -Wextra -Wpedantic -UNDEBUG)
     target_include_directories(areca-browser-autocomplete-test PRIVATE
@@ -144,7 +144,7 @@ if(BUILD_TESTING)
     add_executable(areca-sentence-capitalizer-test
         tests/sentence_capitalizer_test.cpp
         src/sentence_capitalizer.cpp)
-    target_compile_features(areca-sentence-capitalizer-test PRIVATE cxx_std_17)
+    target_compile_features(areca-sentence-capitalizer-test PRIVATE cxx_std_20)
     target_compile_options(areca-sentence-capitalizer-test PRIVATE
         -Wall -Wextra -Wpedantic -UNDEBUG)
     target_include_directories(areca-sentence-capitalizer-test PRIVATE
@@ -155,7 +155,7 @@ if(BUILD_TESTING)
     add_executable(areca-preedit-logic-test
         tests/preedit_logic_test.cpp
         src/preedit_logic.cpp)
-    target_compile_features(areca-preedit-logic-test PRIVATE cxx_std_17)
+    target_compile_features(areca-preedit-logic-test PRIVATE cxx_std_20)
     target_compile_options(areca-preedit-logic-test PRIVATE
         -Wall -Wextra -Wpedantic -UNDEBUG)
     target_include_directories(areca-preedit-logic-test PRIVATE
