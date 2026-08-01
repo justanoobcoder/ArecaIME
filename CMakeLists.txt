@@ -56,7 +56,10 @@ add_library(areca MODULE
     src/bamboo_engine_adapter.cpp
     src/browser_autocomplete.cpp
     src/input_scheduler.cpp
+    src/preedit_mode.cpp
+    src/preedit_logic.cpp
     src/reliability_checker.cpp
+    src/rewrite_mode.cpp
     src/sentence_capitalizer.cpp
     src/surrounding_text_cache.cpp
     src/surrounding_text_backend.cpp
@@ -148,4 +151,15 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-sentence-capitalizer-test PRIVATE Fcitx5::Utils)
     add_test(NAME sentence-capitalizer COMMAND areca-sentence-capitalizer-test)
+
+    add_executable(areca-preedit-logic-test
+        tests/preedit_logic_test.cpp
+        src/preedit_logic.cpp)
+    target_compile_features(areca-preedit-logic-test PRIVATE cxx_std_17)
+    target_compile_options(areca-preedit-logic-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-preedit-logic-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-preedit-logic-test PRIVATE Fcitx5::Utils)
+    add_test(NAME preedit-logic COMMAND areca-preedit-logic-test)
 endif()

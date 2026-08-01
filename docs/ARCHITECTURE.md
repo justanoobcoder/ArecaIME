@@ -8,9 +8,12 @@ Wayland, Fcitx5 và uinput.
 
 | Thành phần | Trách nhiệm |
 | --- | --- |
-| `ArecaEngine` | Nhận event từ Fcitx5, phân loại text/special/password key, quản lý state theo input context và reset barrier. |
-| `InputState` | Giữ một Bamboo adapter, verdict SurroundingText và timer reset riêng cho từng input context. |
-| `InputModeHandler` | Điểm mở rộng cho cách trình bày input. Hiện có `QueuedRewriteMode`. |
+| `ArecaEngine` | Nhận event từ Fcitx5 và chỉ dispatch sang mode đang chọn. |
+| `InputModeHandler` | Interface lifecycle/KeyEvent không chứa state; engine gọi handler đang active qua interface này. |
+| `RewriteInputState` | Bamboo, verdict SurroundingText, auto-capitalization và reset timer riêng của Rewrite. |
+| `PreeditInputState` | Bamboo, composition, auto-capitalization và reset timer riêng của Preedit. |
+| `RewriteModeHandler` | Toàn bộ policy KeyEvent/reset của Rewrite; enqueue trực tiếp vào `InputScheduler`. |
+| `PreeditModeHandler` | Xử lý Bamboo đồng bộ và quản lý UI preedit; không gọi scheduler hay rewrite backend. |
 | `KeyQueue` | FIFO chứa key gốc, Unicode codepoint, UTF-8, sequence và reference tới input context. |
 | `InputScheduler` | Timer 20 ms, single-flight processing, backend selection và transaction barrier. |
 | `BambooEngineAdapter` | Bridge C++/Go gọi trực tiếp `bamboo-core` và biến chuỗi kết quả thành `BambooResult`. |
@@ -28,7 +31,7 @@ Timing và Unix socket nằm trong sub-config **Cấu hình nâng cao** tại
 Các field timing/socket cũ trong `areca.conf` được giữ ẩn để migrate cấu hình;
 file nâng cao, nếu có, luôn được load sau và được ưu tiên.
 
-## Vòng đời text key
+## Vòng đời text key trong Rewrite
 
 1. Fcitx5 gọi `ArecaEngine::keyEvent()`.
 2. Release event bình thường không bị giữ lại. Modifier-only key được bỏ qua.
@@ -124,7 +127,7 @@ hoa trước khi enqueue và trước khi Bamboo xử lý. Phím đã đổi hoa
 scheduler như mọi text key khác và mang cờ buộc `commitString`, vì replay phím
 vật lý không có Shift có thể vẫn tạo chữ thường. `Enter`, reset, Backspace, di
 chuyển con trỏ và shortcut sẽ xoá trạng thái chờ để tránh viết hoa nhầm.
-
+git
 Sau khi finalize một từ, adapter giữ composition Bamboo của từ đó và đếm các
 dấu cách/dấu câu đã commit phía sau. Backspace đi ngược qua các boundary này;
 khi boundary cuối bị xoá, composition vừa finalize được phục hồi để lần gõ kế
@@ -150,6 +153,32 @@ Khi `deleteCount > 0`:
 4. Browser inline-autocomplete luôn ép fallback và cộng một Backspace thật để
    dọn phần suggestion đang được chọn.
 
+## Preedit mode
+
+`PresentationMode=Preedit` không dùng `InputScheduler`, `RewriteBackend`,
+`ReliabilityChecker`, SurroundingText hay uinput. Nó có riêng:
+
+- `PreeditInputState` cho từng input context;
+- một `BambooEngineAdapter` riêng;
+- xử lý `KeyEvent` đồng bộ như frontend Preedit của Bamboo;
+- composition, sentence-capitalization và delayed-reset riêng.
+
+Text key được xử lý tuần tự rồi hiển thị bằng client preedit nếu app khai báo
+`CapabilityFlag::Preedit`; nếu không thì dùng server-side preedit của Fcitx.
+Backspace chỉ sửa composition khi composition còn tồn tại. Space/dấu câu chạy
+macro và spell-check qua Bamboo rồi commit toàn bộ từ. Enter, Tab, Delete và
+phím di chuyển commit composition trước khi được forward. Escape và shortcut
+cũng commit composition trước, sau đó Fcitx forward nguyên `KeyEvent` gốc.
+
+Hai mode chỉ dùng chung cấu hình bất biến và lớp adapter; chúng không dùng chung
+engine instance hoặc mutable input state. `ArecaEngine` chỉ dispatch theo
+`PresentationMode`, và reset cả hai phía khi người dùng đổi mode.
+
+Hotkey `SwitchModeKey` (mặc định `Alt+Space`) được bắt trước bước dispatch vì nó
+thay đổi chính handler đích. Areca hủy state/queue của cả hai handler, lưu mode
+mới và gọi popup thông tin Fcitx5. Hotkey không đổi mode giữa transaction uinput
+đang pending; password context tiếp tục nhận phím gốc như bình thường.
+
 ## Reliability lifetime
 
 Probe chỉ diễn ra khi rewrite đầu tiên cần delete:
@@ -158,7 +187,7 @@ Probe chỉ diễn ra khi rewrite đầu tiên cần delete:
 - Snapshot phải valid.
 - Từ ngay trước cursor phải có suffix không rỗng khớp với `currentText`.
 
-Kết quả được cache trong `InputState`. Những rewrite sau dùng verdict đó thay vì
+Kết quả được cache trong `RewriteInputState`. Những rewrite sau dùng verdict đó thay vì
 đưa thêm live guard làm thay đổi backend giữa một phiên gõ. Khi Areca được
 activate lại cho input context, verdict được mở để context mới có thể probe.
 
@@ -200,10 +229,11 @@ vì hai event đó không đại diện cho Bamboo display state.
 
 ## Reset barrier
 
-`ArecaEngine::reset()` chỉ arm timer, không reset ngay. Reset thật xảy ra sau
-`ResetDelayMs` nếu không có text input mới. Text key huỷ timer; pending uinput
-transaction làm timer được arm lại. Điều này bảo vệ Bamboo composition, queue
-và backend state khỏi reset nhiễu của ứng dụng.
+`ArecaEngine::reset()` chỉ arm timer của mode đang hoạt động, không reset ngay.
+Reset thật xảy ra sau `ResetDelayMs` nếu không có input mới. Rewrite pending
+uinput làm timer Rewrite được arm lại. Preedit không có processing queue; phím
+mới chỉ huỷ delayed-reset của chính nó. Hai timer và hai composition không tham
+chiếu lẫn nhau.
 
 Special key mà user chủ động gõ vẫn có policy tức thời:
 
@@ -215,7 +245,6 @@ Special key mà user chủ động gõ vẫn có policy tức thời:
 
 ## Hướng mở rộng
 
-`InputModeHandler` nằm phía trên scheduler. Một mode `PreeditOnlyMode` có thể
-thay cách hiển thị mà không nhét nhánh preedit vào Bamboo adapter. Tương tự,
-policy `SurroundingOnly` có thể cung cấp backend selector luôn chọn
-`SurroundingTextBackend`; queue và scheduler không cần viết lại.
+Policy `SurroundingOnly` sau này có thể được thêm như một rewrite mode thứ ba,
+với state và scheduler riêng hoặc backend selector luôn chọn
+`SurroundingTextBackend`. Nó không cần thay đổi `PreeditModeHandler`.

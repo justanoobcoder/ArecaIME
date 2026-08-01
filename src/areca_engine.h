@@ -1,55 +1,20 @@
 #pragma once
 
-#include <memory>
 #include <string>
 
-#include <fcitx/inputcontextproperty.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
 
 #include "areca_config.h"
 #include "bamboo_engine_adapter.h"
-#include "input_mode.h"
 #include "input_scheduler.h"
+#include "preedit_mode.h"
 #include "reliability_checker.h"
-#include "sentence_capitalizer.h"
+#include "rewrite_mode.h"
 #include "surrounding_text_backend.h"
 #include "uinput_socket_backend.h"
 
 namespace areca {
-
-struct InputState final : public fcitx::InputContextProperty {
-  explicit InputState(std::string inputMethod, bool spellCheck,
-                      bool modernStyle, std::string outputCharset,
-                      bool macroEnabled, bool capitalizeMacro,
-                      uint64_t macroRevision,
-                      std::vector<MacroDefinition> macros)
-      : inputMethod(std::move(inputMethod)),
-        spellCheck(spellCheck),
-        modernStyle(modernStyle),
-        outputCharset(std::move(outputCharset)),
-        macroEnabled(macroEnabled), capitalizeMacro(capitalizeMacro),
-        macroRevision(macroRevision),
-        engine(std::make_unique<BambooEngineAdapter>(this->inputMethod,
-                                                     this->spellCheck,
-                                                     this->modernStyle,
-                                                     this->outputCharset,
-                                                     this->macroEnabled,
-                                                     this->capitalizeMacro,
-                                                     std::move(macros))) {}
-
-  std::string inputMethod;
-  bool spellCheck;
-  bool modernStyle;
-  std::string outputCharset;
-  bool macroEnabled;
-  bool capitalizeMacro;
-  uint64_t macroRevision;
-  std::unique_ptr<VietnameseEngine> engine;
-  SentenceCapitalizationState sentenceCapitalization;
-  SurroundingReliabilityState surroundingReliability;
-  std::unique_ptr<fcitx::EventSourceTime> delayedResetTimer;
-};
 
 class ArecaEngine final : public fcitx::InputMethodEngineV2 {
 public:
@@ -58,8 +23,16 @@ public:
 
   void keyEvent(const fcitx::InputMethodEntry &entry,
                 fcitx::KeyEvent &event) override;
+  std::string subMode(const fcitx::InputMethodEntry &entry,
+                      fcitx::InputContext &inputContext) override;
+  std::string subModeIconImpl(const fcitx::InputMethodEntry &entry,
+                              fcitx::InputContext &inputContext) override;
+  std::string subModeLabelImpl(const fcitx::InputMethodEntry &entry,
+                               fcitx::InputContext &inputContext) override;
   void activate(const fcitx::InputMethodEntry &entry,
                 fcitx::InputContextEvent &event) override;
+  void deactivate(const fcitx::InputMethodEntry &entry,
+                  fcitx::InputContextEvent &event) override;
   void reset(const fcitx::InputMethodEntry &entry,
              fcitx::InputContextEvent &event) override;
 
@@ -73,29 +46,28 @@ public:
   void save() override;
 
 private:
-  InputState *stateFor(fcitx::InputContext &inputContext) const;
+  InputModeHandler &activeHandler();
+  const char *presentationModeName() const;
+  void switchPresentationMode(fcitx::InputContext &inputContext);
   SchedulerTiming timing() const;
   bool debugEnabled() const { return config_.debug.value(); }
   void applyConfig();
-  void scheduleProtectedStateReset(fcitx::InputContext &inputContext,
-                                   InputState &state);
-  void cancelProtectedStateReset(fcitx::InputContext &inputContext);
-  void performContextStateReset(fcitx::InputContext &inputContext,
-                                InputState &state);
   std::vector<MacroDefinition> macroDefinitions() const;
 
   fcitx::Instance *instance_;
-  std::shared_ptr<void> lifetime_ = std::make_shared<int>(0);
   ArecaConfig config_;
   AdvancedConfig advancedConfig_;
   MacroTableConfig macroTable_;
   uint64_t macroRevision_ = 1;
-  fcitx::FactoryFor<InputState> stateFactory_;
+  PresentationMode activePresentationMode_ = PresentationMode::Rewrite;
+  fcitx::FactoryFor<RewriteInputState> rewriteStateFactory_;
+  fcitx::FactoryFor<PreeditInputState> preeditStateFactory_;
   ReliabilityChecker reliabilityChecker_;
   SurroundingTextBackend surroundingBackend_;
   UinputSocketBackend uinputBackend_;
   InputScheduler scheduler_;
-  std::unique_ptr<InputModeHandler> inputMode_;
+  RewriteModeHandler rewriteHandler_;
+  PreeditModeHandler preeditHandler_;
 };
 
 } // namespace areca

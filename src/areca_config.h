@@ -5,10 +5,16 @@
 #include <vector>
 
 #include <fcitx-config/configuration.h>
+#include <fcitx-config/enum.h>
 #include <fcitx-config/option.h>
 #include <fcitx-utils/i18n.h>
+#include <fcitx-utils/key.h>
 
 namespace areca {
+
+enum class PresentationMode { Rewrite, Preedit };
+FCITX_CONFIG_ENUM_NAME_WITH_I18N(PresentationMode, N_("Rewrite trực tiếp"),
+                                 N_("Preedit"));
 
 struct StringListAnnotation : public fcitx::EnumAnnotation {
   void setList(std::vector<std::string> list) { list_ = std::move(list); }
@@ -24,17 +30,22 @@ private:
   std::vector<std::string> list_;
 };
 
-FCITX_CONFIGURATION(
-    MacroEntry,
-    fcitx::Option<std::string> key{this, "Key", N_("Từ viết tắt"), ""};
-    fcitx::Option<std::string> value{this, "Value", N_("Nội dung thay thế"),
-                                     ""};);
+FCITX_CONFIGURATION(MacroEntry,
+                    fcitx::Option<std::string> key{this, "Key",
+                                                   N_("Từ viết tắt"), ""};
+                    fcitx::Option<std::string> value{
+                        this, "Value", N_("Nội dung thay thế"), ""};);
 
 FCITX_CONFIGURATION(
     MacroTableConfig,
     fcitx::OptionWithAnnotation<std::vector<MacroEntry>,
                                 fcitx::ListDisplayOptionAnnotation>
-        macros{this, "Macro", N_("Danh sách macro"), {}, {}, {},
+        macros{this,
+               "Macro",
+               N_("Danh sách macro"),
+               {},
+               {},
+               {},
                fcitx::ListDisplayOptionAnnotation("Key")};);
 
 FCITX_CONFIGURATION(
@@ -61,6 +72,16 @@ FCITX_CONFIGURATION(
 
 FCITX_CONFIGURATION(
     ArecaConfig,
+    fcitx::OptionWithAnnotation<PresentationMode,
+                                PresentationModeI18NAnnotation>
+        presentationMode{this, "PresentationMode", N_("Chế độ hiển thị"),
+                         PresentationMode::Rewrite};
+    fcitx::KeyListOption switchModeKey{
+        this,
+        "SwitchModeKey",
+        N_("Phím tắt chuyển chế độ gõ"),
+        {fcitx::Key("Alt+space")},
+        fcitx::KeyListConstrain(fcitx::KeyConstrainFlag::AllowModifierLess)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyKeyIntervalMs{
         this, "KeyIntervalMs", N_("Khoảng cách xử lý phím tối thiểu (ms)"), 20,
         fcitx::IntConstrain(20, 1000)};
@@ -81,32 +102,28 @@ FCITX_CONFIGURATION(
         this, "SocketPath", N_("Unix socket của uinput server"),
         "/tmp/areca-uinput.sock"};
     fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
-        bambooInputMethod{
-        this, "BambooInputMethod", N_("Kiểu gõ Bamboo"), "Telex 2"};
+        bambooInputMethod{this, "BambooInputMethod", N_("Kiểu gõ Bamboo"),
+                          "Telex 2"};
     fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
-        outputCharset{this, "OutputCharset", N_("Bảng mã đầu ra"),
-                      "Unicode"};
+        outputCharset{this, "OutputCharset", N_("Bảng mã đầu ra"), "Unicode"};
     fcitx::Option<bool> spellCheck{
         this, "SpellCheck",
         N_("Kiểm tra chính tả và khôi phục từ không hợp lệ"), true};
     fcitx::Option<bool> modernStyle{
-        this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"),
-        true};
+        this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"), true};
     fcitx::Option<bool> autoCapitalizeAfterPunctuation{
         this, "AutoCapitalizeAfterPunctuation",
         N_("Tự viết hoa sau dấu kết câu (. ! ?)"), false};
-    fcitx::Option<bool> enableMacro{this, "EnableMacro", N_("Bật macro"),
-                                    true};
+    fcitx::Option<bool> enableMacro{this, "EnableMacro", N_("Bật macro"), true};
     fcitx::Option<bool> capitalizeMacro{
         this, "CapitalizeMacro", N_("Tự đổi hoa/thường cho nội dung macro"),
         true};
-    fcitx::SubConfigOption macroEditor{
-        this, "MacroEditor", N_("Chỉnh sửa macro"),
-        "fcitx://config/addon/areca/macro"};
+    fcitx::SubConfigOption macroEditor{this, "MacroEditor",
+                                       N_("Chỉnh sửa macro"),
+                                       "fcitx://config/addon/areca/macro"};
     fcitx::SubConfigOption advancedEditor{
         this, "AdvancedEditor", N_("Cấu hình nâng cao"),
         "fcitx://config/addon/areca/advanced"};
-    fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"),
-                              true};);
+    fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"), true};);
 
 } // namespace areca

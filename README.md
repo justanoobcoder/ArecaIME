@@ -202,6 +202,8 @@ Mở cấu hình Areca trong `fcitx5-configtool`. Các tuỳ chọn thường d�
 trong màn hình chính và được lưu tại `~/.config/fcitx5/conf/areca.conf`:
 
 ```ini
+PresentationMode=Rewrite
+SwitchModeKey=Alt+space
 BambooInputMethod=Telex 2
 OutputCharset=Unicode
 SpellCheck=True
@@ -226,6 +228,8 @@ SocketPath=/tmp/areca-uinput.sock
 
 | Panel | Tuỳ chọn | Ý nghĩa |
 | --- | --- | --- |
+| Chính | `PresentationMode` | `Rewrite` dùng queue và SurroundingText/uinput; `Preedit` xử lý đồng bộ bằng Bamboo rồi cập nhật client/server preedit. Hai mode có state và Bamboo engine tách biệt. |
+| Chính | `SwitchModeKey` | Hotkey đổi `Rewrite ↔ Preedit`, mặc định `Alt+Space`; mode mới được lưu và hiện bằng popup thông tin của Fcitx5. |
 | Chính | `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
 | Chính | `OutputCharset` | Bảng mã do Bamboo cung cấp, mặc định `Unicode`; gồm Unicode dựng sẵn/tổ hợp cùng các bảng mã tương thích cũ như TCVN3, VNI Windows, VIQR… |
 | Chính | `SpellCheck` | Dùng bộ kiểm tra cấu trúc âm tiết của Bamboo; tại word boundary, tự khôi phục từ tiếng Việt không hợp lệ về chuỗi phím Latin ban đầu. |
@@ -273,8 +277,8 @@ coi đó là một từ hoàn toàn mới.
 
 ## Trạng thái và giới hạn hiện tại
 
-- Mode hiện tại là queued rewrite trực tiếp vào ứng dụng; chưa có giao diện
-  preedit-only hoàn chỉnh.
+- `Rewrite` và `Preedit` là hai presentation mode độc lập. Đổi mode sẽ hủy queue
+  và composition cũ trước khi mode mới nhận phím.
 - Reliability là heuristic một lần cho mỗi input context, không phải chứng minh
   tuyệt đối rằng mọi snapshot tương lai đều đúng.
 - Uinput phụ thuộc `/dev/uinput`, quyền group và cách compositor route virtual
