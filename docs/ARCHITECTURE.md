@@ -90,6 +90,10 @@ phím Latin ban đầu; adapter tạo delta rewrite cho phần restore rồi n�
 Từ hợp lệ chỉ commit boundary như bình thường. Tính năng này dùng luật có sẵn
 của `bamboo-core`, chưa dùng dictionary ngoài.
 
+Khi tạo engine, bridge ánh xạ `ModernStyle=True` sang cách đặt dấu `oà/uý` và
+`ModernStyle=False` sang `òa/úy`. Việc ánh xạ ngược với tên flag nội bộ
+`EstdToneStyle` là có chủ ý để tương thích hành vi cấu hình của Lotus.
+
 ## Backend selection
 
 Khi `deleteCount == 0`:

@@ -88,6 +88,17 @@ int main() {
   assert(uncheckedBoundary.deleteCount == 0);
   assert(uncheckedBoundary.commitText == " ");
 
+  areca::BambooEngineAdapter modernToneEngine("Telex 2", true, true);
+  areca::BambooEngineAdapter traditionalToneEngine("Telex 2", true, false);
+  areca::BambooResult modernTone;
+  areca::BambooResult traditionalTone;
+  for (char key : std::string("hoaf")) {
+    modernTone = type(modernToneEngine, key);
+    traditionalTone = type(traditionalToneEngine, key);
+  }
+  assert(modernTone.newText == "hoà");
+  assert(traditionalTone.newText == "hòa");
+
   std::cout << "Bamboo adapter tests passed\n";
   return 0;
 }

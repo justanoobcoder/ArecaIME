@@ -19,7 +19,7 @@ var engines = struct {
 }{next: 1, byID: make(map[uint64]bamboo.IEngine)}
 
 //export ArecaBambooCreate
-func ArecaBambooCreate(inputMethod *C.char) C.uint64_t {
+func ArecaBambooCreate(inputMethod *C.char, modernStyle C.int) C.uint64_t {
 	name := "Telex 2"
 	if inputMethod != nil && C.GoString(inputMethod) != "" {
 		name = C.GoString(inputMethod)
@@ -28,7 +28,13 @@ func ArecaBambooCreate(inputMethod *C.char) C.uint64_t {
 	if method.Name == "" {
 		return 0
 	}
-	engine := bamboo.NewEngine(method, bamboo.EstdFlags)
+	flags := uint(bamboo.EstdFlags)
+	// Keep the setting compatible with Lotus: ModernStyle selects oà/uý,
+	// while the Bamboo standard-tone flag selects òa/úy.
+	if modernStyle != 0 {
+		flags &^= bamboo.EstdToneStyle
+	}
+	engine := bamboo.NewEngine(method, flags)
 	engines.Lock()
 	id := engines.next
 	engines.next++

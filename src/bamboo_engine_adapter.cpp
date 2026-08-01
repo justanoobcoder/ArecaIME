@@ -8,7 +8,7 @@
 #include <fcitx-utils/utf8.h>
 
 extern "C" {
-uint64_t ArecaBambooCreate(char *inputMethod);
+uint64_t ArecaBambooCreate(char *inputMethod, int modernStyle);
 void ArecaBambooDestroy(uint64_t id);
 int ArecaBambooCanProcess(uint64_t id, uint32_t key);
 char *ArecaBambooProcess(uint64_t id, uint32_t key);
@@ -40,9 +40,9 @@ std::vector<std::pair<uint32_t, size_t>> codepoints(const std::string &text) {
 } // namespace
 
 BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod,
-                                         bool spellCheck)
+                                         bool spellCheck, bool modernStyle)
     : spellCheck_(spellCheck) {
-  handle_ = ArecaBambooCreate(inputMethod.data());
+  handle_ = ArecaBambooCreate(inputMethod.data(), modernStyle ? 1 : 0);
   if (!handle_) {
     throw std::runtime_error("unknown Bamboo input method: " + inputMethod);
   }

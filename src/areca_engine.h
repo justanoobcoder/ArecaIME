@@ -18,14 +18,18 @@
 namespace areca {
 
 struct InputState final : public fcitx::InputContextProperty {
-  explicit InputState(std::string inputMethod, bool spellCheck)
+  explicit InputState(std::string inputMethod, bool spellCheck,
+                      bool modernStyle)
       : inputMethod(std::move(inputMethod)),
         spellCheck(spellCheck),
+        modernStyle(modernStyle),
         engine(std::make_unique<BambooEngineAdapter>(this->inputMethod,
-                                                     this->spellCheck)) {}
+                                                     this->spellCheck,
+                                                     this->modernStyle)) {}
 
   std::string inputMethod;
   bool spellCheck;
+  bool modernStyle;
   std::unique_ptr<VietnameseEngine> engine;
   SurroundingReliabilityState surroundingReliability;
   std::unique_ptr<fcitx::EventSourceTime> delayedResetTimer;

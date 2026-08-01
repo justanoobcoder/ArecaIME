@@ -204,6 +204,7 @@ ResetDelayMs=120
 SocketPath=/tmp/openkey-nonpreedit.sock
 BambooInputMethod=Telex 2
 SpellCheck=True
+ModernStyle=True
 Debug=True
 ```
 
@@ -217,6 +218,7 @@ Debug=True
 | `SocketPath` | Đường dẫn Unix socket dùng chung giữa addon và server. |
 | `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
 | `SpellCheck` | Dùng bộ kiểm tra cấu trúc âm tiết của Bamboo; tại word boundary, tự khôi phục từ tiếng Việt không hợp lệ về chuỗi phím Latin ban đầu. |
+| `ModernStyle` | `True` đặt dấu kiểu `hoà`, `thuý`; `False` dùng kiểu `hòa`, `thúy`, tương thích cách đặt tên option của Lotus. |
 | `Debug` | Bật log chi tiết của addon. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.

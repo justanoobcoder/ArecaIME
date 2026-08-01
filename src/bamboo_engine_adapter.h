@@ -19,7 +19,8 @@ public:
 class BambooEngineAdapter final : public VietnameseEngine {
 public:
   explicit BambooEngineAdapter(std::string inputMethod = "Telex 2",
-                               bool spellCheck = true);
+                               bool spellCheck = true,
+                               bool modernStyle = true);
   ~BambooEngineAdapter() override;
 
   BambooEngineAdapter(const BambooEngineAdapter &) = delete;

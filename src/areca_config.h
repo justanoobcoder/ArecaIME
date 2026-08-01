@@ -34,6 +34,9 @@ FCITX_CONFIGURATION(
     fcitx::Option<bool> spellCheck{
         this, "SpellCheck",
         N_("Kiểm tra chính tả và khôi phục từ không hợp lệ"), true};
+    fcitx::Option<bool> modernStyle{
+        this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"),
+        true};
     fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"),
                               true};);
 
