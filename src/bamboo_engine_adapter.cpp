@@ -15,6 +15,9 @@ char *ArecaBambooProcess(uint64_t id, uint32_t key);
 char *ArecaBambooFinalizeWord(uint64_t id, int spellCheck);
 char *ArecaBambooBackspace(uint64_t id);
 void ArecaBambooReset(uint64_t id);
+char *ArecaBambooInputMethodNames();
+char *ArecaBambooCharsetNames();
+char *ArecaBambooEncode(char *charset, char *input);
 }
 
 namespace areca {
@@ -37,11 +40,34 @@ std::vector<std::pair<uint32_t, size_t>> codepoints(const std::string &text) {
   return result;
 }
 
+std::vector<std::string> splitLines(char *raw) {
+  if (!raw) {
+    return {};
+  }
+  std::string joined(raw);
+  std::free(raw);
+  std::vector<std::string> result;
+  size_t begin = 0;
+  while (begin <= joined.size()) {
+    const auto end = joined.find('\n', begin);
+    const auto value = joined.substr(begin, end - begin);
+    if (!value.empty()) {
+      result.push_back(value);
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    begin = end + 1;
+  }
+  return result;
+}
+
 } // namespace
 
 BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod,
-                                         bool spellCheck, bool modernStyle)
-    : spellCheck_(spellCheck) {
+                                         bool spellCheck, bool modernStyle,
+                                         std::string outputCharset)
+    : spellCheck_(spellCheck), outputCharset_(std::move(outputCharset)) {
   handle_ = ArecaBambooCreate(inputMethod.data(), modernStyle ? 1 : 0);
   if (!handle_) {
     throw std::runtime_error("unknown Bamboo input method: " + inputMethod);
@@ -70,6 +96,7 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
     std::string next(raw);
     std::free(raw);
     next += utf8Text;
+    next = encode(next);
 
     const auto oldChars = codepoints(renderedText_);
     const auto newChars = codepoints(next);
@@ -90,7 +117,7 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
   if (!raw) {
     throw std::runtime_error("Bamboo processing failed");
   }
-  std::string next(raw);
+  std::string next = encode(raw);
   std::free(raw);
 
   const auto oldChars = codepoints(renderedText_);
@@ -118,8 +145,27 @@ void BambooEngineAdapter::backspace() {
   if (!raw) {
     throw std::runtime_error("Bamboo Backspace processing failed");
   }
-  renderedText_ = raw;
+  renderedText_ = encode(raw);
   std::free(raw);
+}
+
+std::vector<std::string> BambooEngineAdapter::inputMethodNames() {
+  return splitLines(ArecaBambooInputMethodNames());
+}
+
+std::vector<std::string> BambooEngineAdapter::charsetNames() {
+  return splitLines(ArecaBambooCharsetNames());
+}
+
+std::string BambooEngineAdapter::encode(const std::string &text) const {
+  char *raw = ArecaBambooEncode(const_cast<char *>(outputCharset_.c_str()),
+                                const_cast<char *>(text.c_str()));
+  if (!raw) {
+    throw std::runtime_error("Bamboo output encoding failed");
+  }
+  std::string encoded(raw);
+  std::free(raw);
+  return encoded;
 }
 
 } // namespace areca

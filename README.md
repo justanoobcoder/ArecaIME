@@ -203,6 +203,7 @@ PostCommitDelayMs=20
 ResetDelayMs=120
 SocketPath=/tmp/openkey-nonpreedit.sock
 BambooInputMethod=Telex 2
+OutputCharset=Unicode
 SpellCheck=True
 ModernStyle=True
 Debug=True
@@ -217,12 +218,15 @@ Debug=True
 | `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
 | `SocketPath` | Đường dẫn Unix socket dùng chung giữa addon và server. |
 | `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
+| `OutputCharset` | Bảng mã do Bamboo cung cấp, mặc định `Unicode`; gồm Unicode dựng sẵn/tổ hợp cùng các bảng mã tương thích cũ như TCVN3, VNI Windows, VIQR… |
 | `SpellCheck` | Dùng bộ kiểm tra cấu trúc âm tiết của Bamboo; tại word boundary, tự khôi phục từ tiếng Việt không hợp lệ về chuỗi phím Latin ban đầu. |
-| `ModernStyle` | `True` đặt dấu kiểu `hoà`, `thuý`; `False` dùng kiểu `hòa`, `thúy`, tương thích cách đặt tên option của Lotus. |
+| `ModernStyle` | `True` đặt dấu kiểu `hoà`, `thuý`; `False` dùng kiểu `hòa`, `thúy`. |
 | `Debug` | Bật log chi tiết của addon. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.
 Hãy sửa file người dùng hoặc dùng giao diện cấu hình Fcitx5 rồi reload addon.
+Danh sách `BambooInputMethod` và `OutputCharset` trong giao diện được lấy động
+từ `bamboo-core`, không được hard-code trong addon.
 
 ## Trạng thái và giới hạn hiện tại
 

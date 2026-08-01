@@ -60,7 +60,8 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
     : instance_(instance), stateFactory_([this](fcitx::InputContext &) {
         return new InputState(config_.bambooInputMethod.value(),
                               config_.spellCheck.value(),
-                              config_.modernStyle.value());
+                              config_.modernStyle.value(),
+                              config_.outputCharset.value());
       }),
       uinputBackend_(instance_->eventLoop(), config_.socketPath.value()),
       scheduler_(
@@ -88,6 +89,10 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
           }) {
   instance_->inputContextManager().registerProperty("arecaState",
                                                     &stateFactory_);
+  config_.bambooInputMethod.annotation().setList(
+      BambooEngineAdapter::inputMethodNames());
+  config_.outputCharset.annotation().setList(
+      BambooEngineAdapter::charsetNames());
   inputMode_ = std::make_unique<QueuedRewriteMode>(scheduler_);
   reloadConfig();
 }
@@ -391,20 +396,23 @@ void ArecaEngine::applyConfig() {
   const auto inputMethod = config_.bambooInputMethod.value();
   const bool spellCheck = config_.spellCheck.value();
   const bool modernStyle = config_.modernStyle.value();
+  const auto outputCharset = config_.outputCharset.value();
   instance_->inputContextManager().foreach (
-      [this, &inputMethod, spellCheck,
-       modernStyle](fcitx::InputContext *inputContext) {
+      [this, &inputMethod, spellCheck, modernStyle,
+       &outputCharset](fcitx::InputContext *inputContext) {
         auto *state = stateFor(*inputContext);
         if (state && (state->inputMethod != inputMethod ||
                       state->spellCheck != spellCheck ||
-                      state->modernStyle != modernStyle)) {
+                      state->modernStyle != modernStyle ||
+                      state->outputCharset != outputCharset)) {
           try {
             scheduler_.resetContext(*inputContext);
             state->engine = std::make_unique<BambooEngineAdapter>(
-                inputMethod, spellCheck, modernStyle);
+                inputMethod, spellCheck, modernStyle, outputCharset);
             state->inputMethod = inputMethod;
             state->spellCheck = spellCheck;
             state->modernStyle = modernStyle;
+            state->outputCharset = outputCharset;
           } catch (const std::exception &error) {
             FCITX_ERROR() << "areca: cannot select Bamboo method: "
                           << error.what();

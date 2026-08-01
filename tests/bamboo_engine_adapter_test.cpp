@@ -1,4 +1,5 @@
 #include <cassert>
+#include <algorithm>
 #include <iostream>
 #include <string>
 
@@ -98,6 +99,41 @@ int main() {
   }
   assert(modernTone.newText == "hoà");
   assert(traditionalTone.newText == "hòa");
+
+  const auto inputMethods = areca::BambooEngineAdapter::inputMethodNames();
+  assert(std::find(inputMethods.begin(), inputMethods.end(), "VNI") !=
+         inputMethods.end());
+  assert(std::find(inputMethods.begin(), inputMethods.end(), "VIQR") !=
+         inputMethods.end());
+  for (const auto &inputMethod : inputMethods) {
+    areca::BambooEngineAdapter availableMethod(inputMethod);
+    assert(availableMethod.valid());
+  }
+  const auto charsets = areca::BambooEngineAdapter::charsetNames();
+  assert(!charsets.empty() && charsets.front() == "Unicode");
+  assert(std::find(charsets.begin(), charsets.end(), "Unicode tổ hợp") !=
+         charsets.end());
+  for (const auto &charset : charsets) {
+    areca::BambooEngineAdapter encodedEngine("Telex 2", true, true, charset);
+    type(encodedEngine, 'a');
+    const auto encodedResult = type(encodedEngine, 's');
+    assert(fcitx::utf8::validate(encodedResult.newText));
+  }
+
+  areca::BambooEngineAdapter vniEngine("VNI");
+  areca::BambooResult vniResult;
+  for (char key : std::string("a61")) {
+    vniResult = type(vniEngine, key);
+  }
+  assert(vniResult.newText == "ấ");
+
+  areca::BambooEngineAdapter combiningEngine(
+      "Telex 2", true, true, "Unicode tổ hợp");
+  type(combiningEngine, 'a');
+  const auto combiningResult = type(combiningEngine, 's');
+  assert(combiningResult.newText == "a\u0301");
+  assert(combiningResult.deleteCount == 0);
+  assert(combiningResult.commitText == "\u0301");
 
   std::cout << "Bamboo adapter tests passed\n";
   return 0;

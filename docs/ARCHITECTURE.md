@@ -92,7 +92,13 @@ của `bamboo-core`, chưa dùng dictionary ngoài.
 
 Khi tạo engine, bridge ánh xạ `ModernStyle=True` sang cách đặt dấu `oà/uý` và
 `ModernStyle=False` sang `òa/úy`. Việc ánh xạ ngược với tên flag nội bộ
-`EstdToneStyle` là có chủ ý để tương thích hành vi cấu hình của Lotus.
+`EstdToneStyle` là có chủ ý để tên option mô tả trực tiếp chuỗi đầu ra.
+
+Bridge cũng xuất danh sách input method và charset trực tiếp từ `bamboo-core`
+cho giao diện cấu hình. Adapter giữ Bamboo state ở Unicode nội bộ, nhưng encode
+chuỗi mới bằng `OutputCharset` trước khi tính common prefix. Vì vậy
+`currentText`, `newText`, `deleteCount` và `commitText` luôn mô tả đúng chuỗi
+thực tế đã commit vào ứng dụng, kể cả `Unicode tổ hợp`, VNI Windows hoặc VIQR.
 
 ## Backend selection
 

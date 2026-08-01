@@ -7,6 +7,8 @@ package main
 import "C"
 
 import (
+	"sort"
+	"strings"
 	"sync"
 
 	bamboo "github.com/BambooEngine/bamboo-core"
@@ -29,8 +31,8 @@ func ArecaBambooCreate(inputMethod *C.char, modernStyle C.int) C.uint64_t {
 		return 0
 	}
 	flags := uint(bamboo.EstdFlags)
-	// Keep the setting compatible with Lotus: ModernStyle selects oà/uý,
-	// while the Bamboo standard-tone flag selects òa/úy.
+	// ModernStyle selects oà/uý, while the Bamboo standard-tone flag selects
+	// òa/úy.
 	if modernStyle != 0 {
 		flags &^= bamboo.EstdToneStyle
 	}
@@ -54,6 +56,52 @@ func engineFor(id C.uint64_t) bamboo.IEngine {
 	engines.Lock()
 	defer engines.Unlock()
 	return engines.byID[uint64(id)]
+}
+
+//export ArecaBambooInputMethodNames
+func ArecaBambooInputMethodNames() *C.char {
+	preferred := map[string]int{
+		"Telex": 0, "Telex 2": 1, "VNI": 2, "VIQR": 3,
+		"Telex + VNI": 4, "Telex + VNI + VIQR": 5,
+		"Microsoft layout": 6, "VNI Bàn phím tiếng Pháp": 7,
+	}
+	names := make([]string, 0, len(bamboo.InputMethodDefinitions))
+	for name := range bamboo.InputMethodDefinitions {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		left, leftPreferred := preferred[names[i]]
+		right, rightPreferred := preferred[names[j]]
+		if leftPreferred != rightPreferred {
+			return leftPreferred
+		}
+		if leftPreferred {
+			return left < right
+		}
+		return names[i] < names[j]
+	})
+	return C.CString(strings.Join(names, "\n"))
+}
+
+//export ArecaBambooCharsetNames
+func ArecaBambooCharsetNames() *C.char {
+	names := bamboo.GetCharsetNames()
+	sort.Slice(names[1:], func(i, j int) bool {
+		return names[i+1] < names[j+1]
+	})
+	return C.CString(strings.Join(names, "\n"))
+}
+
+//export ArecaBambooEncode
+func ArecaBambooEncode(charset *C.char, input *C.char) *C.char {
+	if input == nil {
+		return nil
+	}
+	charsetName := bamboo.UNICODE
+	if charset != nil && C.GoString(charset) != "" {
+		charsetName = C.GoString(charset)
+	}
+	return C.CString(bamboo.Encode(charsetName, C.GoString(input)))
 }
 
 //export ArecaBambooCanProcess

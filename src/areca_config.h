@@ -1,12 +1,28 @@
 #pragma once
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <fcitx-config/configuration.h>
 #include <fcitx-config/option.h>
 #include <fcitx-utils/i18n.h>
 
 namespace areca {
+
+struct StringListAnnotation : public fcitx::EnumAnnotation {
+  void setList(std::vector<std::string> list) { list_ = std::move(list); }
+
+  void dumpDescription(fcitx::RawConfig &config) const {
+    fcitx::EnumAnnotation::dumpDescription(config);
+    for (size_t i = 0; i < list_.size(); ++i) {
+      config.setValueByPath("Enum/" + std::to_string(i), list_[i]);
+    }
+  }
+
+private:
+  std::vector<std::string> list_;
+};
 
 FCITX_CONFIGURATION(
     ArecaConfig,
@@ -29,8 +45,12 @@ FCITX_CONFIGURATION(
     fcitx::Option<std::string> socketPath{this, "SocketPath",
                                           N_("Unix socket của uinput server"),
                                           "/tmp/openkey-nonpreedit.sock"};
-    fcitx::Option<std::string> bambooInputMethod{
+    fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
+        bambooInputMethod{
         this, "BambooInputMethod", N_("Kiểu gõ Bamboo"), "Telex 2"};
+    fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
+        outputCharset{this, "OutputCharset", N_("Bảng mã đầu ra"),
+                      "Unicode"};
     fcitx::Option<bool> spellCheck{
         this, "SpellCheck",
         N_("Kiểm tra chính tả và khôi phục từ không hợp lệ"), true};

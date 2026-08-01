@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "types.h"
 
@@ -20,7 +21,8 @@ class BambooEngineAdapter final : public VietnameseEngine {
 public:
   explicit BambooEngineAdapter(std::string inputMethod = "Telex 2",
                                bool spellCheck = true,
-                               bool modernStyle = true);
+                               bool modernStyle = true,
+                               std::string outputCharset = "Unicode");
   ~BambooEngineAdapter() override;
 
   BambooEngineAdapter(const BambooEngineAdapter &) = delete;
@@ -31,10 +33,15 @@ public:
   void backspace() override;
   void reset() override;
   bool valid() const { return handle_ != 0; }
+  static std::vector<std::string> inputMethodNames();
+  static std::vector<std::string> charsetNames();
 
 private:
+  std::string encode(const std::string &text) const;
+
   uint64_t handle_ = 0;
   bool spellCheck_ = true;
+  std::string outputCharset_;
   std::string renderedText_;
 };
 
