@@ -1,7 +1,7 @@
 [InputMethod]
 Name=Areca (Bamboo)
 Name[vi]=Areca (Bamboo)
-Icon=input-keyboard
+Icon=org.fcitx.Fcitx5.fcitx-areca
 Label=vi
 LangCode=vi
 Addon=areca

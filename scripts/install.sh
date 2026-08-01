@@ -43,6 +43,22 @@ run_as_target_user() {
   fi
 }
 
+update_icon_cache() {
+  if ! command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    return
+  fi
+  local icon_theme_dir="$ARECA_PREFIX/share/icons/hicolor"
+  if [[ ! -d "$icon_theme_dir" ]]; then
+    return
+  fi
+  echo "[areca] Updating hicolor icon cache (optional)"
+  if is_user_prefix; then
+    gtk-update-icon-cache -f -t "$icon_theme_dir" >/dev/null 2>&1 || true
+  else
+    sudo gtk-update-icon-cache -f -t "$icon_theme_dir" >/dev/null 2>&1 || true
+  fi
+}
+
 install_deps_debian() {
   echo "[areca] Installing build dependencies with apt"
   sudo apt-get update
@@ -242,6 +258,8 @@ else
   echo "[areca] Installing with sudo"
   sudo cmake --install "$ARECA_BUILD_DIR"
 fi
+
+update_icon_cache
 
 ARECA_SERVER_BIN="$ARECA_PREFIX/libexec/areca-uinput-server"
 

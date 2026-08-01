@@ -192,6 +192,10 @@ Build mặc định tạo `areca.so` và `areca-uinput-server`. Có thể không
 server bằng `-DBUILD_UINPUT_SERVER=OFF` nếu đã có server khác tương thích
 protocol.
 
+Bộ cài đặt cài icon Areca dạng scalable và symbolic có màu vào theme `hicolor`
+dưới các tên `areca`, `fcitx-areca` và `org.fcitx.Fcitx5.fcitx-areca`, sau đó
+cập nhật icon cache nếu `gtk-update-icon-cache` có sẵn.
+
 ## Cấu hình
 
 Mở cấu hình Areca trong `fcitx5-configtool`. Các tuỳ chọn thường dùng nằm ngay

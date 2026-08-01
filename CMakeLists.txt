@@ -82,6 +82,28 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/areca-addon.conf"
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/areca-inputmethod.conf"
         RENAME areca.conf DESTINATION "${CMAKE_INSTALL_DATADIR}/fcitx5/inputmethod")
 
+set(ARECA_SCALABLE_ICON
+    "${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor/scalable/apps/fcitx-areca.svg")
+foreach(ARECA_ICON_NAME
+        fcitx-areca
+        areca
+        org.fcitx.Fcitx5.fcitx-areca)
+    install(FILES "${ARECA_SCALABLE_ICON}"
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+            RENAME "${ARECA_ICON_NAME}.svg")
+endforeach()
+
+set(ARECA_SYMBOLIC_ICON
+    "${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor/symbolic/apps/fcitx-areca-symbolic.svg")
+foreach(ARECA_ICON_NAME
+        fcitx-areca-symbolic
+        areca-symbolic
+        org.fcitx.Fcitx5.fcitx-areca-symbolic)
+    install(FILES "${ARECA_SYMBOLIC_ICON}"
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/symbolic/apps"
+            RENAME "${ARECA_ICON_NAME}.svg")
+endforeach()
+
 if(BUILD_TESTING)
     add_executable(areca-bamboo-test
         tests/bamboo_engine_adapter_test.cpp
