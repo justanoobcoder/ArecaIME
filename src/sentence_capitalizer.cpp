@@ -22,12 +22,6 @@ fcitx::KeySym capitalizeAfterSentenceBoundary(
   case FcitxKey_question:
     state.punctuationPending = true;
     break;
-  case FcitxKey_Return:
-  case FcitxKey_KP_Enter:
-  case FcitxKey_ISO_Enter:
-    state.capitalizeNextLetter = true;
-    state.punctuationPending = false;
-    break;
   case FcitxKey_space:
     if (state.punctuationPending) {
       state.capitalizeNextLetter = true;

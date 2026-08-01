@@ -119,11 +119,11 @@ match, nối boundary, encode theo charset rồi tính delta rewrite. Vì thế 
 không có đường commit đặc biệt và vẫn tuân thủ mọi queue/pending invariant.
 
 Nếu `AutoCapitalizeAfterPunctuation` bật, state theo từng input context theo dõi
-`.`, `!`, `?` rồi khoảng trắng, hoặc `Enter`. Chữ ASCII thường kế tiếp được đổi
-thành keysym hoa trước khi enqueue và trước khi Bamboo xử lý. Phím đã đổi hoa
-vẫn đi qua scheduler như mọi text key khác và mang cờ buộc `commitString`, vì
-replay phím vật lý không có Shift có thể vẫn tạo chữ thường. Reset, Backspace,
-di chuyển con trỏ và shortcut sẽ xoá trạng thái chờ để tránh viết hoa nhầm.
+`.`, `!`, `?` rồi khoảng trắng. Chữ ASCII thường kế tiếp được đổi thành keysym
+hoa trước khi enqueue và trước khi Bamboo xử lý. Phím đã đổi hoa vẫn đi qua
+scheduler như mọi text key khác và mang cờ buộc `commitString`, vì replay phím
+vật lý không có Shift có thể vẫn tạo chữ thường. `Enter`, reset, Backspace, di
+chuyển con trỏ và shortcut sẽ xoá trạng thái chờ để tránh viết hoa nhầm.
 
 Sau khi finalize một từ, adapter giữ composition Bamboo của từ đó và đếm các
 dấu cách/dấu câu đã commit phía sau. Backspace đi ngược qua các boundary này;

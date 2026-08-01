@@ -30,9 +30,11 @@ int main() {
          FcitxKey_c);
 
   state.reset();
+  areca::capitalizeAfterSentenceBoundary(state, FcitxKey_period);
+  areca::capitalizeAfterSentenceBoundary(state, FcitxKey_space);
   areca::capitalizeAfterSentenceBoundary(state, FcitxKey_Return);
   assert(areca::capitalizeAfterSentenceBoundary(state, FcitxKey_d) ==
-         FcitxKey_D);
+         FcitxKey_d);
 
   state.reset();
   areca::capitalizeAfterSentenceBoundary(state, FcitxKey_exclam);

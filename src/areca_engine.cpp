@@ -262,12 +262,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   if (isEnter) {
     cancelProtectedStateReset(*inputContext);
     if (state) {
-      if (config_.autoCapitalizeAfterPunctuation.value()) {
-        capitalizeAfterSentenceBoundary(state->sentenceCapitalization,
-                                        textSym);
-      } else {
-        state->sentenceCapitalization.reset();
-      }
+      state->sentenceCapitalization.reset();
       if (state->engine) {
         state->engine->reset();
       }
