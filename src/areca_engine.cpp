@@ -6,7 +6,12 @@
 #include <fcitx-config/iniparser.h>
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
+#if __has_include(<fcitx-utils/standardpaths.h>)
 #include <fcitx-utils/standardpaths.h>
+#define ARECA_HAS_STANDARD_PATHS 1
+#else
+#include <fcitx-utils/standardpath.h>
+#endif
 #include <fcitx/addonfactory.h>
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputcontext.h>
@@ -19,6 +24,11 @@ constexpr const char *kMacroConfigPath = "conf/areca-macro-table.conf";
 constexpr const char *kAdvancedConfigPath = "conf/areca-advanced.conf";
 constexpr const char *kLegacyDefaultSocketPath = "/tmp/openkey-nonpreedit.sock";
 constexpr const char *kDefaultSocketPath = "/tmp/areca-uinput.sock";
+#if defined(ARECA_HAS_STANDARD_PATHS)
+constexpr auto kPkgConfigPath = fcitx::StandardPathsType::PkgConfig;
+#else
+constexpr auto kPkgConfigPath = fcitx::StandardPath::Type::PkgConfig;
+#endif
 
 } // namespace
 
@@ -218,7 +228,7 @@ void ArecaEngine::setSubConfig(const std::string &path,
                                const fcitx::RawConfig &config) {
   if (path == "advanced") {
     advancedConfig_.load(config, true);
-    fcitx::safeSaveAsIni(advancedConfig_, fcitx::StandardPathsType::PkgConfig,
+    fcitx::safeSaveAsIni(advancedConfig_, kPkgConfigPath,
                          kAdvancedConfigPath);
     applyConfig();
     return;
@@ -227,14 +237,14 @@ void ArecaEngine::setSubConfig(const std::string &path,
     return;
   }
   macroTable_.load(config, true);
-  fcitx::safeSaveAsIni(macroTable_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::safeSaveAsIni(macroTable_, kPkgConfigPath,
                        kMacroConfigPath);
   ++macroRevision_;
   applyConfig();
 }
 
 void ArecaEngine::reloadConfig() {
-  fcitx::readAsIni(config_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::readAsIni(config_, kPkgConfigPath,
                    "conf/areca.conf");
   // Seed the new advanced panel from the legacy fields before loading its own
   // file. Existing installations therefore retain their timing and socket;
@@ -248,23 +258,23 @@ void ArecaEngine::reloadConfig() {
       config_.legacyPostCommitDelayMs.value());
   advancedConfig_.resetDelayMs.setValue(config_.legacyResetDelayMs.value());
   advancedConfig_.socketPath.setValue(config_.legacySocketPath.value());
-  fcitx::readAsIni(advancedConfig_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::readAsIni(advancedConfig_, kPkgConfigPath,
                    kAdvancedConfigPath);
   if (advancedConfig_.socketPath.value() == kLegacyDefaultSocketPath) {
     advancedConfig_.socketPath.setValue(kDefaultSocketPath);
   }
-  fcitx::readAsIni(macroTable_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::readAsIni(macroTable_, kPkgConfigPath,
                    kMacroConfigPath);
   ++macroRevision_;
   applyConfig();
 }
 
 void ArecaEngine::save() {
-  fcitx::safeSaveAsIni(config_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::safeSaveAsIni(config_, kPkgConfigPath,
                        "conf/areca.conf");
-  fcitx::safeSaveAsIni(macroTable_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::safeSaveAsIni(macroTable_, kPkgConfigPath,
                        kMacroConfigPath);
-  fcitx::safeSaveAsIni(advancedConfig_, fcitx::StandardPathsType::PkgConfig,
+  fcitx::safeSaveAsIni(advancedConfig_, kPkgConfigPath,
                        kAdvancedConfigPath);
 }
 

@@ -166,8 +166,8 @@ trong [Hướng dẫn debug](docs/DEBUGGING.md).
 Workflow [Build Linux packages](.github/workflows/package-linux.yml) chỉ build
 ba dòng distro đang được hỗ trợ cho release:
 
-- Ubuntu 24.04 trở lên: gói `.deb` được build trên Ubuntu 24.04 để giữ mốc
-  tương thích tối thiểu.
+- Ubuntu 24.04 và Ubuntu mới nhất: hai gói `.deb` độc lập. Ubuntu 24.04 giữ mốc
+  tương thích tối thiểu; Ubuntu 26.04 kiểm tra trực tiếp Fcitx5 mới.
 - Arch Linux rolling: gói `.pkg.tar.zst` từ
   [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD).
 - Fedora mới nhất: gói `.rpm` được build bên trong image `fedora:latest`.
@@ -175,7 +175,7 @@ ba dòng distro đang được hỗ trợ cho release:
 Mỗi nhánh đều build addon cùng uinput server và chạy toàn bộ CTest/Go test
 trước khi tạo artifact. Bamboo được checkout và đưa vào source archive theo
 submodule. Pull request, push vào `main` và chạy thủ công sẽ tạo artifact của
-workflow; tag `v*` hoặc tag bắt đầu bằng số còn tự động tải cả ba gói lên GitHub
+workflow; tag `v*` hoặc tag bắt đầu bằng số còn tự động tải các gói lên GitHub
 Release tương ứng.
 
 ## Build thủ công

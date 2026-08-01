@@ -45,9 +45,21 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
   ubuntu:
-    name: Ubuntu 24.04+
-    runs-on: ubuntu-24.04
+    name: Ubuntu ${{ matrix.version }}
+    runs-on: ${{ matrix.runner }}
     needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "24.04"
+            runner: ubuntu-24.04
+            package_suffix: ubuntu24
+            artifact_name: fcitx5-areca-ubuntu24-deb
+          - version: "26.04"
+            runner: ubuntu-26.04
+            package_suffix: ubuntu26
+            artifact_name: fcitx5-areca-ubuntu26-deb
     env:
       VERSION: ${{ needs.version.outputs.value }}
       DEBIAN_FRONTEND: noninteractive
@@ -56,7 +68,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Ubuntu 24.04 build dependencies
+      - name: Install Ubuntu build dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -106,13 +118,14 @@ jobs:
             --depends fcitx5-frontend-gtk3 \
             --depends fcitx5-frontend-qt5 \
             -C pkgroot \
-            -p "dist/fcitx5-areca_${VERSION}_ubuntu24_amd64.deb" \
+            -p "dist/fcitx5-areca_${VERSION}_${{ matrix.package_suffix }}_amd64.deb" \
             .
-          dpkg-deb -c "dist/fcitx5-areca_${VERSION}_ubuntu24_amd64.deb"
+          dpkg-deb -c \
+            "dist/fcitx5-areca_${VERSION}_${{ matrix.package_suffix }}_amd64.deb"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: fcitx5-areca-ubuntu24-deb
+          name: ${{ matrix.artifact_name }}
           path: dist/*.deb
           if-no-files-found: error
 
@@ -265,7 +278,7 @@ jobs:
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" \
               --title "$tag" \
-              --notes "Areca packages for Ubuntu 24.04+, Arch Linux and Fedora."
+              --notes "Areca packages for Ubuntu 24.04, Ubuntu 26.04, Arch Linux and Fedora."
           fi
           find artifacts -type f -print0 | \
             xargs -0 gh release upload "$tag" --clobber
