@@ -122,10 +122,12 @@ không có đường commit đặc biệt và vẫn tuân thủ mọi queue/pend
 
 Khi `deleteCount == 0`:
 
-- Scheduler luôn dùng `commitString()` cho kết quả Bamboo, kể cả khi
-  `commitText` giống raw key. Text key gốc đã bị filter trước khi vào queue;
-  không replay press/release tổng hợp từ timer vì thao tác đó có thể chạy đua
-  với một `deleteSurroundingText()` kế tiếp.
+- Nếu `commitText` giống text của phím gốc, scheduler replay phím bằng
+  `forwardKey()` đủ press/release và cập nhật cache SurroundingText bằng text
+  của phím đó.
+- Nếu Bamboo đã biến đổi output dù không cần xoá, scheduler commit
+  `commitText`. Trường hợp điển hình là dấu của `Unicode tổ hợp`.
+- Cả hai nhánh vẫn đi qua queue và settling barrier.
 
 Khi `deleteCount > 0`:
 

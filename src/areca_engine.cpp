@@ -81,7 +81,6 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
             return state ? state->engine.get() : nullptr;
           },
           [this]() { return timing(); }, [this]() { return debugEnabled(); },
-          surroundingBackend_,
           [this](fcitx::InputContext &inputContext,
                  const BambooResult &result) -> RewriteBackendSelection {
             auto *state = stateFor(inputContext);

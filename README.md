@@ -49,7 +49,8 @@ Fcitx5 keyEvent
        ▼
  InputScheduler ──► BambooEngineAdapter ──► BambooResult
                                              │
-                         deleteCount == 0 ────┤──► commitString
+                         deleteCount == 0 ────┤──► unchanged: forwardKey
+                                                  └──► transformed: commitString
                                              │
                          deleteCount > 0  ────┘
                                              │

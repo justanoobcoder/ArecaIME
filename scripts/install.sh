@@ -339,8 +339,12 @@ EOF
   trap - EXIT
 
   if run_as_target_user systemctl --user daemon-reload >/dev/null 2>&1; then
-    run_as_target_user systemctl --user enable --now \
+    run_as_target_user systemctl --user enable \
       areca-uinput-server.service >/dev/null 2>&1 || true
+    if ! run_as_target_user systemctl --user restart \
+      areca-uinput-server.service >/dev/null 2>&1; then
+      echo "[areca] WARNING: Could not restart areca-uinput-server.service"
+    fi
   else
     echo "[areca] Could not reach the user systemd session; enable the service after login"
   fi

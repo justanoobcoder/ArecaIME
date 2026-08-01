@@ -77,8 +77,8 @@ journalctl --user -u areca-uinput-server -f
 ```
 
 Unit do installer tạo dùng binary cài trong prefix và truyền cùng `SocketPath`
-với addon. Khi thay binary server, hãy restart service; cài file mới không tự
-thay code của process đang chạy.
+với addon. Installer luôn daemon-reload rồi restart service để cả binary lẫn
+socket path mới có hiệu lực ngay.
 
 ## Build và test riêng server
 

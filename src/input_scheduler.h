@@ -35,7 +35,6 @@ public:
 
   InputScheduler(fcitx::EventLoop &eventLoop, EngineResolver engineResolver,
                  TimingProvider timingProvider, DebugProvider debugProvider,
-                 RewriteBackend &directCommitBackend,
                  RewriteBackendSelector rewriteBackendSelector);
 
   void enqueue(fcitx::InputContext &inputContext,
@@ -63,7 +62,6 @@ private:
   EngineResolver engineResolver_;
   TimingProvider timingProvider_;
   DebugProvider debugProvider_;
-  RewriteBackend &directCommitBackend_;
   RewriteBackendSelector rewriteBackendSelector_;
   KeyQueue queue_;
   std::unique_ptr<fcitx::EventSourceTime> timer_;

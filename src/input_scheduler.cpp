@@ -6,18 +6,18 @@
 
 #include <fcitx-utils/log.h>
 
+#include "surrounding_text_cache.h"
+
 namespace areca {
 
 InputScheduler::InputScheduler(fcitx::EventLoop &eventLoop,
                                EngineResolver engineResolver,
                                TimingProvider timingProvider,
                                DebugProvider debugProvider,
-                               RewriteBackend &directCommitBackend,
                                RewriteBackendSelector rewriteBackendSelector)
     : eventLoop_(eventLoop), engineResolver_(std::move(engineResolver)),
       timingProvider_(std::move(timingProvider)),
       debugProvider_(std::move(debugProvider)),
-      directCommitBackend_(directCommitBackend),
       rewriteBackendSelector_(std::move(rewriteBackendSelector)) {}
 
 void InputScheduler::enqueue(fcitx::InputContext &inputContext,
@@ -129,20 +129,28 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
                  << " macro=" << result.macroExpanded;
   }
   if (!result.deleteCount) {
-    // The original text key was filtered before it entered the queue. Commit
-    // its Bamboo result through the input-method protocol instead of replaying
-    // a synthetic key press/release from this timer callback. Keeping ordinary
-    // text commits and later deleteSurroundingText calls on the same protocol
-    // path avoids racing an application update produced by forwardKey().
-    RewritePlan directCommit;
-    directCommit.commitText = result.commitText;
-    directCommitBackend_.apply(inputContext, directCommit, {});
-    if (debugProvider_()) {
-      FCITX_INFO() << "areca: apply no-delete by commit text="
-                   << result.commitText << " raw=" << rawText;
+    if (result.commitText == rawText) {
+      // Preserve the application's native key path when Bamboo did not
+      // transform the physical key.
+      forwardOriginalKey(inputContext, originalKey);
+      updateSurroundingCacheAfterCommit(inputContext, rawText);
+      if (debugProvider_()) {
+        FCITX_INFO() << "areca: apply unchanged no-delete by forward key="
+                     << originalKey.toString() << " text=" << rawText;
+      }
+    } else {
+      // Some output tables can transform a key without replacing an earlier
+      // character. Unicode combining marks are the common example.
+      if (!result.commitText.empty()) {
+        inputContext.commitString(result.commitText);
+        updateSurroundingCacheAfterCommit(inputContext, result.commitText);
+      }
+      if (debugProvider_()) {
+        FCITX_INFO() << "areca: apply transformed no-delete by commit text="
+                     << result.commitText << " raw=" << rawText;
+      }
     }
-    // Wait for the client to settle before a following queued rewrite inspects
-    // or modifies surrounding text.
+    // Retain the settling barrier before the next key.
     finishKeyAfterCommit();
     return;
   }
