@@ -12,9 +12,9 @@
 
 namespace areca {
 
-enum class PresentationMode { Rewrite, Preedit };
+enum class PresentationMode { Rewrite, Preedit, Redirect };
 FCITX_CONFIG_ENUM_NAME_WITH_I18N(PresentationMode, N_("Rewrite trực tiếp"),
-                                 N_("Preedit"));
+                                 N_("Preedit"), N_("Redirect (EN)"));
 
 struct StringListAnnotation : public fcitx::EnumAnnotation {
   void setList(std::vector<std::string> list) { list_ = std::move(list); }
@@ -50,21 +50,22 @@ FCITX_CONFIGURATION(
 
 FCITX_CONFIGURATION(
     AdvancedConfig,
-    fcitx::Option<int, fcitx::IntConstrain> keyIntervalMs{
-        this, "KeyIntervalMs", N_("Khoảng cách xử lý phím tối thiểu (ms)"), 20,
-        fcitx::IntConstrain(20, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> backspaceDelayMs{
         this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 5,
         fcitx::IntConstrain(0, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> afterBackspaceWaitMs{
         this, "AfterBackspaceWaitMs",
-        N_("Thời gian chờ sau Backspace cuối (ms)"), 10,
+        N_("Thời gian chờ sau Backspace cuối (ms)"), 40,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> ackFullWaitMs{
+        this, "AckFullWaitMs",
+        N_("Thời gian WAIT sau khi nhận đủ Backspace (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> resetDelayMs{
-        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 120,
+        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 250,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<std::string> socketPath{this, "SocketPath",
                                           N_("Unix socket của uinput server"),
@@ -82,21 +83,18 @@ FCITX_CONFIGURATION(
         N_("Phím tắt chuyển chế độ gõ"),
         {fcitx::Key("Alt+space")},
         fcitx::KeyListConstrain(fcitx::KeyConstrainFlag::AllowModifierLess)};
-    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyKeyIntervalMs{
-        this, "KeyIntervalMs", N_("Khoảng cách xử lý phím tối thiểu (ms)"), 20,
-        fcitx::IntConstrain(20, 1000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyBackspaceDelayMs{
         this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 5,
         fcitx::IntConstrain(0, 1000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyAfterBackspaceWaitMs{
         this, "AfterBackspaceWaitMs",
-        N_("Thời gian chờ sau Backspace cuối (ms)"), 10,
+        N_("Thời gian chờ sau Backspace cuối (ms)"), 40,
         fcitx::IntConstrain(0, 5000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyPostCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyResetDelayMs{
-        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 120,
+        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 250,
         fcitx::IntConstrain(0, 5000)};
     fcitx::HiddenOption<std::string> legacySocketPath{
         this, "SocketPath", N_("Unix socket của uinput server"),

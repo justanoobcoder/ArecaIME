@@ -9,8 +9,7 @@
 namespace areca {
 namespace {
 
-size_t utf8ByteOffsetForCharIndex(const std::string &text,
-                                  size_t charIndex) {
+size_t utf8ByteOffsetForCharIndex(const std::string &text, size_t charIndex) {
   const auto length = fcitx::utf8::length(text);
   if (charIndex >= length) {
     return text.size();
@@ -19,8 +18,7 @@ size_t utf8ByteOffsetForCharIndex(const std::string &text,
   return static_cast<size_t>(std::distance(text.begin(), it));
 }
 
-size_t utf8CharIndexForByteOffset(const std::string &text,
-                                  size_t byteOffset) {
+size_t utf8CharIndexForByteOffset(const std::string &text, size_t byteOffset) {
   byteOffset = std::min(byteOffset, text.size());
   return fcitx::utf8::length(
       std::string(text.begin(), text.begin() + byteOffset));
@@ -56,24 +54,56 @@ bool isBrowserLikeProgram(const std::string &rawProgram) {
     return true;
   }
 
-  static constexpr std::array<const char *, 33> patterns = {
-      "chrome",      "google-chrome", "chromium",  "chromium-browser",
-      "edge",        "msedge",        "brave",     "vivaldi",
-      "opera",       "opera-beta",    "opera-developer",
-      "coccoc",      "yandex",        "firefox",   "librewolf",
-      "waterfox",    "floorp",        "zen",       "tor-browser",
-      "torbrowser",  "epiphany",      "falkon",    "midori",
-      "qutebrowser", "palemoon",      "basilisk",  "nyxt",
-      "otter",       "dooble",        "arc",       "helium",
-      "mullvad",     "window:"};
+  static constexpr std::array<const char *, 33> patterns = {"chrome",
+                                                            "google-chrome",
+                                                            "chromium",
+                                                            "chromium-browser",
+                                                            "edge",
+                                                            "msedge",
+                                                            "brave",
+                                                            "vivaldi",
+                                                            "opera",
+                                                            "opera-beta",
+                                                            "opera-developer",
+                                                            "coccoc",
+                                                            "yandex",
+                                                            "firefox",
+                                                            "librewolf",
+                                                            "waterfox",
+                                                            "floorp",
+                                                            "zen",
+                                                            "tor-browser",
+                                                            "torbrowser",
+                                                            "epiphany",
+                                                            "falkon",
+                                                            "midori",
+                                                            "qutebrowser",
+                                                            "palemoon",
+                                                            "basilisk",
+                                                            "nyxt",
+                                                            "otter",
+                                                            "dooble",
+                                                            "arc",
+                                                            "helium",
+                                                            "mullvad",
+                                                            "window:"};
   return std::any_of(patterns.begin(), patterns.end(),
                      [&program](const char *pattern) {
                        return program.find(pattern) != std::string::npos;
                      });
 }
 
-bool looksLikeBrowserAutocomplete(const std::string &text,
-                                  unsigned int cursor,
+BrowserAutocompleteStrategy
+browserAutocompleteStrategy(const std::string &rawProgram, bool isUrl) {
+  const std::string program = normalizedProgramName(rawProgram);
+  if (isUrl && (program.find("microsoft-edge") != std::string::npos ||
+                program.find("msedge") != std::string::npos)) {
+    return BrowserAutocompleteStrategy::EdgeUrlForwardTwo;
+  }
+  return BrowserAutocompleteStrategy::ForwardOne;
+}
+
+bool looksLikeBrowserAutocomplete(const std::string &text, unsigned int cursor,
                                   unsigned int anchor,
                                   const std::string &shownText) {
   if (shownText.empty() || !fcitx::utf8::validate(text) ||
@@ -103,8 +133,7 @@ bool looksLikeBrowserAutocomplete(const std::string &text,
   for (size_t byte = text.find(shownText); byte != std::string::npos;
        byte = text.find(shownText, byte + 1)) {
     const size_t charIndex = utf8CharIndexForByteOffset(text, byte);
-    if (charIndex >= rangeStart &&
-        charIndex + shownLength == prefixCursor) {
+    if (charIndex >= rangeStart && charIndex + shownLength == prefixCursor) {
       samePrefix = true;
       break;
     }
@@ -122,10 +151,9 @@ bool looksLikeBrowserAutocomplete(const std::string &text,
   const size_t selectionStartByte =
       utf8ByteOffsetForCharIndex(text, selectionStart);
   const size_t nextLineBreak = text.find('\n', selectionStartByte);
-  const size_t lineEnd =
-      nextLineBreak == std::string::npos
-          ? textLength
-          : utf8CharIndexForByteOffset(text, nextLineBreak);
+  const size_t lineEnd = nextLineBreak == std::string::npos
+                             ? textLength
+                             : utf8CharIndexForByteOffset(text, nextLineBreak);
   const bool selectionGoesToLineEnd = selectionEnd == lineEnd;
 
   const size_t selectionEndByte =

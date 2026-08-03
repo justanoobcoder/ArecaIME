@@ -1,6 +1,5 @@
 #include "input_scheduler.h"
 
-#include <algorithm>
 #include <exception>
 #include <utility>
 
@@ -21,15 +20,11 @@ InputScheduler::InputScheduler(fcitx::EventLoop &eventLoop,
       rewriteBackendSelector_(std::move(rewriteBackendSelector)) {}
 
 void InputScheduler::enqueue(fcitx::InputContext &inputContext,
-                             const fcitx::Key &originalKey, uint32_t codepoint,
-                             std::string utf8Text, bool forceTextCommit) {
+                             uint32_t codepoint, std::string utf8Text) {
   QueuedKey key;
   key.sequence = nextSequence_++;
-  key.enqueuedAtUsec = fcitx::now(CLOCK_MONOTONIC);
   key.codepoint = codepoint;
   key.utf8Text = std::move(utf8Text);
-  key.forceTextCommit = forceTextCommit;
-  key.originalKey = originalKey;
   key.inputContext = inputContext.watch();
   if (debugProvider_()) {
     FCITX_INFO() << "areca: queue push kind=text seq=" << key.sequence
@@ -41,9 +36,17 @@ void InputScheduler::enqueue(fcitx::InputContext &inputContext,
 }
 
 void InputScheduler::resetContext(fcitx::InputContext &inputContext) {
-  // The active timer was calculated from the old queue head. Re-arm it after
-  // removal so a later key can never inherit an earlier key's deadline.
-  timer_.reset();
+  // A pending rewrite owns the engine and queue until its single completion
+  // callback runs. Treat reset as a no-op during that transaction, just like
+  // a guarded state clear.
+  if (rewritePending()) {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: reset blocked by pending rewrite tx="
+                   << activeTransactionId_;
+    }
+    return;
+  }
+
   queue_.removeFor(inputContext);
   if (auto *engine = engineResolver_(inputContext)) {
     engine->reset();
@@ -52,37 +55,16 @@ void InputScheduler::resetContext(fcitx::InputContext &inputContext) {
 }
 
 void InputScheduler::scheduleNext() {
-  if (processing_ || timer_ || queue_.empty() || stalled_) {
+  if (processing_ || queue_.empty() || stalled_) {
     return;
   }
-
-  // A key is never processed inline. It must spend keyIntervalMs in the
-  // queue, and consecutive Bamboo calls are also separated by that interval.
-  const auto timing = timingProvider_();
-  const uint64_t intervalUsec =
-      static_cast<uint64_t>(timing.keyIntervalMs) * 1000;
-  const uint64_t nowUsec = fcitx::now(CLOCK_MONOTONIC);
-  const uint64_t queuedDeadline = queue_.front().enqueuedAtUsec + intervalUsec;
-  const uint64_t spacingDeadline =
-      lastProcessedAtUsec_ ? lastProcessedAtUsec_ + intervalUsec : 0;
-  const uint64_t deadline =
-      std::max(nowUsec, std::max(queuedDeadline, spacingDeadline));
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: scheduler arm now=" << nowUsec
-                 << " deadline=" << deadline << " depth=" << queue_.size();
+    FCITX_INFO() << "areca: scheduler pump depth=" << queue_.size();
   }
-
-  timer_ = eventLoop_.addTimeEvent(
-      CLOCK_MONOTONIC, deadline, 0,
-      [this](fcitx::EventSourceTime *, uint64_t nowUsec) {
-        auto completedTimer = std::move(timer_);
-        processNext(nowUsec);
-        return false;
-      });
-  timer_->setOneShot();
+  processNext();
 }
 
-void InputScheduler::processNext(uint64_t nowUsec) {
+void InputScheduler::processNext() {
   if (processing_ || queue_.empty() || stalled_) {
     return;
   }
@@ -100,7 +82,6 @@ void InputScheduler::processNext(uint64_t nowUsec) {
   }
 
   processing_ = true;
-  lastProcessedAtUsec_ = nowUsec;
   if (debugProvider_()) {
     FCITX_INFO() << "areca: scheduler process seq=" << key.sequence
                  << " kind=text"
@@ -108,8 +89,7 @@ void InputScheduler::processNext(uint64_t nowUsec) {
   }
   try {
     applyResult(*inputContext, *engine,
-                engine->process(key.codepoint, key.utf8Text), key.utf8Text,
-                key.originalKey, key.forceTextCommit);
+                engine->process(key.codepoint, key.utf8Text), key.utf8Text);
   } catch (const std::exception &error) {
     FCITX_ERROR() << "areca: Bamboo processing failed: " << error.what();
     engine->reset();
@@ -120,9 +100,7 @@ void InputScheduler::processNext(uint64_t nowUsec) {
 void InputScheduler::applyResult(fcitx::InputContext &inputContext,
                                  VietnameseEngine &engine,
                                  const BambooResult &result,
-                                 const std::string &rawText,
-                                 const fcitx::Key &originalKey,
-                                 bool forceTextCommit) {
+                                 const std::string &rawText) {
   if (debugProvider_()) {
     FCITX_INFO() << "areca: bamboo result current=" << result.currentText
                  << " new=" << result.newText
@@ -131,29 +109,18 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
                  << " macro=" << result.macroExpanded;
   }
   if (!result.deleteCount) {
-    if (!forceTextCommit && result.commitText == rawText) {
-      // Preserve the application's native key path when Bamboo did not
-      // transform the physical key.
-      forwardOriginalKey(inputContext, originalKey);
-      updateSurroundingCacheAfterCommit(inputContext, rawText);
-      if (debugProvider_()) {
-        FCITX_INFO() << "areca: apply unchanged no-delete by forward key="
-                     << originalKey.toString() << " text=" << rawText;
-      }
-    } else {
-      // Some output tables can transform a key without replacing an earlier
-      // character. Unicode combining marks are the common example.
-      if (!result.commitText.empty()) {
-        inputContext.commitString(result.commitText);
-        updateSurroundingCacheAfterCommit(inputContext, result.commitText);
-      }
-      if (debugProvider_()) {
-        FCITX_INFO() << "areca: apply transformed no-delete by commit text="
-                     << result.commitText << " raw=" << rawText
-                     << " forced=" << forceTextCommit;
-      }
+    // The original event was accepted before queueing, so every no-delete
+    // result is applied through the input-method protocol. This also covers
+    // output tables that transform a single key without replacing old text.
+    if (!result.commitText.empty()) {
+      inputContext.commitString(result.commitText);
+      updateSurroundingCacheAfterCommit(inputContext, result.commitText);
     }
-    // Retain the settling barrier before the next key.
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: apply no-delete commit=" << result.commitText
+                   << " raw=" << rawText
+                   << " transformed=" << (result.commitText != rawText);
+    }
     finishKeyAfterCommit();
     return;
   }
@@ -163,6 +130,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.transactionId = nextTransactionId_++;
   plan.backspaceDelayMs = timing.backspaceDelayMs;
   plan.afterBackspaceWaitMs = timing.afterBackspaceWaitMs;
+  plan.ackFullWaitMs = timing.ackFullWaitMs;
   plan.commitText = result.commitText;
   plan.cacheDeleteCount = result.deleteCount;
 
@@ -175,14 +143,11 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     return;
   }
   auto &backend = *selection.backend;
-  plan.backspaceCount =
-      result.deleteCount + selection.additionalBackspaces;
+  plan.backspaceCount = result.deleteCount;
   if (debugProvider_()) {
     FCITX_INFO() << "areca: rewrite select backend=" << backend.name()
                  << " tx=" << plan.transactionId
                  << " bamboo_delete=" << result.deleteCount
-                 << " additional_backspaces="
-                 << selection.additionalBackspaces
                  << " plan_backspaces=" << plan.backspaceCount;
   }
 
@@ -202,16 +167,19 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   } else if (status == ApplyStatus::Failed) {
     if (backend.recoverUnsentFailure()) {
       // Nothing reached the server, so no deletion can have happened. Preserve
-      // usability by forwarding the literal key and dropping stale Bamboo
-      // composition. A failure after PLAN was sent remains fail-closed.
-      forwardOriginalKey(inputContext, originalKey);
+      // usability by committing the literal text and dropping stale Bamboo
+      // composition. A failure after PLAN was sent remains fail-closed. Do not
+      // replay the accepted KeyEvent here for the same GNOME/IBus reason as the
+      // unchanged no-delete path above.
+      inputContext.commitString(rawText);
+      updateSurroundingCacheAfterCommit(inputContext, rawText);
       engine.reset();
       activeTransactionId_ = 0;
       finishKeyAfterCommit();
       if (debugProvider_()) {
-        FCITX_INFO()
-            << "areca: recovered unsent uinput failure by forwarding raw key tx="
-            << plan.transactionId;
+        FCITX_INFO() << "areca: recovered unsent uinput failure by committing "
+                        "raw text tx="
+                     << plan.transactionId;
       }
       return;
     }
@@ -219,12 +187,6 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     // plan; committing or running the next key would violate ordering.
     stalled_ = true;
   }
-}
-
-void InputScheduler::forwardOriginalKey(fcitx::InputContext &inputContext,
-                                        const fcitx::Key &key) {
-  inputContext.forwardKey(key);
-  inputContext.forwardKey(key, true);
 }
 
 void InputScheduler::remoteDone(uint64_t transactionId) {
@@ -236,8 +198,7 @@ void InputScheduler::remoteDone(uint64_t transactionId) {
     return;
   }
   activeTransactionId_ = 0;
-  // Uinput may take longer than keyIntervalMs. Start the settle delay from
-  // the actual commit/DONE barrier, not from the earlier Bamboo call.
+  // Start the settle delay from the actual commit/DONE barrier.
   finishKeyAfterCommit();
 }
 
@@ -260,8 +221,7 @@ void InputScheduler::finishKeyAfterCommit() {
 
   const uint64_t deadline = fcitx::now(CLOCK_MONOTONIC) + delayUsec;
   postCommitTimer_ = eventLoop_.addTimeEvent(
-      CLOCK_MONOTONIC, deadline, 0,
-      [this](fcitx::EventSourceTime *, uint64_t) {
+      CLOCK_MONOTONIC, deadline, 0, [this](fcitx::EventSourceTime *, uint64_t) {
         auto completedTimer = std::move(postCommitTimer_);
         finishKey();
         return false;

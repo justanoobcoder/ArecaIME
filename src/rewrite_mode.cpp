@@ -196,7 +196,6 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
   } else {
     state->sentenceCapitalization.reset();
   }
-  const bool autoCapitalized = effectiveTextSym != textSym;
   const uint32_t codepoint = fcitx::Key::keySymToUnicode(effectiveTextSym);
   const auto utf8Text = fcitx::Key::keySymToUTF8(effectiveTextSym);
   if (!codepoint || utf8Text.empty()) {
@@ -205,10 +204,7 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
   }
   cancelProtectedReset(*inputContext);
   event.filterAndAccept();
-  const fcitx::Key queuedKey =
-      autoCapitalized ? fcitx::Key(effectiveTextSym, rawKey.states()) : rawKey;
-  scheduler_.enqueue(*inputContext, queuedKey, codepoint, utf8Text,
-                     autoCapitalized);
+  scheduler_.enqueue(*inputContext, codepoint, utf8Text);
 }
 
 void RewriteModeHandler::requestProtectedReset(

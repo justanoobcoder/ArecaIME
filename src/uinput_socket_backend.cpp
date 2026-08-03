@@ -44,6 +44,8 @@ ApplyStatus UinputSocketBackend::apply(fcitx::InputContext &inputContext,
   pending_.cacheDeleteCount = plan.cacheDeleteCount;
   pending_.expectedBackspaceEvents = plan.backspaceCount + 1;
   pending_.seenBackspaceEvents = 0;
+  pending_.ackFullWaitUsec =
+      static_cast<uint64_t>(plan.ackFullWaitMs) * 1000;
   onDone_ = std::move(onDone);
 
   const auto delayUsec = static_cast<uint64_t>(plan.backspaceDelayMs) * 1000;
@@ -97,16 +99,22 @@ UinputSocketBackend::handleInjectedBackspacePress() {
     return InjectedBackspaceAction::NotPending;
   }
   ++pending_.seenBackspaceEvents;
+  const bool ackFull =
+      pending_.seenBackspaceEvents == pending_.expectedBackspaceEvents;
   const bool sentinel =
       pending_.seenBackspaceEvents >= pending_.expectedBackspaceEvents;
   if (debug_) {
     FCITX_INFO() << "areca: uinput Backspace ack seen="
                  << pending_.seenBackspaceEvents
                  << " expected=" << pending_.expectedBackspaceEvents
+                 << " ack_full=" << ackFull
                  << " sentinel=" << sentinel;
   }
   if (sentinel) {
     filterSentinelRelease_ = true;
+    if (ackFull) {
+      sendWaitAfterAck();
+    }
     maybeCompletePending();
     return InjectedBackspaceAction::Filter;
   }
@@ -121,6 +129,32 @@ bool UinputSocketBackend::handleInjectedBackspaceRelease() {
   if (debug_) {
     FCITX_INFO() << "areca: filtered uinput sentinel Backspace release";
   }
+  return true;
+}
+
+bool UinputSocketBackend::sendWaitAfterAck() {
+  if (!pending_.active() || pending_.serverDone) {
+    return true;
+  }
+
+  const std::string waitLine =
+      "WAIT " + std::to_string(sessionId_) + " " +
+      std::to_string(pending_.transactionId) + " " +
+      std::to_string(pending_.ackFullWaitUsec) + "\n";
+  outputBuffer_.append(waitLine);
+  if (debug_) {
+    FCITX_INFO() << "areca: uinput ACK full, schedule " << waitLine;
+  }
+
+  if (fd_ < 0 || connecting_) {
+    updateEventFlags();
+    return fd_ >= 0;
+  }
+  if (!flushOutput()) {
+    closeSocket(true);
+    return false;
+  }
+  updateEventFlags();
   return true;
 }
 

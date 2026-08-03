@@ -37,7 +37,12 @@ run_as_target_user() {
   if [[ "$(id -un)" == "$ARECA_TARGET_USER" ]]; then
     "$@"
   elif command -v sudo >/dev/null 2>&1; then
-    sudo -u "$ARECA_TARGET_USER" "$@"
+    local target_uid
+    target_uid="$(id -u "$ARECA_TARGET_USER")"
+    sudo -H -u "$ARECA_TARGET_USER" env \
+      XDG_RUNTIME_DIR="/run/user/$target_uid" \
+      DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$target_uid/bus" \
+      "$@"
   else
     return 1
   fi
@@ -181,6 +186,12 @@ case "$ARECA_PREFIX" in
   "~/"*) ARECA_PREFIX="$ARECA_TARGET_HOME/${ARECA_PREFIX#"~/"}" ;;
 esac
 
+if [[ "$(id -u "$ARECA_TARGET_USER")" -eq 0 ]]; then
+  echo "[areca] Refusing to install the user service for root." >&2
+  echo "[areca] Run this installer from the desktop user; it will request sudo only for system files." >&2
+  exit 2
+fi
+
 echo "[areca] root=$ARECA_ROOT_DIR"
 echo "[areca] build=$ARECA_BUILD_DIR prefix=$ARECA_PREFIX type=$ARECA_BUILD_TYPE"
 
@@ -225,6 +236,12 @@ if [[ -n "$ARECA_CMAKE_GENERATOR" ]]; then
   ARECA_GENERATOR_ARGS=(-G "$ARECA_CMAKE_GENERATOR")
 fi
 
+if is_user_prefix; then
+  ARECA_SYSTEM_INTEGRATION=OFF
+else
+  ARECA_SYSTEM_INTEGRATION=ON
+fi
+
 if ! command -v c++ >/dev/null 2>&1 && \
    ! command -v g++ >/dev/null 2>&1 && \
    ! command -v clang++ >/dev/null 2>&1; then
@@ -236,7 +253,8 @@ cmake -S "$ARECA_ROOT_DIR" -B "$ARECA_BUILD_DIR" \
   "${ARECA_GENERATOR_ARGS[@]}" \
   -DCMAKE_BUILD_TYPE="$ARECA_BUILD_TYPE" \
   -DCMAKE_INSTALL_PREFIX="$ARECA_PREFIX" \
-  -DBUILD_UINPUT_SERVER=ON
+  -DBUILD_UINPUT_SERVER=ON \
+  -DINSTALL_SYSTEM_INTEGRATION="$ARECA_SYSTEM_INTEGRATION"
 
 echo "[areca] Building"
 cmake --build "$ARECA_BUILD_DIR" -j
@@ -257,6 +275,15 @@ if is_user_prefix; then
 else
   echo "[areca] Installing with sudo"
   sudo cmake --install "$ARECA_BUILD_DIR"
+
+  # Older installers vendor-enabled the user service for every account. That
+  # also starts Areca in the display-manager session, which can claim the
+  # shared socket before the desktop user's service starts.
+  ARECA_OBSOLETE_GLOBAL_WANTS_LINK="$ARECA_PREFIX/lib/systemd/user/default.target.wants/areca-uinput-server.service"
+  if [[ -L "$ARECA_OBSOLETE_GLOBAL_WANTS_LINK" ]]; then
+    echo "[areca] Removing obsolete globally enabled user-service link"
+    sudo rm -f -- "$ARECA_OBSOLETE_GLOBAL_WANTS_LINK"
+  fi
 fi
 
 update_icon_cache
@@ -336,6 +363,7 @@ if [[ "$(uname -s)" == "Linux" && -x "$ARECA_SERVER_BIN" ]]; then
 [Unit]
 Description=Areca uinput Backspace server
 After=graphical-session.target
+ConditionUser=!@system
 
 [Service]
 Type=simple

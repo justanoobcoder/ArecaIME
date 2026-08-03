@@ -37,6 +37,7 @@ private:
   bool handleIO(fcitx::EventSourceIO *, int, fcitx::IOEventFlags);
   bool readInput();
   void handleLine(const std::string &line);
+  bool sendWaitAfterAck();
   void maybeCompletePending();
   void markTransportFailure();
   void updateEventFlags();

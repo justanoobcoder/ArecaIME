@@ -18,6 +18,7 @@ struct PendingRewriteState {
   bool transportFailed = false;
   uint32_t expectedBackspaceEvents = 0;
   uint32_t seenBackspaceEvents = 0;
+  uint64_t ackFullWaitUsec = 0;
   bool serverDone = false;
 
   bool active() const { return transactionId != 0; }
@@ -32,6 +33,7 @@ struct PendingRewriteState {
     transportFailed = false;
     expectedBackspaceEvents = 0;
     seenBackspaceEvents = 0;
+    ackFullWaitUsec = 0;
     serverDone = false;
   }
 };

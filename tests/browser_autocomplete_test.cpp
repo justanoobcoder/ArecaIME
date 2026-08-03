@@ -4,13 +4,23 @@
 #include "browser_autocomplete.h"
 
 int main() {
+  using areca::BrowserAutocompleteStrategy;
   using areca::looksLikeBrowserAutocomplete;
 
   assert(areca::isBrowserLikeProgram("google-chrome"));
+  assert(areca::browserAutocompleteStrategy("microsoft-edge", true) ==
+         BrowserAutocompleteStrategy::EdgeUrlForwardTwo);
+  assert(areca::browserAutocompleteStrategy("microsoft-edge", false) ==
+         BrowserAutocompleteStrategy::ForwardOne);
+  assert(areca::browserAutocompleteStrategy("msedge.desktop", true) ==
+         BrowserAutocompleteStrategy::EdgeUrlForwardTwo);
+  assert(areca::browserAutocompleteStrategy("google-chrome", true) ==
+         BrowserAutocompleteStrategy::ForwardOne);
+  assert(areca::browserAutocompleteStrategy("coccoc-browser-stable", true) ==
+         BrowserAutocompleteStrategy::ForwardOne);
   assert(areca::isBrowserLikeProgram("/usr/bin/firefox.desktop"));
   assert(areca::isBrowserLikeProgram(""));
   assert(!areca::isBrowserLikeProgram("org.kde.kate"));
-
   // User typed "go" and the browser selected "ogle" through line end.
   assert(looksLikeBrowserAutocomplete("google", 2, 6, "go"));
 

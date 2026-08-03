@@ -4,7 +4,6 @@
 #include <deque>
 #include <string>
 
-#include <fcitx-utils/key.h>
 #include <fcitx-utils/trackableobject.h>
 #include <fcitx/inputcontext.h>
 
@@ -12,11 +11,8 @@ namespace areca {
 
 struct QueuedKey {
   uint64_t sequence = 0;
-  uint64_t enqueuedAtUsec = 0;
   uint32_t codepoint = 0;
   std::string utf8Text;
-  bool forceTextCommit = false;
-  fcitx::Key originalKey;
   fcitx::TrackableObjectReference<fcitx::InputContext> inputContext;
 };
 

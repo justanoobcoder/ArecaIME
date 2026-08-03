@@ -17,6 +17,9 @@
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 
+#include "browser_autocomplete.h"
+#include "input_capabilities.h"
+
 namespace areca {
 namespace {
 
@@ -47,6 +50,7 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
             config_.enableMacro.value(), config_.capitalizeMacro.value(),
             macroRevision_, macroDefinitions());
       }),
+      autocompleteForwardBackend_(1), autocompleteEdgeForwardBackend_(2),
       uinputBackend_(instance_->eventLoop(),
                      advancedConfig_.socketPath.value()),
       scheduler_(
@@ -58,17 +62,7 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
           [this]() { return timing(); }, [this]() { return debugEnabled(); },
           [this](fcitx::InputContext &inputContext,
                  const BambooResult &result) -> RewriteBackendSelection {
-            auto *state = inputContext.propertyFor(&rewriteStateFactory_);
-            if (!state) {
-              return {&uinputBackend_, 0};
-            }
-            const auto decision = reliabilityChecker_.evaluate(
-                inputContext, result.currentText, state->surroundingReliability,
-                debugEnabled());
-            if (decision.useSurrounding) {
-              return {&surroundingBackend_, 0};
-            }
-            return {&uinputBackend_, decision.additionalFallbackBackspaces};
+            return selectRewriteBackend(inputContext, result);
           }),
       rewriteHandler_(
           instance_->eventLoop(), rewriteStateFactory_, scheduler_,
@@ -98,20 +92,82 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
 
 ArecaEngine::~ArecaEngine() = default;
 
-InputModeHandler &ArecaEngine::activeHandler() {
-  return activePresentationMode_ == PresentationMode::Preedit
-             ? static_cast<InputModeHandler &>(preeditHandler_)
-             : static_cast<InputModeHandler &>(rewriteHandler_);
+RewriteBackendSelection
+ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
+                                  const BambooResult &result) {
+  const auto capabilities = inputContext.capabilityFlags();
+  const char *forcedUinputReason = nullptr;
+  if (requiresUinputForCapabilityMask(capabilities)) {
+    forcedUinputReason = "capability-mask-0x72";
+  } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
+    forcedUinputReason = "terminal-capability";
+  }
+
+  if (forcedUinputReason) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: force backend=uinput-socket reason="
+                   << forcedUinputReason
+                   << " program=" << inputContext.program();
+    }
+    return {&uinputBackend_};
+  }
+
+  auto *state = inputContext.propertyFor(&rewriteStateFactory_);
+  if (!state) {
+    return {&uinputBackend_};
+  }
+
+  const auto decision = reliabilityChecker_.evaluate(
+      inputContext, result.currentText, state->surroundingReliability,
+      debugEnabled());
+  if (decision.browserAutocomplete) {
+    const bool isUrl = capabilities.test(fcitx::CapabilityFlag::Url);
+    RewriteBackend *backend = &autocompleteForwardBackend_;
+    if (browserAutocompleteStrategy(inputContext.program(), isUrl) ==
+        BrowserAutocompleteStrategy::EdgeUrlForwardTwo) {
+      backend = &autocompleteEdgeForwardBackend_;
+    }
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: browser autocomplete strategy=" << backend->name()
+                   << " is_url=" << isUrl
+                   << " bamboo_delete=" << result.deleteCount;
+    }
+    return {backend};
+  }
+
+  if (decision.useSurrounding) {
+    return {&surroundingBackend_};
+  }
+  return {&uinputBackend_};
 }
 
-const char *ArecaEngine::presentationModeName() const {
-  return activePresentationMode_ == PresentationMode::Preedit ? "Preedit"
-                                                              : "Rewrite";
+InputModeHandler &ArecaEngine::activeHandler() {
+  switch (activePresentationMode_) {
+  case PresentationMode::Preedit:
+    return preeditHandler_;
+  case PresentationMode::Redirect:
+    return redirectHandler_;
+  case PresentationMode::Rewrite:
+    return rewriteHandler_;
+  }
+  return rewriteHandler_;
+}
+
+const char *ArecaEngine::presentationModeName(PresentationMode mode) {
+  switch (mode) {
+  case PresentationMode::Rewrite:
+    return "Rewrite";
+  case PresentationMode::Preedit:
+    return "Preedit";
+  case PresentationMode::Redirect:
+    return "Redirect (EN)";
+  }
+  return "Rewrite";
 }
 
 std::string ArecaEngine::subMode(const fcitx::InputMethodEntry &,
                                  fcitx::InputContext &) {
-  return presentationModeName();
+  return presentationModeName(activePresentationMode_);
 }
 
 std::string ArecaEngine::subModeIconImpl(const fcitx::InputMethodEntry &,
@@ -122,7 +178,7 @@ std::string ArecaEngine::subModeIconImpl(const fcitx::InputMethodEntry &,
 std::string ArecaEngine::subModeLabelImpl(const fcitx::InputMethodEntry &,
                                           fcitx::InputContext &) {
   return "Ă  " + config_.bambooInputMethod.value() + " \xC2\xB7 " +
-         presentationModeName();
+         presentationModeName(activePresentationMode_);
 }
 
 void ArecaEngine::switchPresentationMode(fcitx::InputContext &inputContext) {
@@ -133,15 +189,30 @@ void ArecaEngine::switchPresentationMode(fcitx::InputContext &inputContext) {
     return;
   }
 
-  const auto next = activePresentationMode_ == PresentationMode::Rewrite
-                        ? PresentationMode::Preedit
-                        : PresentationMode::Rewrite;
+  const auto current = activePresentationMode_;
+  PresentationMode next = PresentationMode::Rewrite;
+  switch (current) {
+  case PresentationMode::Rewrite:
+    next = PresentationMode::Preedit;
+    break;
+  case PresentationMode::Preedit:
+    next = PresentationMode::Redirect;
+    break;
+  case PresentationMode::Redirect:
+    next = PresentationMode::Rewrite;
+    break;
+  }
+
+  rewriteHandler_.resetContext(inputContext);
+  preeditHandler_.resetContext(inputContext);
   config_.presentationMode.setValue(next);
   applyConfig();
+  activeHandler().activate(inputContext);
   save();
 
   if (debugEnabled()) {
-    FCITX_INFO() << "areca: switch mode hotkey mode=" << presentationModeName()
+    FCITX_INFO() << "areca: switch mode hotkey mode="
+                 << presentationModeName(next)
                  << " program=" << inputContext.program();
   }
   instance_->showInputMethodInformation(&inputContext);
@@ -156,9 +227,7 @@ void ArecaEngine::activate(const fcitx::InputMethodEntry &,
   activeHandler().activate(*inputContext);
   if (debugEnabled()) {
     FCITX_INFO() << "areca: activate presentation_mode="
-                 << (activePresentationMode_ == PresentationMode::Preedit
-                         ? "preedit"
-                         : "rewrite")
+                 << presentationModeName(activePresentationMode_)
                  << " program=" << inputContext->program();
   }
 }
@@ -228,8 +297,7 @@ void ArecaEngine::setSubConfig(const std::string &path,
                                const fcitx::RawConfig &config) {
   if (path == "advanced") {
     advancedConfig_.load(config, true);
-    fcitx::safeSaveAsIni(advancedConfig_, kPkgConfigPath,
-                         kAdvancedConfigPath);
+    fcitx::safeSaveAsIni(advancedConfig_, kPkgConfigPath, kAdvancedConfigPath);
     applyConfig();
     return;
   }
@@ -237,19 +305,16 @@ void ArecaEngine::setSubConfig(const std::string &path,
     return;
   }
   macroTable_.load(config, true);
-  fcitx::safeSaveAsIni(macroTable_, kPkgConfigPath,
-                       kMacroConfigPath);
+  fcitx::safeSaveAsIni(macroTable_, kPkgConfigPath, kMacroConfigPath);
   ++macroRevision_;
   applyConfig();
 }
 
 void ArecaEngine::reloadConfig() {
-  fcitx::readAsIni(config_, kPkgConfigPath,
-                   "conf/areca.conf");
+  fcitx::readAsIni(config_, kPkgConfigPath, "conf/areca.conf");
   // Seed the new advanced panel from the legacy fields before loading its own
   // file. Existing installations therefore retain their timing and socket;
   // once the advanced file exists, its values take precedence.
-  advancedConfig_.keyIntervalMs.setValue(config_.legacyKeyIntervalMs.value());
   advancedConfig_.backspaceDelayMs.setValue(
       config_.legacyBackspaceDelayMs.value());
   advancedConfig_.afterBackspaceWaitMs.setValue(
@@ -258,24 +323,19 @@ void ArecaEngine::reloadConfig() {
       config_.legacyPostCommitDelayMs.value());
   advancedConfig_.resetDelayMs.setValue(config_.legacyResetDelayMs.value());
   advancedConfig_.socketPath.setValue(config_.legacySocketPath.value());
-  fcitx::readAsIni(advancedConfig_, kPkgConfigPath,
-                   kAdvancedConfigPath);
+  fcitx::readAsIni(advancedConfig_, kPkgConfigPath, kAdvancedConfigPath);
   if (advancedConfig_.socketPath.value() == kLegacyDefaultSocketPath) {
     advancedConfig_.socketPath.setValue(kDefaultSocketPath);
   }
-  fcitx::readAsIni(macroTable_, kPkgConfigPath,
-                   kMacroConfigPath);
+  fcitx::readAsIni(macroTable_, kPkgConfigPath, kMacroConfigPath);
   ++macroRevision_;
   applyConfig();
 }
 
 void ArecaEngine::save() {
-  fcitx::safeSaveAsIni(config_, kPkgConfigPath,
-                       "conf/areca.conf");
-  fcitx::safeSaveAsIni(macroTable_, kPkgConfigPath,
-                       kMacroConfigPath);
-  fcitx::safeSaveAsIni(advancedConfig_, kPkgConfigPath,
-                       kAdvancedConfigPath);
+  fcitx::safeSaveAsIni(config_, kPkgConfigPath, "conf/areca.conf");
+  fcitx::safeSaveAsIni(macroTable_, kPkgConfigPath, kMacroConfigPath);
+  fcitx::safeSaveAsIni(advancedConfig_, kPkgConfigPath, kAdvancedConfigPath);
 }
 
 std::vector<MacroDefinition> ArecaEngine::macroDefinitions() const {
@@ -291,9 +351,9 @@ std::vector<MacroDefinition> ArecaEngine::macroDefinitions() const {
 }
 
 SchedulerTiming ArecaEngine::timing() const {
-  return {static_cast<uint32_t>(advancedConfig_.keyIntervalMs.value()),
-          static_cast<uint32_t>(advancedConfig_.backspaceDelayMs.value()),
+  return {static_cast<uint32_t>(advancedConfig_.backspaceDelayMs.value()),
           static_cast<uint32_t>(advancedConfig_.afterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(advancedConfig_.ackFullWaitMs.value()),
           static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value())};
 }
 

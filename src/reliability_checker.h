@@ -22,7 +22,6 @@ struct SurroundingReliabilityState {
 struct ReliabilityDecision {
   bool useSurrounding = false;
   bool browserAutocomplete = false;
-  uint32_t additionalFallbackBackspaces = 0;
 };
 
 class ReliabilityChecker {

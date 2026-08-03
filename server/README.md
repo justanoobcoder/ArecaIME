@@ -17,6 +17,8 @@ Areca addon                  areca-uinput-server             Application
      ├──────────────────────────────►│                            │
      │                               ├── Backspace × N ──────────►│
      │                               ├── sentinel Backspace       │
+     │ WAIT session/tx/timing       │                            │
+     ├──────────────────────────────►│                            │
      │                               └── wait                     │
      │ DONE session/tx               │                            │
      │◄──────────────────────────────┤                            │
@@ -32,8 +34,9 @@ Areca addon                  areca-uinput-server             Application
   transaction mới.
 - Với yêu cầu xoá `N` ký tự, server phát `N + 1` Backspace. Phím cuối là
   sentinel để addon filter nếu compositor đưa event quay lại Fcitx.
-- Server không gửi ack trung gian. `DONE` chỉ được gửi sau tất cả Backspace và
-  thời gian chờ cuối plan.
+- Server không gửi ack trung gian. Nếu addon quan sát đủ Backspace, lệnh
+  `WAIT` thay thế thời gian chờ cuối của plan; nếu không, plan tự hoàn tất bằng
+  thời gian dự phòng của nó. Cả hai đường chỉ trả một `DONE`.
 - Nếu connection đóng hoặc plan bị thay thế, goroutine đang chạy được cancel.
 - Thiết bị uinput được mở lazy ở plan đầu tiên và dùng chung qua mutex.
 - `SIGTERM`/`SIGINT` đóng listener, huỷ session, destroy virtual keyboard và xoá
@@ -49,6 +52,12 @@ Cách khuyên dùng là chạy installer từ thư mục gốc:
 ```bash
 ./scripts/install.sh
 ```
+
+Installer enable service trong user session của người cài. Không enable unit
+bằng symlink toàn hệ thống trong `/usr/lib/systemd/user/default.target.wants/`:
+cách đó khiến cả display-manager user cũng chạy server và tranh cùng socket.
+Unit có `ConditionUser=!@system`, nên root và các system user như display manager
+không thể khởi chạy server ngay cả khi unit bị enable nhầm.
 
 Build mặc định cài binary vào `libexec` và tạo user service:
 
@@ -74,6 +83,13 @@ systemctl --user status areca-uinput-server.service
 systemctl --user restart areca-uinput-server.service
 systemctl --user stop areca-uinput-server.service
 journalctl --user -u areca-uinput-server -f
+```
+
+Không dùng `sudo systemctl start ...`: đây không phải system service. Nếu cài từ
+package thay vì `install.sh`, desktop user enable bằng:
+
+```bash
+systemctl --user enable --now areca-uinput-server.service
 ```
 
 Unit do installer tạo dùng binary cài trong prefix và truyền cùng `SocketPath`
@@ -181,13 +197,21 @@ Addon gửi một dòng:
 PLAN <session> <tx> <backspaces> <inter-usec> <final-wait-usec>
 ```
 
-Ví dụ xoá ba ký tự, cách nhau 5 ms và chờ 10 ms:
+Ví dụ xoá ba ký tự, cách nhau 5 ms và chờ 40 ms:
 
 ```text
-PLAN 738850850354732 503 3 5000 10000
+PLAN 738850850354732 503 3 5000 40000
 ```
 
 Server phát bốn Backspace, trong đó phím thứ tư là sentinel, rồi trả:
+
+```text
+WAIT 738850850354732 503 20000
+```
+
+`WAIT` được addon gửi khi đã quan sát đủ bốn event. Server hủy timer 40 ms của
+PLAN và thay bằng timer 20 ms này. Nếu addon không thấy ACK, PLAN tự dùng 40 ms.
+Sau đường hoàn tất được chọn, server trả:
 
 ```text
 DONE 738850850354732 503
@@ -234,7 +258,9 @@ recv PLAN ...
 start plan ...
 inject backspace ...
 inject sentinel ...
-emit done ...
+recv WAIT ...             # nếu addon quan sát đủ ACK
+start wait ...
+emit wait done ...        # hoặc emit done từ PLAN fallback
 send DONE ...
 ```
 

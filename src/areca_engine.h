@@ -6,9 +6,11 @@
 #include <fcitx/instance.h>
 
 #include "areca_config.h"
+#include "autocomplete_surrounding_backend.h"
 #include "bamboo_engine_adapter.h"
 #include "input_scheduler.h"
 #include "preedit_mode.h"
+#include "redirect_mode.h"
 #include "reliability_checker.h"
 #include "rewrite_mode.h"
 #include "surrounding_text_backend.h"
@@ -47,10 +49,13 @@ public:
 
 private:
   InputModeHandler &activeHandler();
-  const char *presentationModeName() const;
+  static const char *presentationModeName(PresentationMode mode);
   void switchPresentationMode(fcitx::InputContext &inputContext);
   SchedulerTiming timing() const;
   bool debugEnabled() const { return config_.debug.value(); }
+  RewriteBackendSelection
+  selectRewriteBackend(fcitx::InputContext &inputContext,
+                       const BambooResult &result);
   void applyConfig();
   std::vector<MacroDefinition> macroDefinitions() const;
 
@@ -64,10 +69,13 @@ private:
   fcitx::FactoryFor<PreeditInputState> preeditStateFactory_;
   ReliabilityChecker reliabilityChecker_;
   SurroundingTextBackend surroundingBackend_;
+  AutocompleteForwardSurroundingBackend autocompleteForwardBackend_;
+  AutocompleteForwardSurroundingBackend autocompleteEdgeForwardBackend_;
   UinputSocketBackend uinputBackend_;
   InputScheduler scheduler_;
   RewriteModeHandler rewriteHandler_;
   PreeditModeHandler preeditHandler_;
+  RedirectModeHandler redirectHandler_;
 };
 
 } // namespace areca

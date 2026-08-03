@@ -70,8 +70,12 @@ areca: queue push
 areca: scheduler process
 areca: bamboo result
 areca: reliability first-probe
+areca: force backend=uinput-socket reason=capability-mask-0x72
+areca: force backend=uinput-socket reason=terminal-capability
 areca: rewrite select backend=
 areca: uinput prepare PLAN
+areca: uinput Backspace ack seen=
+areca: uinput ACK full, schedule WAIT
 areca: uinput DONE observed
 areca: remote DONE
 areca: protected reset cancelled/executed
@@ -140,7 +144,8 @@ Kiểm tra theo thứ tự:
 3. Server có mở `/dev/uinput` được không.
 4. Addon có gửi `PLAN` không.
 5. Có đủ Backspace thật cộng sentinel không.
-6. Server có trả đúng `DONE session tx` không.
+6. Nếu addon thấy ACK full, có gửi đúng `WAIT session tx delay` không.
+7. Server có trả đúng một `DONE session tx` không.
 
 Nếu log báo pipeline paused sau transport failure, restart Fcitx để xoá
 fail-closed state. Không retry transaction cũ bằng tay.
@@ -149,11 +154,11 @@ fail-closed state. Không retry transaction cũ bằng tay.
 
 Timing và socket hiện được lưu trong
 `~/.config/fcitx5/conf/areca-advanced.conf`. Ví dụ source đổi `ResetDelayMs`
-mặc định thành 120 không tự sửa dòng `ResetDelayMs=250` đã tồn tại. Kiểm tra
+mặc định thành 250 không tự sửa dòng `ResetDelayMs=120` đã tồn tại. Kiểm tra
 trực tiếp:
 
 ```bash
-grep -E '^(KeyIntervalMs|PostCommitDelayMs|ResetDelayMs|SocketPath)=' \
+grep -E '^(BackspaceDelayMs|AfterBackspaceWaitMs|AckFullWaitMs|PostCommitDelayMs|ResetDelayMs|SocketPath)=' \
   ~/.config/fcitx5/conf/areca-advanced.conf
 ```
 

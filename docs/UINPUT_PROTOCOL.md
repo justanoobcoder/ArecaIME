@@ -18,12 +18,12 @@ PLAN <session-id> <transaction-id> <backspace-count> <delay-us> <wait-us>
 | `transaction-id` | `uint64` | ID tăng dần cho mỗi rewrite. |
 | `backspace-count` | integer không âm | Số Backspace thật cần đến ứng dụng. |
 | `delay-us` | integer không âm | Khoảng chờ giữa hai Backspace, tính bằng microsecond. |
-| `wait-us` | integer không âm | Thời gian chờ sau toàn bộ Backspace trước `DONE`. |
+| `wait-us` | integer không âm | Timeout dự phòng sau toàn bộ Backspace; dùng nếu addon không gửi `WAIT`. |
 
-Ví dụ xoá ba character, delay 5 ms và chờ 10 ms:
+Ví dụ xoá ba character, delay 5 ms và chờ 40 ms:
 
 ```text
-PLAN 738850850354732 503 3 5000 10000
+PLAN 738850850354732 503 3 5000 40000
 ```
 
 ## Sentinel Backspace
@@ -39,9 +39,23 @@ Nếu compositor route virtual keyboard event qua Fcitx, addon đếm event và
 filter press/release của sentinel. Nếu compositor đưa uinput thẳng tới client,
 addon có thể không quan sát event; `DONE` vẫn là hàng rào hoàn tất chính thức.
 
+## WAIT sau ACK full
+
+Khi addon quan sát đủ `N + 1` Backspace, nó gửi:
+
+```text
+WAIT <session-id> <transaction-id> <delay-us>
+```
+
+Server huỷ phần chờ `wait-us` còn lại của `PLAN`, chờ theo `delay-us` của
+`WAIT`, rồi trả `DONE`. `AckFullWaitMs` mặc định là 20 ms. Nếu addon không
+quan sát đủ event, `PLAN` vẫn tự hoàn tất sau `AfterBackspaceWaitMs`, mặc định
+40 ms.
+
 ## DONE
 
-Sau khi gửi đủ Backspace và chờ `wait-us`, server trả đúng một response:
+Server trả đúng một response sau timer được chọn: `WAIT delay-us` nếu nhận
+được WAIT, nếu không thì dùng `PLAN wait-us`:
 
 ```text
 DONE <session-id> <transaction-id>
@@ -55,7 +69,8 @@ Addon chỉ chấp nhận `DONE` khi:
 - Transaction trùng pending request.
 
 Sau `DONE`, addon commit `commitText`, cập nhật SurroundingText cache, clear
-pending state và mới cho scheduler tiếp tục. Không có ack trung gian từ server.
+pending state và mới cho scheduler tiếp tục. Server không gửi ack trung gian;
+"ACK full" là việc addon tự quan sát đủ `N + 1` KeyEvent Backspace quay lại.
 
 ## Ordering và lỗi
 
@@ -75,6 +90,7 @@ wire message:
 ```text
 BackspaceDelayMs      × 1000 → delay-us
 AfterBackspaceWaitMs × 1000 → wait-us
+AckFullWaitMs         × 1000 → WAIT delay-us
 ```
 
 `PostCommitDelayMs` không nằm trong protocol. Đây là timer phía addon, bắt đầu

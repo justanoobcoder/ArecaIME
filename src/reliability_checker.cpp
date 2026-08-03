@@ -47,9 +47,9 @@ ReliabilityDecision ReliabilityChecker::evaluate(
             state.reliable = true;
           }
           if (debug) {
-            FCITX_INFO()
-                << "areca: reliability first-probe word=" << segment.word
-                << " shown=" << shownText << " reliable=" << state.reliable;
+            FCITX_INFO() << "areca: reliability first-probe word="
+                         << segment.word << " shown=" << shownText
+                         << " reliable=" << state.reliable;
           }
         } else if (debug) {
           FCITX_INFO() << "areca: reliability first-probe no word";
@@ -77,9 +77,6 @@ ReliabilityDecision ReliabilityChecker::evaluate(
   decision.browserAutocomplete = browserAutocomplete;
   decision.useSurrounding =
       state.known && state.reliable && !browserAutocomplete;
-  // OpenKey sends one real Backspace for the selected inline suggestion. The
-  // socket server independently appends its own sentinel Backspace.
-  decision.additionalFallbackBackspaces = browserAutocomplete ? 1 : 0;
   return decision;
 }
 
