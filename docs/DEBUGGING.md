@@ -70,7 +70,7 @@ areca: queue push
 areca: scheduler process
 areca: bamboo result
 areca: reliability first-probe
-areca: force backend=uinput-socket reason=capability-mask-0x72
+areca: force backend=uinput-socket reason=vscode-family-capability-mask-0x72
 areca: force backend=uinput-socket reason=terminal-capability
 areca: rewrite select backend=
 areca: uinput prepare PLAN

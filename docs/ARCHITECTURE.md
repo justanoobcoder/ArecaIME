@@ -137,14 +137,13 @@ Khi `deleteCount == 0`:
 
 Khi `deleteCount > 0`:
 
-1. Input context có capability mask chính xác `0x72` luôn chọn
-   `UinputSocketBackend`. Đây là exact match; `0x90072`, `0xE001800072` và các
-   mask chỉ chứa `0x72` không bị áp dụng policy này.
+1. Input context thuộc họ VS Code và có capability mask chính xác `0x72` chọn
+   `UinputSocketBackend`. Đây là exact match; program ngoài họ VS Code,
+   `0x90072`, `0xE001800072` và các mask khác không bị áp dụng policy này.
 2. Input context có `CapabilityFlag::Terminal` cũng luôn chọn
    `UinputSocketBackend`.
-3. IDE/code editor không bị ép uinput trực tiếp theo program name. Việc một vùng
-   trong IDE bị ép uinput phụ thuộc capability mask hoặc `Terminal` flag của
-   chính input context đó.
+3. Program rỗng không khớp rule VS Code tạm thời này. Việc ép uinput vẫn có thể
+   đến từ `Terminal` flag của chính input context.
 4. Với app còn lại, `ReliabilityChecker` đánh giá input context.
 5. Verdict reliable chọn `SurroundingTextBackend`.
 6. Verdict unreliable chọn `UinputSocketBackend`.
@@ -157,7 +156,7 @@ Khi `deleteCount > 0`:
 Hai capability policy forced-uinput có log riêng:
 
 ```text
-areca: force backend=uinput-socket reason=capability-mask-0x72 program=...
+areca: force backend=uinput-socket reason=vscode-family-capability-mask-0x72 program=...
 areca: force backend=uinput-socket reason=terminal-capability program=...
 ```
 
@@ -195,10 +194,9 @@ password context tiếp tục nhận phím gốc như bình thường.
 theo input context. `RedirectModeHandler` không xử lý nội dung: press event gọi
 `KeyEvent::forward()`, release event được để nguyên cho Fcitx chuyển tiếp.
 
-Nếu mode global là Rewrite, context có capability mask chính xác `0x72`, có
-`CapabilityFlag::Terminal` sẽ chọn `UinputSocketBackend` trước reliability
-probe. Không còn backend policy nào nhận diện IDE hoặc terminal theo program
-name.
+Nếu mode global là Rewrite, context thuộc họ VS Code có capability mask chính
+xác `0x72`, hoặc context có `CapabilityFlag::Terminal`, sẽ chọn
+`UinputSocketBackend` trước reliability probe.
 
 ## Reliability lifetime
 

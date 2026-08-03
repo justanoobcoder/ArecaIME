@@ -97,8 +97,9 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
   const auto capabilities = inputContext.capabilityFlags();
   const char *forcedUinputReason = nullptr;
-  if (requiresUinputForCapabilityMask(capabilities)) {
-    forcedUinputReason = "capability-mask-0x72";
+  if (requiresUinputForCapabilityMask(capabilities,
+                                      inputContext.program())) {
+    forcedUinputReason = "vscode-family-capability-mask-0x72";
   } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
     forcedUinputReason = "terminal-capability";
   }

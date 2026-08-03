@@ -112,12 +112,11 @@ DONE <session> <transaction>
 ứng dụng nên addon không nhất thiết quan sát được mọi Backspace. Vì vậy nếu
 `DONE` tới trước, addon không chờ thêm ack event và tiếp tục pipeline an toàn.
 
-Areca không ép toàn bộ IDE/code editor sang uinput theo program name. Tuy nhiên,
-input context có capability mask chính xác `0x72` sẽ dùng uinput vì nhóm client
-này quảng bá SurroundingText nhưng thực tế có thể bỏ qua thao tác delete. Đây là
-exact match nên `0x90072`, `0xE001800072` và các mask khác không bị bắt theo
-policy này. Context có `CapabilityFlag::Terminal` vẫn dùng uinput như trước;
-Areca không còn nhận diện terminal hoặc IDE bằng program name.
+Rule capability mask chính xác `0x72` chỉ ép uinput khi program thuộc họ VS Code
+(VS Code/Code OSS, VSCodium, Cursor, Windsurf, Antigravity và các clone đã nhận
+diện). Đây là exact match nên `0x90072`, `0xE001800072` và các mask khác không
+bị bắt theo policy này. Program rỗng và app ngoài họ VS Code cũng không bị rule
+`0x72` tác động. Context có `CapabilityFlag::Terminal` vẫn dùng uinput như trước.
 
 Đặc tả đầy đủ nằm trong [Protocol uinput](docs/UINPUT_PROTOCOL.md).
 
@@ -319,9 +318,9 @@ coi đó là một từ hoàn toàn mới.
 được forward nguyên bản như password field; release event không bị filter. Không
 có text nào đi qua Bamboo, queue, timer, SurroundingText hoặc uinput.
 
-Areca không tự đổi mode theo ứng dụng. Khi đang ở Rewrite, input context có mask
-chính xác `0x72` hoặc có `CapabilityFlag::Terminal` sẽ luôn dùng uinput cho thao
-tác xoá/rewrite. Không có danh sách app ID/program name. Các context
+Areca không tự đổi mode theo ứng dụng. Khi đang ở Rewrite, input context thuộc họ
+VS Code có mask chính xác `0x72`, hoặc context bất kỳ có
+`CapabilityFlag::Terminal`, sẽ dùng uinput cho thao tác xoá/rewrite. Các context
 forced-uinput không probe hay gọi SurroundingText.
 
 ## Trạng thái và giới hạn hiện tại
