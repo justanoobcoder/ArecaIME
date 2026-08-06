@@ -95,29 +95,12 @@ ArecaEngine::~ArecaEngine() = default;
 RewriteBackendSelection
 ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
-  const auto capabilities = inputContext.capabilityFlags();
-  const char *forcedUinputReason = nullptr;
-  if (requiresUinputForCapabilityMask(capabilities,
-                                      inputContext.program())) {
-    forcedUinputReason = "vscode-family-capability-mask-0x72";
-  } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
-    forcedUinputReason = "terminal-capability";
-  }
-
-  if (forcedUinputReason) {
-    if (debugEnabled()) {
-      FCITX_INFO() << "areca: force backend=uinput-socket reason="
-                   << forcedUinputReason
-                   << " program=" << inputContext.program();
-    }
-    return {&uinputBackend_};
-  }
-
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
   if (!state) {
     return {&uinputBackend_};
   }
 
+   const auto capabilities = inputContext.capabilityFlags();
   const auto decision = reliabilityChecker_.evaluate(
       inputContext, result.currentText, state->surroundingReliability,
       debugEnabled());
@@ -137,6 +120,23 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   if (decision.useSurrounding) {
+     
+      const char *forcedUinputReason = nullptr;
+      if (requiresUinputForCapabilityMask(capabilities,
+                                          inputContext.program())) {
+        forcedUinputReason = "vscode-family-capability-mask-0x72";
+      } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
+        forcedUinputReason = "terminal-capability";
+      }
+
+      if (forcedUinputReason) {
+        if (debugEnabled()) {
+          FCITX_INFO() << "areca: force backend=uinput-socket reason="
+                      << forcedUinputReason
+                      << " program=" << inputContext.program();
+        }
+        return {&uinputBackend_};
+      }
     return {&surroundingBackend_};
   }
   return {&uinputBackend_};
