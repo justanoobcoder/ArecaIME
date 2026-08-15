@@ -30,20 +30,13 @@ ReliabilityDecision ReliabilityChecker::evaluate(
       looksLikeBrowserAutocomplete(surrounding.text(), surrounding.cursor(),
                                    surrounding.anchor(), shownText);
 
-  // Decide exactly once, on the first rewrite for this input context. Cache
-  // both the exact-mask policy and the SurroundingText probe. An autocomplete
-  // snapshot is not a valid first decision: leave known=false so a later
-  // ordinary rewrite can decide.
+  // Decide exactly once, on the first rewrite for this input context. Probe
+  // SurroundingText first, then apply the exact-mask policy only to a reliable
+  // result. An autocomplete snapshot is not a valid first decision: leave
+  // known=false so a later ordinary rewrite can decide.
   if (!state.known && !browserAutocomplete) {
     const auto capabilities = inputContext.capabilityFlags();
-    state.forceForwardBackspace =
-        capabilities.toInteger() == kForwardBackspaceCapabilityMask;
-    if (state.forceForwardBackspace) {
-      if (debug) {
-        FCITX_INFO() << "areca: reliability first-probe force_forward=1"
-                     << " reason=capability-mask-0x72";
-      }
-    } else if (capabilities.test(fcitx::CapabilityFlag::SurroundingText)) {
+    if (capabilities.test(fcitx::CapabilityFlag::SurroundingText)) {
       if (surrounding.isValid()) {
         WordSegment segment;
         if (extractWordBeforeCursor(surrounding.text(), surrounding.cursor(),
@@ -68,6 +61,13 @@ ReliabilityDecision ReliabilityChecker::evaluate(
     } else if (debug) {
       FCITX_INFO()
           << "areca: reliability first-probe no surrounding capability";
+    }
+    state.forceForwardBackspace =
+        state.reliable &&
+        capabilities.toInteger() == kForwardBackspaceCapabilityMask;
+    if (state.forceForwardBackspace && debug) {
+      FCITX_INFO() << "areca: reliability first-probe force_forward=1"
+                   << " reason=reliable-capability-mask-0x72";
     }
     // Absence of the capability is also a complete first verdict. Cache the
     // false result instead of attempting the same probe on every rewrite.

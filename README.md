@@ -108,8 +108,9 @@ forward Backspace × N
 Trong toàn bộ transaction, scheduler vẫn giữ `processing=true`, vì vậy key đến
 sau chỉ được append vào FIFO.
 
-Capability mask chính xác `0x72` được cache ngay trong verdict reliability và
-chọn backend forward-Backspace. Rule này không phụ thuộc tên ứng dụng.
+Sau khi SurroundingText được đánh giá reliable, capability mask chính xác
+`0x72` được cache vào verdict và chọn backend forward-Backspace. Mask này không
+được xét khi verdict unreliable và rule không phụ thuộc tên ứng dụng.
 
 ## Bảo vệ state trước reset của ứng dụng
 
