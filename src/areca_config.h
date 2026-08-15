@@ -114,6 +114,6 @@ FCITX_CONFIGURATION(
     fcitx::SubConfigOption advancedEditor{
         this, "AdvancedEditor", N_("Cấu hình nâng cao"),
         "fcitx://config/addon/areca/advanced"};
-    fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"), true};);
+    fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"), false};);
 
 } // namespace areca
