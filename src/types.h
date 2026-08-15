@@ -20,6 +20,7 @@ struct RewritePlan {
   uint32_t cacheDeleteCount = 0;
   uint32_t backspaceDelayMs = 1;
   uint32_t afterBackspaceWaitMs = 10;
+  uint32_t waylandAfterBackspaceWaitMs = 3;
   uint64_t timerAccuracyUsec = 1;
   std::string commitText;
 };

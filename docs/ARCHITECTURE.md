@@ -45,7 +45,8 @@ file nâng cao, nếu có, luôn được load sau và được ưu tiên.
 7. Scheduler apply `BambooResult`; trong lúc apply/commit/rewrite, key mới chỉ
    được nối vào cuối FIFO.
 8. Forward backend phát đúng số Backspace trong plan rồi chờ
-   `AfterBackspaceWaitMs` trước khi commit.
+   `AfterBackspaceWaitMs` trước khi commit; frontend `wayland` dùng riêng
+   `WaylandAfterBackspaceWaitMs`, mặc định 3 ms.
 9. Sau khi apply hoàn tất và qua `PostCommitDelayMs`, scheduler mới pump đúng
    một key tiếp theo.
 

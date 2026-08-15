@@ -1,5 +1,6 @@
 #include "forward_backspace_backend.h"
 
+#include <string_view>
 #include <utility>
 
 #include <fcitx-utils/keysym.h>
@@ -28,7 +29,12 @@ ApplyStatus ForwardBackspaceBackend::apply(fcitx::InputContext &inputContext,
   remainingBackspaces_ = plan.backspaceCount;
   sentBackspaces_ = 0;
   backspaceDelayMs_ = plan.backspaceDelayMs;
-  afterBackspaceWaitMs_ = plan.afterBackspaceWaitMs;
+  const char *frontend = inputContext.frontend();
+  const bool isWaylandFrontend =
+      frontend && std::string_view(frontend) == "wayland";
+  afterBackspaceWaitMs_ = isWaylandFrontend
+                              ? plan.waylandAfterBackspaceWaitMs
+                              : plan.afterBackspaceWaitMs;
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
 
@@ -37,6 +43,7 @@ ApplyStatus ForwardBackspaceBackend::apply(fcitx::InputContext &inputContext,
                  << " backspaces=" << remainingBackspaces_
                  << " delay_ms=" << backspaceDelayMs_
                  << " after_wait_ms=" << afterBackspaceWaitMs_
+                 << " frontend=" << (frontend ? frontend : "")
                  << " accuracy_us=" << timerAccuracyUsec_;
   }
 

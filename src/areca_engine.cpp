@@ -398,6 +398,8 @@ std::vector<MacroDefinition> ArecaEngine::macroDefinitions() const {
 SchedulerTiming ArecaEngine::timing() const {
   return {static_cast<uint32_t>(advancedConfig_.backspaceDelayMs.value()),
           static_cast<uint32_t>(advancedConfig_.afterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.waylandAfterBackspaceWaitMs.value()),
           static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value()),
           advancedConfig_.preciseTiming.value() ? 1U : 0U};
 }

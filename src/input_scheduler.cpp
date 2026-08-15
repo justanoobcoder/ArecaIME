@@ -130,6 +130,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.transactionId = nextTransactionId_++;
   plan.backspaceDelayMs = timing.backspaceDelayMs;
   plan.afterBackspaceWaitMs = timing.afterBackspaceWaitMs;
+  plan.waylandAfterBackspaceWaitMs = timing.waylandAfterBackspaceWaitMs;
   plan.timerAccuracyUsec = timing.timerAccuracyUsec;
   plan.commitText = result.commitText;
   plan.cacheDeleteCount = result.deleteCount;

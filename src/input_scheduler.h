@@ -15,6 +15,7 @@ namespace areca {
 struct SchedulerTiming {
   uint32_t backspaceDelayMs = 1;
   uint32_t afterBackspaceWaitMs = 10;
+  uint32_t waylandAfterBackspaceWaitMs = 3;
   uint32_t postCommitDelayMs = 20;
   uint64_t timerAccuracyUsec = 1;
 };

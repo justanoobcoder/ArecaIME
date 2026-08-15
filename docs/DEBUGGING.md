@@ -110,7 +110,7 @@ mặc định thành 250 không tự sửa dòng `ResetDelayMs=120` đã tồn t
 trực tiếp:
 
 ```bash
-grep -E '^(BackspaceDelayMs|AfterBackspaceWaitMs|PostCommitDelayMs|PreciseTiming|ResetDelayMs)=' \
+grep -E '^(BackspaceDelayMs|AfterBackspaceWaitMs|WaylandAfterBackspaceWaitMs|PostCommitDelayMs|PreciseTiming|ResetDelayMs)=' \
   ~/.config/fcitx5/conf/areca-advanced.conf
 ```
 

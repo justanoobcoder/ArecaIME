@@ -95,7 +95,8 @@ Khi SurroundingText không đáng tin cậy, addon dùng
 `InputContext::forwardKey()` để phát đúng `N` cặp Backspace press/release. Phím
 đầu được phát ngay; các phím sau cách nhau `BackspaceDelayMs`. Sau Backspace
 cuối, backend chờ `AfterBackspaceWaitMs`, commit text mới, báo hoàn tất đúng một
-lần rồi scheduler mới bắt đầu `PostCommitDelayMs`.
+lần rồi scheduler mới bắt đầu `PostCommitDelayMs`. Riêng input context có
+frontend `wayland` tự động dùng `WaylandAfterBackspaceWaitMs`, mặc định 3 ms.
 
 ```text
 forward Backspace × N
@@ -237,6 +238,7 @@ panel này được lưu tại `~/.config/fcitx5/conf/areca-advanced.conf`:
 ```ini
 BackspaceDelayMs=1
 AfterBackspaceWaitMs=10
+WaylandAfterBackspaceWaitMs=3
 PostCommitDelayMs=20
 PreciseTiming=True
 ResetDelayMs=250
@@ -255,7 +257,8 @@ ResetDelayMs=250
 | Chính | `CapitalizeMacro` | Tự đổi nội dung macro thành chữ thường/toàn chữ hoa theo cách viết key. |
 | Chính | `Debug` | Bật log chi tiết của addon. |
 | Nâng cao | `BackspaceDelayMs` | Delay giữa hai cặp Backspace press/release được forward. |
-| Nâng cao | `AfterBackspaceWaitMs` | Thời gian chờ sau Backspace cuối trước khi commit text mới. |
+| Nâng cao | `AfterBackspaceWaitMs` | Thời gian chờ sau Backspace cuối cho các frontend không phải Wayland. |
+| Nâng cao | `WaylandAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend Wayland, mặc định 3 ms. |
 | Nâng cao | `PostCommitDelayMs` | Settling window độc lập sau mọi text commit. |
 | Nâng cao | `PreciseTiming` | Dùng accuracy `1µs` cho timer Backspace và post-commit; nếu tắt sẽ dùng timer coalescing mặc định của event loop. |
 | Nâng cao | `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
