@@ -6,14 +6,6 @@ ARECA_BUILD_DIR="${BUILD_DIR:-$ARECA_ROOT_DIR/build}"
 ARECA_PREFIX="${PREFIX:-/usr}"
 ARECA_BUILD_TYPE="${BUILD_TYPE:-RelWithDebInfo}"
 ARECA_TARGET_USER="${SUDO_USER:-${USER:-}}"
-ARECA_TARGET_GROUP="$(id -gn "$ARECA_TARGET_USER")"
-if [[ -v ARECA_UINPUT_SOCKET ]]; then
-  ARECA_SOCKET_PATH="$ARECA_UINPUT_SOCKET"
-  ARECA_SOCKET_EXPLICIT=1
-else
-  ARECA_SOCKET_PATH="/tmp/areca-uinput.sock"
-  ARECA_SOCKET_EXPLICIT=0
-fi
 ARECA_INSTALL_DEPS=1
 ARECA_RESTART_FCITX=1
 ARECA_RUN_TESTS=1
@@ -135,11 +127,6 @@ while [[ $# -gt 0 ]]; do
       ARECA_BUILD_TYPE="${2:?missing value for --build-type}"
       shift 2
       ;;
-    --socket)
-      ARECA_SOCKET_PATH="${2:?missing value for --socket}"
-      ARECA_SOCKET_EXPLICIT=1
-      shift 2
-      ;;
     --skip-deps)
       ARECA_INSTALL_DEPS=0
       shift
@@ -161,16 +148,14 @@ Options:
   --prefix PATH          Installation prefix (default: /usr)
   --build-dir PATH       CMake build directory (default: ./build)
   --build-type TYPE      CMake build type (default: RelWithDebInfo)
-  --socket PATH          Unix socket path used by addon/server
   --skip-deps            Do not install distro build dependencies
-  --skip-tests           Do not run CTest and Go server tests
+  --skip-tests           Do not run CTest
   --no-restart           Do not attempt to restart Fcitx5
 
 Environment:
   PREFIX=/usr
   BUILD_DIR=./build
   BUILD_TYPE=RelWithDebInfo
-  ARECA_UINPUT_SOCKET=/tmp/areca-uinput.sock
 EOF
       exit 0
       ;;
@@ -185,12 +170,6 @@ case "$ARECA_PREFIX" in
   "~") ARECA_PREFIX="$ARECA_TARGET_HOME" ;;
   "~/"*) ARECA_PREFIX="$ARECA_TARGET_HOME/${ARECA_PREFIX#"~/"}" ;;
 esac
-
-if [[ "$(id -u "$ARECA_TARGET_USER")" -eq 0 ]]; then
-  echo "[areca] Refusing to install the user service for root." >&2
-  echo "[areca] Run this installer from the desktop user; it will request sudo only for system files." >&2
-  exit 2
-fi
 
 echo "[areca] root=$ARECA_ROOT_DIR"
 echo "[areca] build=$ARECA_BUILD_DIR prefix=$ARECA_PREFIX type=$ARECA_BUILD_TYPE"
@@ -236,12 +215,6 @@ if [[ -n "$ARECA_CMAKE_GENERATOR" ]]; then
   ARECA_GENERATOR_ARGS=(-G "$ARECA_CMAKE_GENERATOR")
 fi
 
-if is_user_prefix; then
-  ARECA_SYSTEM_INTEGRATION=OFF
-else
-  ARECA_SYSTEM_INTEGRATION=ON
-fi
-
 if ! command -v c++ >/dev/null 2>&1 && \
    ! command -v g++ >/dev/null 2>&1 && \
    ! command -v clang++ >/dev/null 2>&1; then
@@ -252,9 +225,7 @@ fi
 cmake -S "$ARECA_ROOT_DIR" -B "$ARECA_BUILD_DIR" \
   "${ARECA_GENERATOR_ARGS[@]}" \
   -DCMAKE_BUILD_TYPE="$ARECA_BUILD_TYPE" \
-  -DCMAKE_INSTALL_PREFIX="$ARECA_PREFIX" \
-  -DBUILD_UINPUT_SERVER=ON \
-  -DINSTALL_SYSTEM_INTEGRATION="$ARECA_SYSTEM_INTEGRATION"
+  -DCMAKE_INSTALL_PREFIX="$ARECA_PREFIX"
 
 echo "[areca] Building"
 cmake --build "$ARECA_BUILD_DIR" -j
@@ -262,11 +233,6 @@ cmake --build "$ARECA_BUILD_DIR" -j
 if [[ "$ARECA_RUN_TESTS" == 1 ]]; then
   echo "[areca] Running C++ tests"
   ctest --test-dir "$ARECA_BUILD_DIR" --output-on-failure
-  echo "[areca] Running uinput-server tests"
-  (
-    cd "$ARECA_ROOT_DIR/server"
-    go test ./...
-  )
 fi
 
 if is_user_prefix; then
@@ -275,126 +241,9 @@ if is_user_prefix; then
 else
   echo "[areca] Installing with sudo"
   sudo cmake --install "$ARECA_BUILD_DIR"
-
-  # Older installers vendor-enabled the user service for every account. That
-  # also starts Areca in the display-manager session, which can claim the
-  # shared socket before the desktop user's service starts.
-  ARECA_OBSOLETE_GLOBAL_WANTS_LINK="$ARECA_PREFIX/lib/systemd/user/default.target.wants/areca-uinput-server.service"
-  if [[ -L "$ARECA_OBSOLETE_GLOBAL_WANTS_LINK" ]]; then
-    echo "[areca] Removing obsolete globally enabled user-service link"
-    sudo rm -f -- "$ARECA_OBSOLETE_GLOBAL_WANTS_LINK"
-  fi
 fi
 
 update_icon_cache
-
-ARECA_SERVER_BIN="$ARECA_PREFIX/libexec/areca-uinput-server"
-
-if [[ "$ARECA_SOCKET_EXPLICIT" == 1 ]]; then
-  ARECA_CONFIG_DIR="$ARECA_TARGET_HOME/.config/fcitx5/conf"
-  ARECA_CONFIG_FILE="$ARECA_CONFIG_DIR/areca-advanced.conf"
-  ARECA_CONFIG_TMP="$(mktemp)"
-  trap 'rm -f "$ARECA_CONFIG_TMP"' EXIT
-  if [[ -f "$ARECA_CONFIG_FILE" ]]; then
-    awk -v socket="$ARECA_SOCKET_PATH" '
-      BEGIN { replaced = 0 }
-      /^SocketPath=/ { print "SocketPath=" socket; replaced = 1; next }
-      { print }
-      END { if (!replaced) print "SocketPath=" socket }
-    ' "$ARECA_CONFIG_FILE" >"$ARECA_CONFIG_TMP"
-  else
-    printf 'SocketPath=%s\n' "$ARECA_SOCKET_PATH" >"$ARECA_CONFIG_TMP"
-  fi
-  run_as_target_user mkdir -p "$ARECA_CONFIG_DIR"
-  if [[ "$(id -un)" == "$ARECA_TARGET_USER" ]]; then
-    install -m 0644 "$ARECA_CONFIG_TMP" "$ARECA_CONFIG_FILE"
-  else
-    sudo install -o "$ARECA_TARGET_USER" -g "$ARECA_TARGET_GROUP" \
-      -m 0644 "$ARECA_CONFIG_TMP" "$ARECA_CONFIG_FILE"
-  fi
-  rm -f "$ARECA_CONFIG_TMP"
-  trap - EXIT
-fi
-
-if [[ "$(uname -s)" == "Linux" ]] && ! is_user_prefix; then
-  if [[ -x "$ARECA_SERVER_BIN" ]] && command -v setcap >/dev/null 2>&1; then
-    echo "[areca] Granting optional scheduling-priority capability"
-    sudo setcap cap_sys_nice+ep "$ARECA_SERVER_BIN" >/dev/null 2>&1 || true
-  fi
-
-  if [[ ! -e /dev/uinput ]]; then
-    echo "[areca] Loading uinput kernel module"
-    sudo modprobe uinput >/dev/null 2>&1 || true
-  fi
-
-  if [[ -e /dev/uinput ]]; then
-    if ! getent group uinput >/dev/null 2>&1; then
-      echo "[areca] Creating uinput group"
-      sudo groupadd --system uinput >/dev/null 2>&1 || true
-    fi
-    if [[ -n "$ARECA_TARGET_USER" ]]; then
-      echo "[areca] Adding $ARECA_TARGET_USER to uinput group"
-      sudo usermod -aG uinput "$ARECA_TARGET_USER" >/dev/null 2>&1 || true
-    fi
-    if [[ -d /etc/udev/rules.d ]] && command -v udevadm >/dev/null 2>&1; then
-      echo "[areca] Installing /dev/uinput udev rule"
-      sudo tee /etc/udev/rules.d/99-areca-uinput.rules >/dev/null <<'EOF' || true
-# Areca: allow members of group "uinput" to access /dev/uinput.
-KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", MODE="0660", GROUP="uinput"
-EOF
-      sudo udevadm control --reload-rules >/dev/null 2>&1 || true
-      sudo udevadm trigger --name-match=uinput >/dev/null 2>&1 || true
-    fi
-    sudo chgrp uinput /dev/uinput >/dev/null 2>&1 || true
-    sudo chmod 0660 /dev/uinput >/dev/null 2>&1 || true
-  else
-    echo "[areca] WARNING: /dev/uinput is unavailable; fallback rewrite cannot work"
-  fi
-fi
-
-ARECA_USER_UNIT_DIR="$ARECA_TARGET_HOME/.config/systemd/user"
-ARECA_USER_UNIT="$ARECA_USER_UNIT_DIR/areca-uinput-server.service"
-if [[ "$(uname -s)" == "Linux" && -x "$ARECA_SERVER_BIN" ]]; then
-  echo "[areca] Installing user service: $ARECA_USER_UNIT"
-  run_as_target_user mkdir -p "$ARECA_USER_UNIT_DIR"
-  ARECA_UNIT_TMP="$(mktemp)"
-  trap 'rm -f "$ARECA_UNIT_TMP"' EXIT
-  cat >"$ARECA_UNIT_TMP" <<EOF
-[Unit]
-Description=Areca uinput Backspace server
-After=graphical-session.target
-ConditionUser=!@system
-
-[Service]
-Type=simple
-ExecStart="$ARECA_SERVER_BIN" -socket "$ARECA_SOCKET_PATH"
-Environment=ARECA_UINPUT_SERVER_LOG=1
-Restart=on-failure
-RestartSec=1
-
-[Install]
-WantedBy=default.target
-EOF
-  if [[ "$(id -un)" == "$ARECA_TARGET_USER" ]]; then
-    install -m 0644 "$ARECA_UNIT_TMP" "$ARECA_USER_UNIT"
-  else
-    sudo install -o "$ARECA_TARGET_USER" -g "$ARECA_TARGET_GROUP" \
-      -m 0644 "$ARECA_UNIT_TMP" "$ARECA_USER_UNIT"
-  fi
-  rm -f "$ARECA_UNIT_TMP"
-  trap - EXIT
-
-  if run_as_target_user systemctl --user daemon-reload >/dev/null 2>&1; then
-    run_as_target_user systemctl --user enable \
-      areca-uinput-server.service >/dev/null 2>&1 || true
-    if ! run_as_target_user systemctl --user restart \
-      areca-uinput-server.service >/dev/null 2>&1; then
-      echo "[areca] WARNING: Could not restart areca-uinput-server.service"
-    fi
-  else
-    echo "[areca] Could not reach the user systemd session; enable the service after login"
-  fi
-fi
 
 if [[ "$ARECA_RESTART_FCITX" == 1 ]]; then
   echo "[areca] Restarting Fcitx5 (best effort)"
@@ -407,7 +256,5 @@ cat <<EOF
 Next:
   - Open fcitx5-configtool and add "Areca (Bamboo)".
   - If Plasma Wayland keeps the old addon in KWin, log out and log in once.
-  - If the uinput group was added now, log out/in once before testing fallback.
-  - Server log: journalctl --user -u areca-uinput-server -f
   - Addon log:  journalctl --user -f | grep areca
 EOF

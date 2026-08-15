@@ -7,10 +7,10 @@ Việt, nhưng tự quản lý thời điểm xử lý phím và cách sửa n�
 Điểm khác biệt chính của Areca là mọi **text key do addon xử lý** đều đi qua
 hàng đợi FIFO. Khi pipeline rảnh, key đầu được pump ngay trong callback;
 scheduler vẫn tuần tự hoá toàn bộ pipeline và không cho phím sau chen vào một
-rewrite đang chờ uinput server hoặc barrier sau commit.
+rewrite đang phát Backspace hoặc barrier sau commit.
 
-> Areca hiện là dự án thử nghiệm. Backend uinput có thể tạo phím Backspace thật
-> ở cấp hệ thống; hãy đọc phần cài đặt và debug trước khi sử dụng thường xuyên.
+> Areca hiện là dự án thử nghiệm. Backend fallback phát Backspace qua
+> `InputContext::forwardKey()`; hãy bật debug khi thử trên frontend mới.
 
 ## Lời cảm ơn
 
@@ -56,10 +56,9 @@ Fcitx5 keyEvent
                          ReliabilityChecker  │
                                   ┌──────────┴──────────┐
                                   ▼                     ▼
-                       SurroundingTextBackend   UinputSocketBackend
-                       delete + commit ngay     PLAN → ACK full: WAIT
-                                                hoặc PLAN timeout → DONE
-                                                → commit
+                       SurroundingTextBackend   ForwardBackspaceBackend
+                       delete + commit ngay     forward N Backspace
+                                                → wait → commit
 ```
 
 Các invariant quan trọng:
@@ -68,13 +67,10 @@ Các invariant quan trọng:
 - Chỉ một phím được Bamboo xử lý tại một thời điểm.
 - Key đầu được xử lý ngay; key sau chỉ được pump khi commit/rewrite trước đã
   hoàn tất và qua `PostCommitDelayMs`.
-- Chỉ có một rewrite uinput pending.
-- Không commit text của rewrite uinput trước `DONE`.
-- Phím mới vẫn được nhận vào queue khi server đang chạy plan, nhưng chưa được
-  xử lý.
-- Không `sleep()` trên main thread Fcitx5; timer và socket đều dùng event loop.
-- Lỗi transport sau khi plan có thể đã được gửi làm pipeline dừng fail-closed,
-  tránh gửi lặp và xoá hai lần.
+- Chỉ có một rewrite bất đồng bộ pending.
+- Không commit text mới trước khi phát đủ Backspace và hết settling wait.
+- Phím mới vẫn được nhận vào queue khi backend đang chạy, nhưng chưa được xử lý.
+- Không `sleep()` trên main thread Fcitx5; mọi delay đều dùng event loop.
 
 Chi tiết từng component và state machine nằm trong
 [Tài liệu kiến trúc](docs/ARCHITECTURE.md).
@@ -88,37 +84,35 @@ với text mà Bamboo tin rằng đang hiển thị. Kết quả được cache 
 
 - Khớp: dùng `deleteSurroundingText()` rồi `commitString()`.
 - Không khớp, snapshot không hợp lệ hoặc app không hỗ trợ capability: fallback
-  sang uinput.
+  sang backend forward-Backspace.
 
 Areca cập nhật lại cache SurroundingText nội bộ sau delete và commit để lần xử
 lý kế tiếp không đọc một snapshot cũ.
 
-### Uinput socket
+### Forward Backspace
 
-Khi SurroundingText không đáng tin cậy, addon gửi một plan qua Unix domain
-socket. Server tự phát toàn bộ Backspace với timing được yêu cầu và chỉ trả một
-lần `DONE`. Với yêu cầu xoá `N` ký tự, server phát `N + 1` Backspace: `N` phím
-đầu đi tới ứng dụng, phím cuối là sentinel để addon filter nếu event quay lại
-Fcitx. PLAN mang timeout dự phòng 40 ms. Nếu addon quan sát đủ `N + 1` event,
-nó gửi WAIT 20 ms; server thay timeout PLAN bằng WAIT và vẫn chỉ trả một DONE.
+Khi SurroundingText không đáng tin cậy, addon dùng
+`InputContext::forwardKey()` để phát đúng `N` cặp Backspace press/release. Phím
+đầu được phát ngay; các phím sau cách nhau `BackspaceDelayMs`. Sau Backspace
+cuối, backend chờ `AfterBackspaceWaitMs`, commit text mới, báo hoàn tất đúng một
+lần rồi scheduler mới bắt đầu `PostCommitDelayMs`.
 
 ```text
-PLAN <session> <transaction> <backspaces> <delay-us> <wait-us>
-WAIT <session> <transaction> <delay-us>
-DONE <session> <transaction>
+forward Backspace × N
+        → AfterBackspaceWaitMs
+        → commitString
+        → rewrite done
+        → PostCommitDelayMs
 ```
 
-`DONE` là kết quả có thẩm quyền. Một số compositor đưa event uinput thẳng tới
-ứng dụng nên addon không nhất thiết quan sát được mọi Backspace. Vì vậy nếu
-`DONE` tới trước, addon không chờ thêm ack event và tiếp tục pipeline an toàn.
+Trong toàn bộ transaction, scheduler vẫn giữ `processing=true`, vì vậy key đến
+sau chỉ được append vào FIFO.
 
-Rule capability mask chính xác `0x72` chỉ ép uinput khi program thuộc họ VS Code
+Rule capability mask chính xác `0x72` chỉ ép forward-Backspace khi program thuộc họ VS Code
 (VS Code/Code OSS, VSCodium, Cursor, Windsurf, Antigravity và các clone đã nhận
 diện). Đây là exact match nên `0x90072`, `0xE001800072` và các mask khác không
 bị bắt theo policy này. Program rỗng và app ngoài họ VS Code cũng không bị rule
-`0x72` tác động. Context có `CapabilityFlag::Terminal` vẫn dùng uinput như trước.
-
-Đặc tả đầy đủ nằm trong [Protocol uinput](docs/UINPUT_PROTOCOL.md).
+`0x72` tác động. Context có `CapabilityFlag::Terminal` cũng dùng backend này.
 
 ## Bảo vệ state trước reset của ứng dụng
 
@@ -127,20 +121,19 @@ không xoá state ngay:
 
 - Mỗi reset mở lại một quiet window `ResetDelayMs`, mặc định 250 ms.
 - Text key mới trong cửa sổ đó huỷ reset.
-- Nếu rewrite uinput đang pending, reset tiếp tục được hoãn.
+- Nếu rewrite bất đồng bộ đang pending, reset tiếp tục được hoãn.
 - Chỉ khi không có input mới và không còn transaction pending, Bamboo state và
   queue của input context mới được reset.
 - Verdict SurroundingText được giữ riêng vì nó mô tả độ tin cậy của ô nhập,
   không phải composition tạm thời.
 
-Password field luôn bypass Bamboo, SurroundingText và uinput; phím gốc được
+Password field luôn bypass Bamboo, SurroundingText và rewrite backend; phím gốc được
 forward thẳng để không đưa nội dung nhạy cảm vào state của addon.
 
 ## Cài đặt nhanh
 
 Installer hỗ trợ Arch/CachyOS, Debian/Ubuntu và Fedora. Script sẽ cài dependency,
-khởi tạo submodule Bamboo, build, chạy test, cài addon cùng server, thiết lập
-quyền `/dev/uinput` và tạo user service:
+khởi tạo submodule Bamboo, build, chạy test và cài addon:
 
 ```bash
 ./scripts/install.sh
@@ -156,7 +149,6 @@ Một số lựa chọn khác:
 
 ```bash
 ./scripts/install.sh --user
-./scripts/install.sh --socket /tmp/areca-uinput.sock
 ./scripts/install.sh --build-dir build-make
 ./scripts/install.sh --skip-tests
 ./scripts/install.sh --no-restart
@@ -165,9 +157,8 @@ Một số lựa chọn khác:
 Sau khi cài, mở `fcitx5-configtool` và thêm **Areca (Bamboo)** vào danh sách
 input method.
 
-Nếu installer vừa thêm user vào group `uinput`, cần đăng xuất/đăng nhập một lần
-để session nhận group mới. Trên Plasma Wayland, KWin có thể là process trực tiếp
-khởi chạy Fcitx bằng một `WAYLAND_SOCKET` riêng; khi đó `fcitx5 -rd` từ terminal
+Trên Plasma Wayland, KWin có thể là process trực tiếp khởi chạy Fcitx bằng một
+`WAYLAND_SOCKET` riêng; khi đó `fcitx5 -rd` từ terminal
 có thể không thay được instance đang giữ addon cũ. Xem cách xác nhận và xử lý
 trong [Hướng dẫn debug](docs/DEBUGGING.md).
 
@@ -182,15 +173,8 @@ ba dòng distro đang được hỗ trợ cho release:
   [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD).
 - Fedora mới nhất: gói `.rpm` được build bên trong image `fedora:latest`.
 
-Mỗi nhánh đều build addon cùng uinput server và chạy toàn bộ CTest/Go test
-trước khi tạo artifact. Package cài kèm user service nhưng không enable toàn hệ
-thống; mỗi desktop user tự enable bằng lệnh
-`systemctl --user enable --now areca-uinput-server`. Unit từ chối root/system
-user, udev rule cấp quyền
-`/dev/uinput` cho desktop session đang active và cấu hình load module `uinput`;
-sau lần đầu cài package nên khởi động lại máy một lần để kernel, udev và user
-manager cùng nhận cấu hình mới. Bamboo được
-checkout và đưa vào source archive theo submodule. Pull request, push vào `main`
+Mỗi nhánh đều build addon và chạy toàn bộ CTest trước khi tạo artifact. Bamboo
+được checkout và đưa vào source archive theo submodule. Pull request, push vào `main`
 và chạy thủ công sẽ tạo artifact của workflow; tag `v*` hoặc tag bắt đầu bằng
 số còn tự động tải các gói lên GitHub Release tương ứng.
 
@@ -213,7 +197,6 @@ git submodule update --init
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
 ctest --test-dir build --output-on-failure
-(cd server && go test ./...)
 sudo cmake --install build
 ```
 
@@ -225,9 +208,7 @@ cmake -S . -B build-make -G "Unix Makefiles"
 cmake --build build-make
 ```
 
-Build mặc định tạo `areca.so` và `areca-uinput-server`. Có thể không build
-server bằng `-DBUILD_UINPUT_SERVER=OFF` nếu đã có server khác tương thích
-protocol.
+Build tạo addon `areca.so`.
 
 Bộ cài đặt cài icon Areca dạng scalable và symbolic có màu vào theme `hicolor`
 dưới các tên `areca`, `fcitx-areca` và `org.fcitx.Fcitx5.fcitx-areca`, sau đó
@@ -251,21 +232,20 @@ CapitalizeMacro=True
 Debug=True
 ```
 
-Chọn **Cấu hình nâng cao** để mở panel timing/socket riêng. Các giá trị trong
+Chọn **Cấu hình nâng cao** để mở panel timing riêng. Các giá trị trong
 panel này được lưu tại `~/.config/fcitx5/conf/areca-advanced.conf`:
 
 ```ini
-BackspaceDelayMs=5
-AfterBackspaceWaitMs=40
-AckFullWaitMs=20
+BackspaceDelayMs=1
+AfterBackspaceWaitMs=10
 PostCommitDelayMs=20
+PreciseTiming=True
 ResetDelayMs=250
-SocketPath=/tmp/areca-uinput.sock
 ```
 
 | Panel | Tuỳ chọn | Ý nghĩa |
 | --- | --- | --- |
-| Chính | `PresentationMode` | `Rewrite` dùng queue và SurroundingText/uinput; `Preedit` xử lý đồng bộ bằng Bamboo; `Redirect (EN)` forward nguyên KeyEvent, không gọi Bamboo, queue hay commit text. Rewrite và Preedit có state/engine tách biệt, Redirect không có mutable state. |
+| Chính | `PresentationMode` | `Rewrite` dùng queue và SurroundingText/forward-Backspace; `Preedit` xử lý đồng bộ bằng Bamboo; `Redirect (EN)` forward nguyên KeyEvent, không gọi Bamboo, queue hay commit text. Rewrite và Preedit có state/engine tách biệt, Redirect không có mutable state. |
 | Chính | `SwitchModeKey` | Hotkey quay vòng `Rewrite → Preedit → Redirect (EN) → Rewrite`, mặc định `Alt+Space`; mode mới được lưu global và hiện bằng popup thông tin của Fcitx5. |
 | Chính | `BambooInputMethod` | Tên input method được định nghĩa bởi Bamboo, mặc định `Telex 2`. |
 | Chính | `OutputCharset` | Bảng mã do Bamboo cung cấp, mặc định `Unicode`; gồm Unicode dựng sẵn/tổ hợp cùng các bảng mã tương thích cũ như TCVN3, VNI Windows, VIQR… |
@@ -275,15 +255,14 @@ SocketPath=/tmp/areca-uinput.sock
 | Chính | `EnableMacro` | Bật thay thế từ viết tắt tại dấu cách hoặc dấu câu. |
 | Chính | `CapitalizeMacro` | Tự đổi nội dung macro thành chữ thường/toàn chữ hoa theo cách viết key. |
 | Chính | `Debug` | Bật log chi tiết của addon. |
-| Nâng cao | `BackspaceDelayMs` | Delay giữa hai Backspace do uinput server phát. |
-| Nâng cao | `AfterBackspaceWaitMs` | Timeout dự phòng của PLAN sau Backspace cuối; bị thay thế nếu addon gửi WAIT. |
-| Nâng cao | `AckFullWaitMs` | Delay của lệnh WAIT gửi khi addon quan sát đủ Backspace; mặc định 20 ms. |
-| Nâng cao | `PostCommitDelayMs` | Settling window sau mọi text commit, tính từ `DONE` đối với uinput. |
+| Nâng cao | `BackspaceDelayMs` | Delay giữa hai cặp Backspace press/release được forward. |
+| Nâng cao | `AfterBackspaceWaitMs` | Thời gian chờ sau Backspace cuối trước khi commit text mới. |
+| Nâng cao | `PostCommitDelayMs` | Settling window độc lập sau mọi text commit. |
+| Nâng cao | `PreciseTiming` | Dùng accuracy `1µs` cho timer Backspace và post-commit; nếu tắt sẽ dùng timer coalescing mặc định của event loop. |
 | Nâng cao | `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
-| Nâng cao | `SocketPath` | Đường dẫn Unix socket dùng chung giữa addon và server. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.
-Khi nâng cấp từ bản cũ, Areca tự đọc timing/socket còn nằm trong `areca.conf`;
+Khi nâng cấp từ bản cũ, Areca tự đọc timing còn nằm trong `areca.conf`;
 nếu `areca-advanced.conf` đã tồn tại thì file mới luôn được ưu tiên. Hãy sửa file
 người dùng hoặc dùng giao diện cấu hình Fcitx5 rồi reload addon.
 Danh sách `BambooInputMethod` và `OutputCharset` trong giao diện được lấy động
@@ -316,12 +295,12 @@ coi đó là một từ hoàn toàn mới.
 
 `Redirect (EN)` là mode global do người dùng tự chọn. Ở mode này press event
 được forward nguyên bản như password field; release event không bị filter. Không
-có text nào đi qua Bamboo, queue, timer, SurroundingText hoặc uinput.
+có text nào đi qua Bamboo, queue, timer, SurroundingText hoặc rewrite backend.
 
 Areca không tự đổi mode theo ứng dụng. Khi đang ở Rewrite, input context thuộc họ
 VS Code có mask chính xác `0x72`, hoặc context bất kỳ có
-`CapabilityFlag::Terminal`, sẽ dùng uinput cho thao tác xoá/rewrite. Các context
-forced-uinput không probe hay gọi SurroundingText.
+`CapabilityFlag::Terminal`, sẽ dùng forward-Backspace cho thao tác xoá/rewrite.
+Các context bị ép backend không gọi SurroundingText để rewrite.
 
 ## Trạng thái và giới hạn hiện tại
 
@@ -329,19 +308,14 @@ forced-uinput không probe hay gọi SurroundingText.
   state. Đổi mode sẽ hủy queue và composition cũ trước khi mode mới nhận phím.
 - Reliability là heuristic một lần cho mỗi input context, không phải chứng minh
   tuyệt đối rằng mọi snapshot tương lai đều đúng.
-- Uinput phụ thuộc `/dev/uinput`, quyền group và cách compositor route virtual
-  keyboard event.
-- Nếu kết nối socket hỏng sau khi plan đã được gửi một phần, Areca cố ý dừng
-  pipeline thay vì đoán và retry.
+- Khả năng chuyển `forwardKey()` tới ứng dụng vẫn phụ thuộc frontend/compositor.
 - Native addon `.so` không hot reload. File mới có thể đã cài nhưng process
   Fcitx hiện tại vẫn map inode cũ trong RAM.
 
 ## Tài liệu
 
 - [Kiến trúc và luồng hoạt động](docs/ARCHITECTURE.md)
-- [Protocol Unix socket/uinput](docs/UINPUT_PROTOCOL.md)
 - [Cài đặt, reload và debug](docs/DEBUGGING.md)
-- [Tài liệu riêng của uinput server](server/README.md)
 
 ## License
 

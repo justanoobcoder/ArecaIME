@@ -130,7 +130,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.transactionId = nextTransactionId_++;
   plan.backspaceDelayMs = timing.backspaceDelayMs;
   plan.afterBackspaceWaitMs = timing.afterBackspaceWaitMs;
-  plan.ackFullWaitMs = timing.ackFullWaitMs;
+  plan.timerAccuracyUsec = timing.timerAccuracyUsec;
   plan.commitText = result.commitText;
   plan.cacheDeleteCount = result.deleteCount;
 
@@ -154,7 +154,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   activeTransactionId_ = plan.transactionId;
   const auto status =
       backend.apply(inputContext, plan, [this](uint64_t transactionId) {
-        remoteDone(transactionId);
+        rewriteDone(transactionId);
       });
   if (debugProvider_()) {
     FCITX_INFO() << "areca: rewrite apply backend=" << backend.name()
@@ -165,40 +165,24 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     activeTransactionId_ = 0;
     finishKeyAfterCommit();
   } else if (status == ApplyStatus::Failed) {
-    if (backend.recoverUnsentFailure()) {
-      // Nothing reached the server, so no deletion can have happened. Preserve
-      // usability by committing the literal text and dropping stale Bamboo
-      // composition. A failure after PLAN was sent remains fail-closed. Do not
-      // replay the accepted KeyEvent here for the same GNOME/IBus reason as the
-      // unchanged no-delete path above.
-      inputContext.commitString(rawText);
-      updateSurroundingCacheAfterCommit(inputContext, rawText);
-      engine.reset();
-      activeTransactionId_ = 0;
-      finishKeyAfterCommit();
-      if (debugProvider_()) {
-        FCITX_INFO() << "areca: recovered unsent uinput failure by committing "
-                        "raw text tx="
-                     << plan.transactionId;
-      }
-      return;
-    }
-    // Fail closed. Retrying could duplicate a partially executed uinput
-    // plan; committing or running the next key would violate ordering.
+    FCITX_ERROR() << "areca: rewrite backend failed tx=" << plan.transactionId
+                  << " backend=" << backend.name();
+    // Fail closed because a backend failure leaves the application state
+    // unknown. Processing another key could violate ordering.
     stalled_ = true;
   }
 }
 
-void InputScheduler::remoteDone(uint64_t transactionId) {
+void InputScheduler::rewriteDone(uint64_t transactionId) {
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: remote DONE tx=" << transactionId
+    FCITX_INFO() << "areca: rewrite done tx=" << transactionId
                  << " active=" << activeTransactionId_;
   }
   if (!processing_ || transactionId != activeTransactionId_) {
     return;
   }
   activeTransactionId_ = 0;
-  // Start the settle delay from the actual commit/DONE barrier.
+  // Start the settle delay from the backend's actual completion barrier.
   finishKeyAfterCommit();
 }
 
@@ -208,10 +192,12 @@ void InputScheduler::finishKey() {
 }
 
 void InputScheduler::finishKeyAfterCommit() {
+  const auto timing = timingProvider_();
   const uint64_t delayUsec =
-      static_cast<uint64_t>(timingProvider_().postCommitDelayMs) * 1000;
+      static_cast<uint64_t>(timing.postCommitDelayMs) * 1000;
   if (debugProvider_()) {
     FCITX_INFO() << "areca: post-commit barrier delay_us=" << delayUsec
+                 << " accuracy_us=" << timing.timerAccuracyUsec
                  << " queue_depth=" << queue_.size();
   }
   if (delayUsec == 0) {
@@ -221,7 +207,8 @@ void InputScheduler::finishKeyAfterCommit() {
 
   const uint64_t deadline = fcitx::now(CLOCK_MONOTONIC) + delayUsec;
   postCommitTimer_ = eventLoop_.addTimeEvent(
-      CLOCK_MONOTONIC, deadline, 0, [this](fcitx::EventSourceTime *, uint64_t) {
+      CLOCK_MONOTONIC, deadline, timing.timerAccuracyUsec,
+      [this](fcitx::EventSourceTime *, uint64_t) {
         auto completedTimer = std::move(postCommitTimer_);
         finishKey();
         return false;

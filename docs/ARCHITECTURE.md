@@ -2,7 +2,7 @@
 
 Tài liệu này mô tả pipeline hiện tại của Areca. Mục tiêu thiết kế là giữ đúng
 thứ tự input, tránh rewrite song song và cô lập engine tiếng Việt khỏi chi tiết
-Wayland, Fcitx5 và uinput.
+Wayland và Fcitx5.
 
 ## Thành phần
 
@@ -15,7 +15,7 @@ Wayland, Fcitx5 và uinput.
 | `RewriteModeHandler` | Toàn bộ policy KeyEvent/reset của Rewrite; enqueue trực tiếp vào `InputScheduler`. |
 | `PreeditModeHandler` | Xử lý Bamboo đồng bộ và quản lý UI preedit; không gọi scheduler hay rewrite backend. |
 | `RedirectModeHandler` | Forward KeyEvent nguyên bản như password field; không có Bamboo, queue, timer hay mutable state. |
-| `InputCapabilities` | Exact-mask policy `0x72` để chọn uinput trước reliability probe. |
+| `InputCapabilities` | Exact-mask policy `0x72` để chọn backend forward-Backspace. |
 | `KeyQueue` | FIFO chứa key gốc, Unicode codepoint, UTF-8, sequence và reference tới input context. |
 | `InputScheduler` | FIFO single-flight, backend selection, transaction barrier và timer riêng sau commit. |
 | `BambooEngineAdapter` | Bridge C++/Go gọi trực tiếp `bamboo-core` và biến chuỗi kết quả thành `BambooResult`. |
@@ -23,16 +23,17 @@ Wayland, Fcitx5 và uinput.
 | `RewriteBackend` | Interface chung cho thao tác apply một `RewritePlan`. |
 | `SurroundingTextBackend` | Gọi `deleteSurroundingText()` và `commitString()`. |
 | `AutocompleteForwardSurroundingBackend` | Forward Backspace để xử lý selection autocomplete rồi delegate Bamboo delete/commit cho `SurroundingTextBackend`; Edge trong URL field phát hai Backspace, mọi case khác phát một. |
-| `UinputSocketBackend` | Nonblocking Unix socket, pending state, sentinel filter và commit sau `DONE`. |
-| `PendingRewriteState` | Giữ transaction, input context, commit text và tiến độ event của đúng một rewrite. |
+| `ForwardBackspaceBackend` | Phát tuần tự Backspace press/release bằng `forwardKey()`, chờ settling delay rồi commit text và hoàn tất transaction. |
 
 ## Phân tách cấu hình
 
 Cấu hình chính ở `conf/areca.conf` chỉ chứa các tuỳ chọn dùng thường xuyên.
-Timing và Unix socket nằm trong sub-config **Cấu hình nâng cao** tại
+Timing nằm trong sub-config **Cấu hình nâng cao** tại
 `conf/areca-advanced.conf`, dùng cùng cơ chế panel con với trình sửa macro.
-Các field timing/socket cũ trong `areca.conf` được giữ ẩn để migrate cấu hình;
+Các field timing cũ trong `areca.conf` được giữ ẩn để migrate cấu hình;
 file nâng cao, nếu có, luôn được load sau và được ưu tiên.
+`PreciseTiming=True` đặt accuracy của timer Backspace và post-commit thành
+`1µs`; khi tắt, accuracy bằng `0` và event-loop backend được phép coalesce timer.
 
 ## Vòng đời text key trong Rewrite
 
@@ -44,16 +45,15 @@ file nâng cao, nếu có, luôn được load sau và được ưu tiên.
 6. Nếu pipeline đang rảnh, scheduler pop ngay đúng một key và gọi Bamboo.
 7. Scheduler apply `BambooResult`; trong lúc apply/commit/rewrite, key mới chỉ
    được nối vào cuối FIFO.
-8. Nếu addon quan sát đủ Backspace của uinput, nó gửi `WAIT` với
-   `AckFullWaitMs`; `AfterBackspaceWaitMs` trong PLAN là đường hoàn tất dự
-   phòng khi không quan sát được ACK.
+8. Forward backend phát đúng số Backspace trong plan rồi chờ
+   `AfterBackspaceWaitMs` trước khi commit.
 9. Sau khi apply hoàn tất và qua `PostCommitDelayMs`, scheduler mới pump đúng
    một key tiếp theo.
 
 Scheduler không dùng timer trước Bamboo và không dùng vòng lặp hút hết queue.
 Key đầu được xử lý inline trong callback Fcitx; queue chỉ giữ các key đến trong
-lúc pipeline đang bận. Với uinput, `PostCommitDelayMs` bắt đầu từ lúc nhận
-`DONE` và commit text.
+lúc pipeline đang bận. `PostCommitDelayMs` bắt đầu sau khi backend đã commit và
+báo hoàn tất.
 
 ## BambooResult và diff
 
@@ -138,32 +138,32 @@ Khi `deleteCount == 0`:
 Khi `deleteCount > 0`:
 
 1. Input context thuộc họ VS Code và có capability mask chính xác `0x72` chọn
-   `UinputSocketBackend`. Đây là exact match; program ngoài họ VS Code,
+   `ForwardBackspaceBackend`. Đây là exact match; program ngoài họ VS Code,
    `0x90072`, `0xE001800072` và các mask khác không bị áp dụng policy này.
 2. Input context có `CapabilityFlag::Terminal` cũng luôn chọn
-   `UinputSocketBackend`.
-3. Program rỗng không khớp rule VS Code tạm thời này. Việc ép uinput vẫn có thể
+   `ForwardBackspaceBackend`.
+3. Program rỗng không khớp rule VS Code tạm thời này. Việc ép backend vẫn có thể
    đến từ `Terminal` flag của chính input context.
 4. Với app còn lại, `ReliabilityChecker` đánh giá input context.
 5. Verdict reliable chọn `SurroundingTextBackend`.
-6. Verdict unreliable chọn `UinputSocketBackend`.
-7. Browser inline-autocomplete không gửi PLAN và không dùng uinput. Browser
+6. Verdict unreliable chọn `ForwardBackspaceBackend`.
+7. Browser inline-autocomplete không dùng forward backend. Browser
    chọn `AutocompleteForwardSurroundingBackend`. Chỉ khi program là Edge và
    input context có `CapabilityFlag::Url` thì backend forward hai chu kỳ
    Backspace press/release; mọi case khác forward một. Sau đó backend apply đúng
    Bamboo `deleteCount` bằng SurroundingText.
 
-Hai capability policy forced-uinput có log riêng:
+Hai capability policy forced-forward có log riêng:
 
 ```text
-areca: force backend=uinput-socket reason=vscode-family-capability-mask-0x72 program=...
-areca: force backend=uinput-socket reason=terminal-capability program=...
+areca: force backend=forward-backspace reason=vscode-family-capability-mask-0x72 program=...
+areca: force backend=forward-backspace reason=terminal-capability program=...
 ```
 
 ## Preedit mode
 
 `PresentationMode=Preedit` không dùng `InputScheduler`, `RewriteBackend`,
-`ReliabilityChecker`, SurroundingText hay uinput. Nó có riêng:
+`ReliabilityChecker`, SurroundingText hay forward-Backspace. Nó có riêng:
 
 - `PreeditInputState` cho từng input context;
 - một `BambooEngineAdapter` riêng;
@@ -185,7 +185,7 @@ cả Rewrite lẫn Preedit khi người dùng đổi mode.
 Hotkey `SwitchModeKey` (mặc định `Alt+Space`) được bắt trước bước dispatch vì nó
 thay đổi chính handler đích. Areca hủy state/queue của hai handler có state,
 quay vòng `Rewrite → Preedit → Redirect → Rewrite`, lưu mode global và gọi popup
-thông tin Fcitx5. Hotkey không đổi mode giữa transaction uinput đang pending;
+thông tin Fcitx5. Hotkey không đổi mode giữa transaction rewrite đang pending;
 password context tiếp tục nhận phím gốc như bình thường.
 
 ## Redirect mode và terminal
@@ -196,7 +196,7 @@ theo input context. `RedirectModeHandler` không xử lý nội dung: press even
 
 Nếu mode global là Rewrite, context thuộc họ VS Code có capability mask chính
 xác `0x72`, hoặc context có `CapabilityFlag::Terminal`, sẽ chọn
-`UinputSocketBackend` trước reliability probe.
+`ForwardBackspaceBackend`.
 
 ## Reliability lifetime
 
@@ -213,33 +213,25 @@ activate lại cho input context, verdict được mở để context mới có 
 Snapshot browser autocomplete không được dùng làm first probe; checker giữ
 `known=false` để lần rewrite bình thường sau mới quyết định reliability.
 
-## Uinput single-flight state machine
+## Forward-Backspace single-flight state machine
 
 ```text
 Idle
  │ apply(plan)
  ▼
-Connecting/Writing ── unsent error ──► recover raw key
- │ PLAN sent
- ▼
-Pending ── transport error ──► Stalled (fail-closed)
- │ Backspace ACK full
- ├──► gửi WAIT(AckFullWaitMs) ──┐
- │                              │ server thay timer PLAN
- │ không thấy đủ ACK            │
- └──► PLAN fallback timer ──────┘
-                │ DONE đúng session + tx (đúng một lần)
+Forward Backspace đầu tiên
+ │ còn Backspace
+ ├──► timer(BackspaceDelayMs) ──► forward Backspace kế tiếp
+ │ hết Backspace
+ └──► timer(AfterBackspaceWaitMs)
+                │
  ▼
 Commit text → clear pending → post-commit timer → process next key
 ```
 
 Trong `Pending`, `processing_` vẫn là true nên scheduler không lấy key tiếp.
-Key mới chỉ được append vào queue. ACK full chỉ gửi WAIT; addon vẫn pending và
-không commit cho tới DONE. Response sai session/transaction bị bỏ qua.
-
-Nếu socket hỏng trước khi plan được gửi, addon biết chắc server chưa xoá gì và
-có thể forward raw key. Nếu plan đã gửi, addon không biết server thực hiện tới
-đâu, vì vậy retry hoặc commit đều có nguy cơ làm hỏng text; pipeline dừng lại.
+Key mới chỉ được append vào queue. Backend giữ đúng một transaction và gọi
+completion callback đúng một lần sau commit.
 
 ## Surrounding cache
 
@@ -248,15 +240,15 @@ Các rewrite backend cập nhật object `surroundingText()` mà Fcitx đang cac
 - Sau delete: xoá đúng `cacheDeleteCount` character.
 - Sau commit: chèn text tại cursor và cập nhật cursor/anchor.
 
-Với uinput, `cacheDeleteCount` không bao gồm sentinel vì event đó không đại diện
-cho Bamboo display state. Backend autocomplete-forward xoá selection khỏi cache
-trước khi delegate Bamboo delete/commit.
+Backend autocomplete-forward xoá selection khỏi cache trước khi delegate Bamboo
+delete/commit. Forward-Backspace không tự đoán cache delete vì ứng dụng/frontend
+có thể cập nhật SurroundingText từ chính các KeyEvent vừa nhận.
 
 ## Reset barrier
 
 `ArecaEngine::reset()` chỉ arm timer của mode đang hoạt động, không reset ngay.
 Reset thật xảy ra sau `ResetDelayMs` nếu không có input mới. Rewrite pending
-uinput làm timer Rewrite được arm lại. Preedit không có processing queue; phím
+làm timer Rewrite được arm lại. Preedit không có processing queue; phím
 mới chỉ huỷ delayed-reset của chính nó. Hai timer và hai composition không tham
 chiếu lẫn nhau.
 

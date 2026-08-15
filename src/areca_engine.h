@@ -8,13 +8,13 @@
 #include "areca_config.h"
 #include "autocomplete_surrounding_backend.h"
 #include "bamboo_engine_adapter.h"
+#include "forward_backspace_backend.h"
 #include "input_scheduler.h"
 #include "preedit_mode.h"
 #include "redirect_mode.h"
 #include "reliability_checker.h"
 #include "rewrite_mode.h"
 #include "surrounding_text_backend.h"
-#include "uinput_socket_backend.h"
 
 namespace areca {
 
@@ -71,7 +71,7 @@ private:
   SurroundingTextBackend surroundingBackend_;
   AutocompleteForwardSurroundingBackend autocompleteForwardBackend_;
   AutocompleteForwardSurroundingBackend autocompleteEdgeForwardBackend_;
-  UinputSocketBackend uinputBackend_;
+  ForwardBackspaceBackend forwardBackspaceBackend_;
   InputScheduler scheduler_;
   RewriteModeHandler rewriteHandler_;
   PreeditModeHandler preeditHandler_;

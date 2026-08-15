@@ -20,15 +20,12 @@ build() {
   cmake -S "${srcdir}/${pkgname}-${pkgver}" -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DBUILD_TESTING=ON \
-    -DBUILD_UINPUT_SERVER=ON
+    -DBUILD_TESTING=ON
   cmake --build build --parallel
 }
 
 check() {
   ctest --test-dir build --output-on-failure
-  cd "${srcdir}/${pkgname}-${pkgver}/server"
-  GOCACHE="${srcdir}/go-test-cache" go test ./...
 }
 
 package() {

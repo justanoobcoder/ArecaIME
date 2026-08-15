@@ -6,7 +6,7 @@
 namespace areca {
 namespace {
 
-constexpr uint64_t kUinputOnlyCapabilityMask = 0x72;
+constexpr uint64_t kForwardBackspaceCapabilityMask = 0x72;
 
 std::string normalizedProgramName(std::string program) {
   const auto slash = program.find_last_of('/');
@@ -47,9 +47,9 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
                      });
 }
 
-bool requiresUinputForCapabilityMask(fcitx::CapabilityFlags flags,
-                                     const std::string &program) {
-  return flags.toInteger() == kUinputOnlyCapabilityMask &&
+bool requiresForwardBackspaceForCapabilityMask(fcitx::CapabilityFlags flags,
+                                               const std::string &program) {
+  return flags.toInteger() == kForwardBackspaceCapabilityMask &&
          isVSCodeFamilyProgram(program);
 }
 

@@ -17,7 +17,6 @@
 #include "mode_handler.h"
 #include "reliability_checker.h"
 #include "sentence_capitalizer.h"
-#include "uinput_socket_backend.h"
 
 namespace areca {
 
@@ -49,7 +48,6 @@ public:
 
   RewriteModeHandler(fcitx::EventLoop &eventLoop, StateFactory &stateFactory,
                      InputScheduler &scheduler,
-                     UinputSocketBackend &uinputBackend,
                      BoolProvider autoCapitalizeProvider,
                      BoolProvider debugProvider,
                      ResetDelayProvider resetDelayProvider);
@@ -70,7 +68,6 @@ private:
   fcitx::EventLoop &eventLoop_;
   StateFactory &stateFactory_;
   InputScheduler &scheduler_;
-  UinputSocketBackend &uinputBackend_;
   BoolProvider autoCapitalizeProvider_;
   BoolProvider debugProvider_;
   ResetDelayProvider resetDelayProvider_;

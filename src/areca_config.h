@@ -51,25 +51,20 @@ FCITX_CONFIGURATION(
 FCITX_CONFIGURATION(
     AdvancedConfig,
     fcitx::Option<int, fcitx::IntConstrain> backspaceDelayMs{
-        this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 5,
+        this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 1,
         fcitx::IntConstrain(0, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> afterBackspaceWaitMs{
         this, "AfterBackspaceWaitMs",
-        N_("Thời gian chờ sau Backspace cuối (ms)"), 40,
-        fcitx::IntConstrain(0, 5000)};
-    fcitx::Option<int, fcitx::IntConstrain> ackFullWaitMs{
-        this, "AckFullWaitMs",
-        N_("Thời gian WAIT sau khi nhận đủ Backspace (ms)"), 20,
+        N_("Thời gian chờ sau Backspace cuối (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<bool> preciseTiming{this, "PreciseTiming",
+                                      N_("Dùng timer độ chính xác cao"), true};
     fcitx::Option<int, fcitx::IntConstrain> resetDelayMs{
         this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 250,
-        fcitx::IntConstrain(0, 5000)};
-    fcitx::Option<std::string> socketPath{this, "SocketPath",
-                                          N_("Unix socket của uinput server"),
-                                          "/tmp/areca-uinput.sock"};);
+        fcitx::IntConstrain(0, 5000)};);
 
 FCITX_CONFIGURATION(
     ArecaConfig,
@@ -84,11 +79,11 @@ FCITX_CONFIGURATION(
         {fcitx::Key("Alt+space")},
         fcitx::KeyListConstrain(fcitx::KeyConstrainFlag::AllowModifierLess)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyBackspaceDelayMs{
-        this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 5,
+        this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 1,
         fcitx::IntConstrain(0, 1000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyAfterBackspaceWaitMs{
         this, "AfterBackspaceWaitMs",
-        N_("Thời gian chờ sau Backspace cuối (ms)"), 40,
+        N_("Thời gian chờ sau Backspace cuối (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyPostCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
@@ -96,9 +91,6 @@ FCITX_CONFIGURATION(
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyResetDelayMs{
         this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 250,
         fcitx::IntConstrain(0, 5000)};
-    fcitx::HiddenOption<std::string> legacySocketPath{
-        this, "SocketPath", N_("Unix socket của uinput server"),
-        "/tmp/areca-uinput.sock"};
     fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
         bambooInputMethod{this, "BambooInputMethod", N_("Kiểu gõ Bamboo"),
                           "Telex 2"};

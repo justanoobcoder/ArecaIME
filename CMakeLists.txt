@@ -33,48 +33,12 @@ add_library(areca-bamboo STATIC IMPORTED GLOBAL)
 set_target_properties(areca-bamboo PROPERTIES IMPORTED_LOCATION "${BAMBOO_ARCHIVE}")
 add_dependencies(areca-bamboo areca-bamboo-bridge)
 
-option(BUILD_UINPUT_SERVER "Build the companion uinput Unix-socket server" ON)
-option(INSTALL_SYSTEM_INTEGRATION
-       "Install udev, modules-load and globally enabled user service files" ON)
-if(BUILD_UINPUT_SERVER)
-    set(ARECA_UINPUT_SERVER "${CMAKE_CURRENT_BINARY_DIR}/areca-uinput-server")
-    add_custom_command(
-        OUTPUT "${ARECA_UINPUT_SERVER}"
-        COMMAND "${CMAKE_COMMAND}" -E env
-                "GOCACHE=${CMAKE_CURRENT_BINARY_DIR}/go-build-cache"
-                "${GO_EXECUTABLE}" build -buildvcs=false
-                -o "${ARECA_UINPUT_SERVER}" .
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/server"
-        DEPENDS server/go.mod server/main.go
-        VERBATIM)
-    add_custom_target(areca-uinput-server-bin ALL
-                      DEPENDS "${ARECA_UINPUT_SERVER}")
-    install(PROGRAMS "${ARECA_UINPUT_SERVER}"
-            DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}")
-
-    if(INSTALL_SYSTEM_INTEGRATION)
-        configure_file(data/areca-uinput-server.service.in
-                       areca-uinput-server.service @ONLY)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/areca-uinput-server.service"
-                DESTINATION "lib/systemd/user")
-        install(FILES data/99-areca-uinput.rules
-                DESTINATION "lib/udev/rules.d")
-        install(FILES data/areca-uinput.conf
-                DESTINATION "lib/modules-load.d")
-
-        # Do not vendor-enable this user service globally. A global wants link
-        # starts one server for every user session, including the display
-        # manager account, and those instances would compete for the same Unix
-        # socket. scripts/install.sh enables the unit only for the target user;
-        # distro packages should do the equivalent in their user session.
-    endif()
-endif()
-
 add_library(areca MODULE
     src/autocomplete_surrounding_backend.cpp
     src/areca_engine.cpp
     src/bamboo_engine_adapter.cpp
     src/browser_autocomplete.cpp
+    src/forward_backspace_backend.cpp
     src/input_capabilities.cpp
     src/input_scheduler.cpp
     src/preedit_mode.cpp
@@ -85,7 +49,6 @@ add_library(areca MODULE
     src/sentence_capitalizer.cpp
     src/surrounding_text_cache.cpp
     src/surrounding_text_backend.cpp
-    src/uinput_socket_backend.cpp
     src/word_segment.cpp)
 set_target_properties(areca PROPERTIES PREFIX "" OUTPUT_NAME "areca")
 target_compile_features(areca PRIVATE cxx_std_20)

@@ -25,8 +25,6 @@ namespace {
 
 constexpr const char *kMacroConfigPath = "conf/areca-macro-table.conf";
 constexpr const char *kAdvancedConfigPath = "conf/areca-advanced.conf";
-constexpr const char *kLegacyDefaultSocketPath = "/tmp/openkey-nonpreedit.sock";
-constexpr const char *kDefaultSocketPath = "/tmp/areca-uinput.sock";
 #if defined(ARECA_HAS_STANDARD_PATHS)
 constexpr auto kPkgConfigPath = fcitx::StandardPathsType::PkgConfig;
 #else
@@ -51,8 +49,8 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
             macroRevision_, macroDefinitions());
       }),
       autocompleteForwardBackend_(1), autocompleteEdgeForwardBackend_(2),
-      uinputBackend_(instance_->eventLoop(),
-                     advancedConfig_.socketPath.value()),
+      forwardBackspaceBackend_(instance_->eventLoop(),
+                               [this]() { return debugEnabled(); }),
       scheduler_(
           instance_->eventLoop(),
           [this](fcitx::InputContext &inputContext) -> VietnameseEngine * {
@@ -66,7 +64,6 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
           }),
       rewriteHandler_(
           instance_->eventLoop(), rewriteStateFactory_, scheduler_,
-          uinputBackend_,
           [this]() { return config_.autoCapitalizeAfterPunctuation.value(); },
           [this]() { return debugEnabled(); },
           [this]() {
@@ -97,10 +94,10 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
   if (!state) {
-    return {&uinputBackend_};
+    return {&forwardBackspaceBackend_};
   }
 
-   const auto capabilities = inputContext.capabilityFlags();
+  const auto capabilities = inputContext.capabilityFlags();
   const auto decision = reliabilityChecker_.evaluate(
       inputContext, result.currentText, state->surroundingReliability,
       debugEnabled());
@@ -120,26 +117,25 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   if (decision.useSurrounding) {
-     
-      const char *forcedUinputReason = nullptr;
-      if (requiresUinputForCapabilityMask(capabilities,
-                                          inputContext.program())) {
-        forcedUinputReason = "vscode-family-capability-mask-0x72";
-      } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
-        forcedUinputReason = "terminal-capability";
-      }
+    const char *forcedForwardReason = nullptr;
+    if (requiresForwardBackspaceForCapabilityMask(capabilities,
+                                                  inputContext.program())) {
+      forcedForwardReason = "vscode-family-capability-mask-0x72";
+    } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
+      forcedForwardReason = "terminal-capability";
+    }
 
-      if (forcedUinputReason) {
-        if (debugEnabled()) {
-          FCITX_INFO() << "areca: force backend=uinput-socket reason="
-                      << forcedUinputReason
-                      << " program=" << inputContext.program();
-        }
-        return {&uinputBackend_};
+    if (forcedForwardReason) {
+      if (debugEnabled()) {
+        FCITX_INFO() << "areca: force backend=forward-backspace reason="
+                     << forcedForwardReason
+                     << " program=" << inputContext.program();
       }
+      return {&forwardBackspaceBackend_};
+    }
     return {&surroundingBackend_};
   }
-  return {&uinputBackend_};
+  return {&forwardBackspaceBackend_};
 }
 
 InputModeHandler &ArecaEngine::activeHandler() {
@@ -183,7 +179,7 @@ std::string ArecaEngine::subModeLabelImpl(const fcitx::InputMethodEntry &,
 }
 
 void ArecaEngine::switchPresentationMode(fcitx::InputContext &inputContext) {
-  if (uinputBackend_.hasPending() || scheduler_.rewritePending()) {
+  if (scheduler_.rewritePending()) {
     if (debugEnabled()) {
       FCITX_INFO() << "areca: mode hotkey ignored while rewrite pending";
     }
@@ -313,9 +309,8 @@ void ArecaEngine::setSubConfig(const std::string &path,
 
 void ArecaEngine::reloadConfig() {
   fcitx::readAsIni(config_, kPkgConfigPath, "conf/areca.conf");
-  // Seed the new advanced panel from the legacy fields before loading its own
-  // file. Existing installations therefore retain their timing and socket;
-  // once the advanced file exists, its values take precedence.
+  // Seed the advanced panel from legacy timing fields before loading its own
+  // file. Once the advanced file exists, its values take precedence.
   advancedConfig_.backspaceDelayMs.setValue(
       config_.legacyBackspaceDelayMs.value());
   advancedConfig_.afterBackspaceWaitMs.setValue(
@@ -323,11 +318,7 @@ void ArecaEngine::reloadConfig() {
   advancedConfig_.postCommitDelayMs.setValue(
       config_.legacyPostCommitDelayMs.value());
   advancedConfig_.resetDelayMs.setValue(config_.legacyResetDelayMs.value());
-  advancedConfig_.socketPath.setValue(config_.legacySocketPath.value());
   fcitx::readAsIni(advancedConfig_, kPkgConfigPath, kAdvancedConfigPath);
-  if (advancedConfig_.socketPath.value() == kLegacyDefaultSocketPath) {
-    advancedConfig_.socketPath.setValue(kDefaultSocketPath);
-  }
   fcitx::readAsIni(macroTable_, kPkgConfigPath, kMacroConfigPath);
   ++macroRevision_;
   applyConfig();
@@ -354,14 +345,12 @@ std::vector<MacroDefinition> ArecaEngine::macroDefinitions() const {
 SchedulerTiming ArecaEngine::timing() const {
   return {static_cast<uint32_t>(advancedConfig_.backspaceDelayMs.value()),
           static_cast<uint32_t>(advancedConfig_.afterBackspaceWaitMs.value()),
-          static_cast<uint32_t>(advancedConfig_.ackFullWaitMs.value()),
-          static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value())};
+          static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value()),
+          advancedConfig_.preciseTiming.value() ? 1U : 0U};
 }
 
 void ArecaEngine::applyConfig() {
-  uinputBackend_.setSocketPath(advancedConfig_.socketPath.value());
-  uinputBackend_.setDebug(debugEnabled());
-  if (uinputBackend_.hasPending()) {
+  if (scheduler_.rewritePending()) {
     return;
   }
 

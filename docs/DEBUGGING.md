@@ -5,7 +5,6 @@
 ```bash
 cmake --build build
 ctest --test-dir build --output-on-failure
-(cd server && go test ./...)
 ```
 
 `build/areca.so` là addon vừa build. Với prefix `/usr`, bản được Fcitx load là
@@ -70,55 +69,15 @@ areca: queue push
 areca: scheduler process
 areca: bamboo result
 areca: reliability first-probe
-areca: force backend=uinput-socket reason=vscode-family-capability-mask-0x72
-areca: force backend=uinput-socket reason=terminal-capability
+areca: force backend=forward-backspace reason=vscode-family-capability-mask-0x72
+areca: force backend=forward-backspace reason=terminal-capability
 areca: rewrite select backend=
-areca: uinput prepare PLAN
-areca: uinput Backspace ack seen=
-areca: uinput ACK full, schedule WAIT
-areca: uinput DONE observed
-areca: remote DONE
+areca: forward-backspace start
+areca: forward-backspace sent
+areca: forward-backspace complete
+areca: rewrite done
 areca: protected reset cancelled/executed
 ```
-
-## Log uinput server
-
-```bash
-systemctl --user status areca-uinput-server.service
-journalctl --user -u areca-uinput-server -f
-```
-
-Restart server sau khi cài binary mới:
-
-```bash
-systemctl --user restart areca-uinput-server.service
-```
-
-Kiểm tra socket và process:
-
-```bash
-systemctl --user show areca-uinput-server.service -p MainPID -p ExecMainStatus
-ls -l /tmp/areca-uinput.sock
-```
-
-## Quyền `/dev/uinput`
-
-```bash
-ls -l /dev/uinput
-id
-getent group uinput
-```
-
-Nếu installer vừa thêm user vào group `uinput`, session hiện tại chưa tự nhận
-group mới. Đăng xuất/đăng nhập rồi kiểm tra lại `id`. Có thể kiểm tra capability
-priority riêng của server:
-
-```bash
-getcap /usr/libexec/areca-uinput-server
-```
-
-`CAP_SYS_NICE` chỉ giúp server đặt priority tốt hơn; thiếu capability này không
-ngăn uinput hoạt động. Quyền ghi `/dev/uinput` mới là điều bắt buộc.
 
 ## Phân biệt lỗi backend
 
@@ -134,35 +93,29 @@ xoá sai.
 Khi log có:
 
 ```text
-rewrite select backend=uinput-socket
+rewrite select backend=forward-backspace
 ```
 
 Kiểm tra theo thứ tự:
 
-1. Server service có chạy không.
-2. `SocketPath` hai bên có giống nhau không.
-3. Server có mở `/dev/uinput` được không.
-4. Addon có gửi `PLAN` không.
-5. Có đủ Backspace thật cộng sentinel không.
-6. Nếu addon thấy ACK full, có gửi đúng `WAIT session tx delay` không.
-7. Server có trả đúng một `DONE session tx` không.
-
-Nếu log báo pipeline paused sau transport failure, restart Fcitx để xoá
-fail-closed state. Không retry transaction cũ bằng tay.
+1. `forward-backspace start` có đúng `backspaces` không.
+2. Số dòng `forward-backspace sent` có đủ không.
+3. `forward-backspace complete` có xuất hiện sau `after_wait_ms` không.
+4. Sau complete có `rewrite done` và post-commit barrier không.
 
 ## Cấu hình cũ che default mới
 
-Timing và socket hiện được lưu trong
+Timing hiện được lưu trong
 `~/.config/fcitx5/conf/areca-advanced.conf`. Ví dụ source đổi `ResetDelayMs`
 mặc định thành 250 không tự sửa dòng `ResetDelayMs=120` đã tồn tại. Kiểm tra
 trực tiếp:
 
 ```bash
-grep -E '^(BackspaceDelayMs|AfterBackspaceWaitMs|AckFullWaitMs|PostCommitDelayMs|ResetDelayMs|SocketPath)=' \
+grep -E '^(BackspaceDelayMs|AfterBackspaceWaitMs|PostCommitDelayMs|PreciseTiming|ResetDelayMs)=' \
   ~/.config/fcitx5/conf/areca-advanced.conf
 ```
 
-Bản nâng cấp vẫn đọc các giá trị timing/socket cũ trong `areca.conf` khi file
+Bản nâng cấp vẫn đọc các giá trị timing cũ trong `areca.conf` khi file
 nâng cao chưa có. Sau khi mở và lưu panel **Cấu hình nâng cao**, hãy kiểm tra
 file mới ở trên.
 

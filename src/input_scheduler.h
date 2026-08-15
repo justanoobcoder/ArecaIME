@@ -13,10 +13,10 @@
 namespace areca {
 
 struct SchedulerTiming {
-  uint32_t backspaceDelayMs = 5;
-  uint32_t afterBackspaceWaitMs = 40;
-  uint32_t ackFullWaitMs = 20;
+  uint32_t backspaceDelayMs = 1;
+  uint32_t afterBackspaceWaitMs = 10;
   uint32_t postCommitDelayMs = 20;
+  uint64_t timerAccuracyUsec = 1;
 };
 
 struct RewriteBackendSelection {
@@ -51,7 +51,7 @@ private:
                    const BambooResult &result, const std::string &rawText);
   void finishKey();
   void finishKeyAfterCommit();
-  void remoteDone(uint64_t transactionId);
+  void rewriteDone(uint64_t transactionId);
 
   fcitx::EventLoop &eventLoop_;
   EngineResolver engineResolver_;

@@ -96,11 +96,9 @@ jobs:
           cmake -S . -B build-pkg -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr \
-            -DBUILD_TESTING=ON \
-            -DBUILD_UINPUT_SERVER=ON
+            -DBUILD_TESTING=ON
           cmake --build build-pkg --parallel
           ctest --test-dir build-pkg --output-on-failure
-          (cd server && go test ./...)
 
       - name: Package DEB
         run: |
@@ -223,11 +221,9 @@ jobs:
               cmake -S . -B build-pkg-fedora -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=/usr \
-                -DBUILD_TESTING=ON \
-                -DBUILD_UINPUT_SERVER=ON
+                -DBUILD_TESTING=ON
               cmake --build build-pkg-fedora --parallel
               ctest --test-dir build-pkg-fedora --output-on-failure
-              (cd server && go test ./...)
 
               mkdir -p pkgroot-fedora
               DESTDIR="$PWD/pkgroot-fedora" \

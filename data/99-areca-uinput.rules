@@ -1,2 +1,0 @@
-# Allow the active local desktop session to access the uinput device.
-KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", MODE="0660", TAG+="uaccess"

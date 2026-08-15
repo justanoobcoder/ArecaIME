@@ -70,12 +70,10 @@ RewriteInputState::RewriteInputState(std::string inputMethod, bool spellCheck,
 RewriteModeHandler::RewriteModeHandler(fcitx::EventLoop &eventLoop,
                                        StateFactory &stateFactory,
                                        InputScheduler &scheduler,
-                                       UinputSocketBackend &uinputBackend,
                                        BoolProvider autoCapitalizeProvider,
                                        BoolProvider debugProvider,
                                        ResetDelayProvider resetDelayProvider)
     : eventLoop_(eventLoop), stateFactory_(stateFactory), scheduler_(scheduler),
-      uinputBackend_(uinputBackend),
       autoCapitalizeProvider_(std::move(autoCapitalizeProvider)),
       debugProvider_(std::move(debugProvider)),
       resetDelayProvider_(std::move(resetDelayProvider)) {}
@@ -94,7 +92,7 @@ void RewriteModeHandler::activate(fcitx::InputContext &inputContext) {
 }
 
 void RewriteModeHandler::deactivate(fcitx::InputContext &inputContext) {
-  if (!uinputBackend_.hasPending()) {
+  if (!scheduler_.rewritePending()) {
     resetContext(inputContext);
   }
 }
@@ -118,28 +116,21 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
   if (debugProvider_() && (!event.isRelease() || isBackspace || isEnter)) {
     FCITX_INFO() << "areca: rewrite handler key=" << key.toString()
                  << " release=" << event.isRelease()
-                 << " pending=" << uinputBackend_.hasPending()
+                 << " pending=" << scheduler_.rewritePending()
                  << " queue=" << scheduler_.queuedKeyCount();
   }
   if (event.isRelease()) {
-    if (isBackspace && uinputBackend_.handleInjectedBackspaceRelease()) {
-      event.filterAndAccept();
-    }
     return;
   }
   if (rawKey.isModifier()) {
     return;
   }
-  if (isBackspace) {
-    const auto action = uinputBackend_.handleInjectedBackspacePress();
-    if (action ==
-        UinputSocketBackend::InjectedBackspaceAction::PassToApplication) {
-      return;
+  if (isBackspace && scheduler_.rewritePending()) {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: forward pending Backspace without mutating state";
     }
-    if (action == UinputSocketBackend::InjectedBackspaceAction::Filter) {
-      event.filterAndAccept();
-      return;
-    }
+    event.forward();
+    return;
   }
   if (inputContext->capabilityFlags().test(fcitx::CapabilityFlag::Password)) {
     cancelProtectedReset(*inputContext);

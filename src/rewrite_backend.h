@@ -22,7 +22,6 @@ public:
   virtual const char *name() const = 0;
   virtual ApplyStatus apply(fcitx::InputContext &inputContext,
                             const RewritePlan &plan, RewriteDone onDone) = 0;
-  virtual bool recoverUnsentFailure() { return false; }
 };
 
 } // namespace areca
