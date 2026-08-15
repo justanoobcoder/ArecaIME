@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include <fcitx/inputcontext.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
 
@@ -56,6 +57,11 @@ private:
   RewriteBackendSelection
   selectRewriteBackend(fcitx::InputContext &inputContext,
                        const BambooResult &result);
+  void protectBackendVerdict(fcitx::InputContext &inputContext,
+                             const char *reason);
+  void clearBackendVerdictForLifecycle(fcitx::InputContext &inputContext,
+                                       const char *eventName);
+  bool backendVerdictProtected(fcitx::InputContext &inputContext) const;
   void applyConfig();
   std::vector<MacroDefinition> macroDefinitions() const;
 
@@ -68,6 +74,10 @@ private:
   fcitx::FactoryFor<RewriteInputState> rewriteStateFactory_;
   fcitx::FactoryFor<PreeditInputState> preeditStateFactory_;
   ReliabilityChecker reliabilityChecker_;
+  bool backendVerdictContextKnown_ = false;
+  fcitx::ICUUID backendVerdictContextId_{};
+  SurroundingReliabilityState backendVerdict_;
+  uint64_t backendVerdictProtectedUntil_ = 0;
   SurroundingTextBackend surroundingBackend_;
   AutocompleteForwardSurroundingBackend autocompleteForwardBackend_;
   AutocompleteForwardSurroundingBackend autocompleteEdgeForwardBackend_;

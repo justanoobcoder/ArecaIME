@@ -18,13 +18,13 @@
 #include <fcitx/inputcontextmanager.h>
 
 #include "browser_autocomplete.h"
-#include "input_capabilities.h"
 
 namespace areca {
 namespace {
 
 constexpr const char *kMacroConfigPath = "conf/areca-macro-table.conf";
 constexpr const char *kAdvancedConfigPath = "conf/areca-advanced.conf";
+constexpr uint64_t kBackendVerdictProtectionUsec = 1ULL * 1000 * 1000;
 #if defined(ARECA_HAS_STANDARD_PATHS)
 constexpr auto kPkgConfigPath = fcitx::StandardPathsType::PkgConfig;
 #else
@@ -68,6 +68,9 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
           [this]() { return debugEnabled(); },
           [this]() {
             return static_cast<uint32_t>(advancedConfig_.resetDelayMs.value());
+          },
+          [this](fcitx::InputContext &inputContext, const char *reason) {
+            protectBackendVerdict(inputContext, reason);
           }),
       preeditHandler_(
           instance_->eventLoop(), preeditStateFactory_,
@@ -89,6 +92,52 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
 
 ArecaEngine::~ArecaEngine() = default;
 
+void ArecaEngine::protectBackendVerdict(fcitx::InputContext &inputContext,
+                                        const char *reason) {
+  if (!backendVerdictContextKnown_ ||
+      backendVerdictContextId_ != inputContext.uuid() ||
+      !backendVerdict_.known) {
+    return;
+  }
+  backendVerdictProtectedUntil_ =
+      fcitx::now(CLOCK_MONOTONIC) + kBackendVerdictProtectionUsec;
+  if (debugEnabled()) {
+    FCITX_INFO() << "areca: backend verdict protection armed"
+                 << " reason=" << reason << " duration_ms=1000"
+                 << " program=" << inputContext.program();
+  }
+}
+
+bool ArecaEngine::backendVerdictProtected(
+    fcitx::InputContext &inputContext) const {
+  return backendVerdictContextKnown_ && backendVerdict_.known &&
+         backendVerdictContextId_ == inputContext.uuid() &&
+         backendVerdictProtectedUntil_ > fcitx::now(CLOCK_MONOTONIC);
+}
+
+void ArecaEngine::clearBackendVerdictForLifecycle(
+    fcitx::InputContext &inputContext, const char *eventName) {
+  if (!backendVerdictContextKnown_ ||
+      backendVerdictContextId_ != inputContext.uuid()) {
+    return;
+  }
+  if (backendVerdictProtected(inputContext)) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: backend verdict cache preserved"
+                   << " event=" << eventName
+                   << " program=" << inputContext.program();
+    }
+    return;
+  }
+  backendVerdict_.reset();
+  backendVerdictProtectedUntil_ = 0;
+  if (debugEnabled()) {
+    FCITX_INFO() << "areca: backend verdict cache cleared"
+                 << " event=" << eventName
+                 << " program=" << inputContext.program();
+  }
+}
+
 RewriteBackendSelection
 ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
@@ -97,10 +146,21 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     return {&forwardBackspaceBackend_};
   }
 
+  if (!backendVerdictContextKnown_ ||
+      backendVerdictContextId_ != inputContext.uuid()) {
+    backendVerdictContextKnown_ = true;
+    backendVerdictContextId_ = inputContext.uuid();
+    backendVerdict_.reset();
+    backendVerdictProtectedUntil_ = 0;
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: backend verdict cache switched context"
+                   << " program=" << inputContext.program();
+    }
+  }
+
   const auto capabilities = inputContext.capabilityFlags();
   const auto decision = reliabilityChecker_.evaluate(
-      inputContext, result.currentText, state->surroundingReliability,
-      debugEnabled());
+      inputContext, result.currentText, backendVerdict_, debugEnabled());
   if (decision.browserAutocomplete) {
     const bool isUrl = capabilities.test(fcitx::CapabilityFlag::Url);
     RewriteBackend *backend = &autocompleteForwardBackend_;
@@ -117,22 +177,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   if (decision.useSurrounding) {
-    const char *forcedForwardReason = nullptr;
-    if (requiresForwardBackspaceForCapabilityMask(capabilities,
-                                                  inputContext.program())) {
-      forcedForwardReason = "vscode-family-capability-mask-0x72";
-    } else if (capabilities.test(fcitx::CapabilityFlag::Terminal)) {
-      forcedForwardReason = "terminal-capability";
-    }
-
-    if (forcedForwardReason) {
-      if (debugEnabled()) {
-        FCITX_INFO() << "areca: force backend=forward-backspace reason="
-                     << forcedForwardReason
-                     << " program=" << inputContext.program();
-      }
-      return {&forwardBackspaceBackend_};
-    }
     return {&surroundingBackend_};
   }
   return {&forwardBackspaceBackend_};
@@ -221,6 +265,9 @@ void ArecaEngine::activate(const fcitx::InputMethodEntry &,
   if (!inputContext) {
     return;
   }
+  if (activePresentationMode_ == PresentationMode::Rewrite) {
+    clearBackendVerdictForLifecycle(*inputContext, "activate");
+  }
   activeHandler().activate(*inputContext);
   if (debugEnabled()) {
     FCITX_INFO() << "areca: activate presentation_mode="
@@ -258,12 +305,18 @@ void ArecaEngine::deactivate(const fcitx::InputMethodEntry &,
   if (!inputContext) {
     return;
   }
+  if (activePresentationMode_ == PresentationMode::Rewrite) {
+    clearBackendVerdictForLifecycle(*inputContext, "deactivate");
+  }
   activeHandler().deactivate(*inputContext);
 }
 
 void ArecaEngine::reset(const fcitx::InputMethodEntry &,
                         fcitx::InputContextEvent &event) {
   if (auto *inputContext = event.inputContext()) {
+    if (activePresentationMode_ == PresentationMode::Rewrite) {
+      clearBackendVerdictForLifecycle(*inputContext, "reset");
+    }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: app reset requested; arm protected reset";
     }

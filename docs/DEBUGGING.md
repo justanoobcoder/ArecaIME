@@ -69,8 +69,7 @@ areca: queue push
 areca: scheduler process
 areca: bamboo result
 areca: reliability first-probe
-areca: force backend=forward-backspace reason=vscode-family-capability-mask-0x72
-areca: force backend=forward-backspace reason=terminal-capability
+areca: reliability first-probe force_forward=1 reason=capability-mask-0x72
 areca: rewrite select backend=
 areca: forward-backspace start
 areca: forward-backspace sent

@@ -8,14 +8,13 @@ Wayland và Fcitx5.
 
 | Thành phần | Trách nhiệm |
 | --- | --- |
-| `ArecaEngine` | Nhận event từ Fcitx5 và chỉ dispatch sang mode đang chọn. |
+| `ArecaEngine` | Nhận event từ Fcitx5, dispatch sang mode đang chọn và giữ cache verdict backend cho context hiện tại. |
 | `InputModeHandler` | Interface lifecycle/KeyEvent không chứa state; engine gọi handler đang active qua interface này. |
-| `RewriteInputState` | Bamboo, verdict SurroundingText, auto-capitalization và reset timer riêng của Rewrite. |
+| `RewriteInputState` | Bamboo, auto-capitalization và reset timer riêng của Rewrite. |
 | `PreeditInputState` | Bamboo, composition, auto-capitalization và reset timer riêng của Preedit. |
 | `RewriteModeHandler` | Toàn bộ policy KeyEvent/reset của Rewrite; enqueue trực tiếp vào `InputScheduler`. |
 | `PreeditModeHandler` | Xử lý Bamboo đồng bộ và quản lý UI preedit; không gọi scheduler hay rewrite backend. |
 | `RedirectModeHandler` | Forward KeyEvent nguyên bản như password field; không có Bamboo, queue, timer hay mutable state. |
-| `InputCapabilities` | Exact-mask policy `0x72` để chọn backend forward-Backspace. |
 | `KeyQueue` | FIFO chứa key gốc, Unicode codepoint, UTF-8, sequence và reference tới input context. |
 | `InputScheduler` | FIFO single-flight, backend selection, transaction barrier và timer riêng sau commit. |
 | `BambooEngineAdapter` | Bridge C++/Go gọi trực tiếp `bamboo-core` và biến chuỗi kết quả thành `BambooResult`. |
@@ -137,28 +136,16 @@ Khi `deleteCount == 0`:
 
 Khi `deleteCount > 0`:
 
-1. Input context thuộc họ VS Code và có capability mask chính xác `0x72` chọn
-   `ForwardBackspaceBackend`. Đây là exact match; program ngoài họ VS Code,
-   `0x90072`, `0xE001800072` và các mask khác không bị áp dụng policy này.
-2. Input context có `CapabilityFlag::Terminal` cũng luôn chọn
+1. `ReliabilityChecker` đánh giá input context.
+2. Capability mask chính xác `0x72` được cache vào verdict và chọn
    `ForwardBackspaceBackend`.
-3. Program rỗng không khớp rule VS Code tạm thời này. Việc ép backend vẫn có thể
-   đến từ `Terminal` flag của chính input context.
-4. Với app còn lại, `ReliabilityChecker` đánh giá input context.
-5. Verdict reliable chọn `SurroundingTextBackend`.
-6. Verdict unreliable chọn `ForwardBackspaceBackend`.
-7. Browser inline-autocomplete không dùng forward backend. Browser
+3. Verdict reliable còn lại chọn `SurroundingTextBackend`.
+4. Verdict unreliable chọn `ForwardBackspaceBackend`.
+5. Browser inline-autocomplete không dùng forward backend. Browser
    chọn `AutocompleteForwardSurroundingBackend`. Chỉ khi program là Edge và
    input context có `CapabilityFlag::Url` thì backend forward hai chu kỳ
    Backspace press/release; mọi case khác forward một. Sau đó backend apply đúng
    Bamboo `deleteCount` bằng SurroundingText.
-
-Hai capability policy forced-forward có log riêng:
-
-```text
-areca: force backend=forward-backspace reason=vscode-family-capability-mask-0x72 program=...
-areca: force backend=forward-backspace reason=terminal-capability program=...
-```
 
 ## Preedit mode
 
@@ -188,15 +175,11 @@ quay vòng `Rewrite → Preedit → Redirect → Rewrite`, lưu mode global và 
 thông tin Fcitx5. Hotkey không đổi mode giữa transaction rewrite đang pending;
 password context tiếp tục nhận phím gốc như bình thường.
 
-## Redirect mode và terminal
+## Redirect mode
 
 `Redirect` chỉ được bật bằng `PresentationMode` global; Areca không tự đổi mode
 theo input context. `RedirectModeHandler` không xử lý nội dung: press event gọi
 `KeyEvent::forward()`, release event được để nguyên cho Fcitx chuyển tiếp.
-
-Nếu mode global là Rewrite, context thuộc họ VS Code có capability mask chính
-xác `0x72`, hoặc context có `CapabilityFlag::Terminal`, sẽ chọn
-`ForwardBackspaceBackend`.
 
 ## Reliability lifetime
 
@@ -206,9 +189,11 @@ Probe chỉ diễn ra khi rewrite đầu tiên cần delete:
 - Snapshot phải valid.
 - Từ ngay trước cursor phải có suffix không rỗng khớp với `currentText`.
 
-Kết quả được cache trong `RewriteInputState`. Những rewrite sau dùng verdict đó thay vì
-đưa thêm live guard làm thay đổi backend giữa một phiên gõ. Khi Areca được
-activate lại cho input context, verdict được mở để context mới có thể probe.
+Kết quả được cache ở cấp `ArecaEngine`, cùng UUID của context hiện tại. Bình
+thường lifecycle sẽ xoá verdict để rewrite sau đánh giá lại. Backspace, Ctrl+A
+và phím di chuyển/chọn text bảo vệ riêng verdict trong 1 giây; lifecycle và reset
+state nhập vẫn chạy bình thường. UUID thay đổi luôn làm cache được tạo lại cho
+context mới.
 
 Snapshot browser autocomplete không được dùng làm first probe; checker giữ
 `known=false` để lần rewrite bình thường sau mới quyết định reliability.

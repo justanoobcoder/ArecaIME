@@ -108,11 +108,8 @@ forward Backspace × N
 Trong toàn bộ transaction, scheduler vẫn giữ `processing=true`, vì vậy key đến
 sau chỉ được append vào FIFO.
 
-Rule capability mask chính xác `0x72` chỉ ép forward-Backspace khi program thuộc họ VS Code
-(VS Code/Code OSS, VSCodium, Cursor, Windsurf, Antigravity và các clone đã nhận
-diện). Đây là exact match nên `0x90072`, `0xE001800072` và các mask khác không
-bị bắt theo policy này. Program rỗng và app ngoài họ VS Code cũng không bị rule
-`0x72` tác động. Context có `CapabilityFlag::Terminal` cũng dùng backend này.
+Capability mask chính xác `0x72` được cache ngay trong verdict reliability và
+chọn backend forward-Backspace. Rule này không phụ thuộc tên ứng dụng.
 
 ## Bảo vệ state trước reset của ứng dụng
 
@@ -124,8 +121,9 @@ không xoá state ngay:
 - Nếu rewrite bất đồng bộ đang pending, reset tiếp tục được hoãn.
 - Chỉ khi không có input mới và không còn transaction pending, Bamboo state và
   queue của input context mới được reset.
-- Verdict SurroundingText được giữ riêng vì nó mô tả độ tin cậy của ô nhập,
-  không phải composition tạm thời.
+- Verdict SurroundingText được lưu ở cấp addon. Backspace, Ctrl+A và phím di
+  chuyển bảo vệ riêng verdict này trong 1 giây; lifecycle vẫn reset các state
+  nhập khác như bình thường.
 
 Password field luôn bypass Bamboo, SurroundingText và rewrite backend; phím gốc được
 forward thẳng để không đưa nội dung nhạy cảm vào state của addon.
@@ -291,16 +289,13 @@ Areca giữ lại composition Bamboo của từ vừa chốt. Vì vậy sau khi 
 dấu cách hoặc dấu câu, có thể tiếp tục sửa dấu hay xoá từ vừa gõ thay vì Bamboo
 coi đó là một từ hoàn toàn mới.
 
-## Redirect (EN) và terminal
+## Redirect (EN)
 
 `Redirect (EN)` là mode global do người dùng tự chọn. Ở mode này press event
 được forward nguyên bản như password field; release event không bị filter. Không
 có text nào đi qua Bamboo, queue, timer, SurroundingText hoặc rewrite backend.
 
-Areca không tự đổi mode theo ứng dụng. Khi đang ở Rewrite, input context thuộc họ
-VS Code có mask chính xác `0x72`, hoặc context bất kỳ có
-`CapabilityFlag::Terminal`, sẽ dùng forward-Backspace cho thao tác xoá/rewrite.
-Các context bị ép backend không gọi SurroundingText để rewrite.
+Areca không tự đổi mode theo ứng dụng.
 
 ## Trạng thái và giới hạn hiện tại
 

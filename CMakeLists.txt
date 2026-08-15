@@ -39,7 +39,6 @@ add_library(areca MODULE
     src/bamboo_engine_adapter.cpp
     src/browser_autocomplete.cpp
     src/forward_backspace_backend.cpp
-    src/input_capabilities.cpp
     src/input_scheduler.cpp
     src/preedit_mode.cpp
     src/preedit_logic.cpp
@@ -125,17 +124,6 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-browser-autocomplete-test PRIVATE Fcitx5::Utils)
     add_test(NAME browser-autocomplete COMMAND areca-browser-autocomplete-test)
-
-    add_executable(areca-input-capabilities-test
-        tests/input_capabilities_test.cpp
-        src/input_capabilities.cpp)
-    target_compile_features(areca-input-capabilities-test PRIVATE cxx_std_20)
-    target_compile_options(areca-input-capabilities-test PRIVATE
-        -Wall -Wextra -Wpedantic -UNDEBUG)
-    target_include_directories(areca-input-capabilities-test PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src")
-    target_link_libraries(areca-input-capabilities-test PRIVATE Fcitx5::Utils)
-    add_test(NAME input-capabilities COMMAND areca-input-capabilities-test)
 
     add_executable(areca-sentence-capitalizer-test
         tests/sentence_capitalizer_test.cpp

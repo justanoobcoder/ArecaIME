@@ -14,6 +14,7 @@ namespace areca {
 namespace {
 
 constexpr size_t kMinMatch = 1;
+constexpr uint64_t kForwardBackspaceCapabilityMask = 0x72;
 
 } // namespace
 
@@ -29,13 +30,20 @@ ReliabilityDecision ReliabilityChecker::evaluate(
       looksLikeBrowserAutocomplete(surrounding.text(), surrounding.cursor(),
                                    surrounding.anchor(), shownText);
 
-  // Probe exactly once, on the first rewrite for this input context. The text
-  // Bamboo believes is currently visible must match the suffix immediately
-  // before the application cursor. An autocomplete snapshot is not a valid
-  // probe: leave known=false so a later ordinary rewrite can decide.
+  // Decide exactly once, on the first rewrite for this input context. Cache
+  // both the exact-mask policy and the SurroundingText probe. An autocomplete
+  // snapshot is not a valid first decision: leave known=false so a later
+  // ordinary rewrite can decide.
   if (!state.known && !browserAutocomplete) {
-    if (inputContext.capabilityFlags().test(
-            fcitx::CapabilityFlag::SurroundingText)) {
+    const auto capabilities = inputContext.capabilityFlags();
+    state.forceForwardBackspace =
+        capabilities.toInteger() == kForwardBackspaceCapabilityMask;
+    if (state.forceForwardBackspace) {
+      if (debug) {
+        FCITX_INFO() << "areca: reliability first-probe force_forward=1"
+                     << " reason=capability-mask-0x72";
+      }
+    } else if (capabilities.test(fcitx::CapabilityFlag::SurroundingText)) {
       if (surrounding.isValid()) {
         WordSegment segment;
         if (extractWordBeforeCursor(surrounding.text(), surrounding.cursor(),
@@ -69,14 +77,16 @@ ReliabilityDecision ReliabilityChecker::evaluate(
   if (debug) {
     FCITX_INFO() << "areca: reliability cached known=" << state.known
                  << " reliable=" << state.reliable
+                 << " force_forward=" << state.forceForwardBackspace
                  << " browser_autocomplete=" << browserAutocomplete
                  << " program=" << inputContext.program();
   }
 
   ReliabilityDecision decision;
   decision.browserAutocomplete = browserAutocomplete;
-  decision.useSurrounding =
-      state.known && state.reliable && !browserAutocomplete;
+  decision.useSurrounding = state.known && state.reliable &&
+                            !state.forceForwardBackspace &&
+                            !browserAutocomplete;
   return decision;
 }
 

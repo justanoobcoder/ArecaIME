@@ -50,6 +50,11 @@ bool hasRewriteShortcutModifier(const fcitx::Key &key) {
          states.test(fcitx::KeyState::Hyper2);
 }
 
+bool isSelectAllShortcut(const fcitx::Key &rawKey) {
+  return rawKey.states().test(fcitx::KeyState::Ctrl) &&
+         (rawKey.sym() == FcitxKey_a || rawKey.sym() == FcitxKey_A);
+}
+
 } // namespace
 
 RewriteInputState::RewriteInputState(std::string inputMethod, bool spellCheck,
@@ -72,11 +77,14 @@ RewriteModeHandler::RewriteModeHandler(fcitx::EventLoop &eventLoop,
                                        InputScheduler &scheduler,
                                        BoolProvider autoCapitalizeProvider,
                                        BoolProvider debugProvider,
-                                       ResetDelayProvider resetDelayProvider)
+                                       ResetDelayProvider resetDelayProvider,
+                                       BackendVerdictProtector
+                                           backendVerdictProtector)
     : eventLoop_(eventLoop), stateFactory_(stateFactory), scheduler_(scheduler),
       autoCapitalizeProvider_(std::move(autoCapitalizeProvider)),
       debugProvider_(std::move(debugProvider)),
-      resetDelayProvider_(std::move(resetDelayProvider)) {}
+      resetDelayProvider_(std::move(resetDelayProvider)),
+      backendVerdictProtector_(std::move(backendVerdictProtector)) {}
 
 RewriteModeHandler::~RewriteModeHandler() { lifetime_.reset(); }
 
@@ -141,6 +149,13 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
   if (!state || !state->engine) {
     event.forward();
     return;
+  }
+
+  if (isBackspace) {
+    backendVerdictProtector_(*inputContext, "user-backspace");
+  } else if (key.isCursorMove() || isSelectAllShortcut(rawKey)) {
+    backendVerdictProtector_(*inputContext,
+                             "selection-or-navigation-shortcut");
   }
 
   const bool resetAndForward =

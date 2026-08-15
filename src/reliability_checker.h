@@ -12,10 +12,12 @@ namespace areca {
 struct SurroundingReliabilityState {
   bool known = false;
   bool reliable = false;
+  bool forceForwardBackspace = false;
 
   void reset() {
     known = false;
     reliable = false;
+    forceForwardBackspace = false;
   }
 };
 

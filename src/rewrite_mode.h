@@ -45,12 +45,15 @@ public:
   using StateFactory = fcitx::FactoryFor<RewriteInputState>;
   using BoolProvider = std::function<bool()>;
   using ResetDelayProvider = std::function<uint32_t()>;
+  using BackendVerdictProtector =
+      std::function<void(fcitx::InputContext &, const char *)>;
 
   RewriteModeHandler(fcitx::EventLoop &eventLoop, StateFactory &stateFactory,
                      InputScheduler &scheduler,
                      BoolProvider autoCapitalizeProvider,
                      BoolProvider debugProvider,
-                     ResetDelayProvider resetDelayProvider);
+                     ResetDelayProvider resetDelayProvider,
+                     BackendVerdictProtector backendVerdictProtector);
   ~RewriteModeHandler();
 
   RewriteInputState *stateFor(fcitx::InputContext &inputContext) const;
@@ -71,6 +74,7 @@ private:
   BoolProvider autoCapitalizeProvider_;
   BoolProvider debugProvider_;
   ResetDelayProvider resetDelayProvider_;
+  BackendVerdictProtector backendVerdictProtector_;
   std::shared_ptr<void> lifetime_ = std::make_shared<int>(0);
 };
 
