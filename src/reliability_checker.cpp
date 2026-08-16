@@ -15,6 +15,7 @@ namespace {
 
 constexpr size_t kMinMatch = 1;
 constexpr uint64_t kForwardBackspaceCapabilityMask = 0x72;
+constexpr bool kEnableForwardBackspaceCapabilityMaskPolicy = false;
 
 } // namespace
 
@@ -63,7 +64,7 @@ ReliabilityDecision ReliabilityChecker::evaluate(
           << "areca: reliability first-probe no surrounding capability";
     }
     state.forceForwardBackspace =
-        state.reliable &&
+        kEnableForwardBackspaceCapabilityMaskPolicy && state.reliable &&
         capabilities.toInteger() == kForwardBackspaceCapabilityMask;
     if (state.forceForwardBackspace && debug) {
       FCITX_INFO() << "areca: reliability first-probe force_forward=1"
