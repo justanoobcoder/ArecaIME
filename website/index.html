@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1f19" />
+    <meta
+      name="description"
+      content="Areca IME — bộ gõ tiếng Việt cho Linux, tích hợp Fcitx5, tối ưu cho Wayland và sử dụng Bamboo Engine."
+    />
+    <meta property="og:title" content="Areca IME — Gõ tiếng Việt trên Linux" />
+    <meta
+      property="og:description"
+      content="Bộ gõ tiếng Việt Fcitx5 với Bamboo Engine, pipeline tuần tự và nhiều chế độ nhập liệu."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="assets/areca.svg" />
+    <title>Areca IME — Bộ gõ tiếng Việt cho Linux</title>
+    <link rel="icon" href="assets/areca.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Đi tới nội dung chính</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Areca IME — trang chủ">
+        <img src="assets/areca.svg" alt="" width="40" height="40" />
+        <span>Areca <b>IME</b></span>
+      </a>
+
+      <button
+        class="menu-toggle"
+        type="button"
+        aria-label="Mở menu"
+        aria-expanded="false"
+        aria-controls="site-nav"
+      >
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav id="site-nav" class="site-nav" aria-label="Điều hướng chính">
+        <a href="#features">Điểm nổi bật</a>
+        <a href="#architecture">Cách hoạt động</a>
+        <a href="#install">Cài đặt</a>
+        <a href="#credits">Cảm ơn</a>
+        <a
+          class="nav-github"
+          href="https://github.com/xhkzeroone/ArecaIME"
+          target="_blank"
+          rel="noreferrer"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+
+    <main id="main">
+      <section id="top" class="hero section-shell">
+        <div class="hero-copy reveal">
+          <p class="eyebrow"><span></span> Fcitx5 · Wayland-first · Bamboo core</p>
+          <h1>Gõ tiếng Việt trên Linux, <em>theo đúng nhịp của bạn.</em></h1>
+          <p class="hero-lead">
+            Areca là addon Fcitx5 viết bằng C++20. Mọi phím được xử lý tuần tự,
+            Bamboo lo phần tiếng Việt, còn Areca chọn cách rewrite phù hợp với
+            từng ô nhập liệu.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#install">Cài đặt Areca</a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/xhkzeroone/ArecaIME"
+              target="_blank"
+              rel="noreferrer"
+              >Xem mã nguồn <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="experimental-note">
+            <span aria-hidden="true">●</span> Dự án đang trong giai đoạn thử nghiệm
+          </p>
+        </div>
+
+        <div class="hero-demo reveal" aria-label="Minh họa cách Areca xử lý từ được">
+          <div class="demo-window">
+            <div class="window-bar">
+              <span></span><span></span><span></span>
+              <small>areca · rewrite</small>
+            </div>
+            <div class="typing-stage">
+              <p class="stage-label">PHÍM ĐẦU VÀO</p>
+              <div class="keys" aria-label="d d u o w c j">
+                <kbd>d</kbd><kbd>d</kbd><kbd>u</kbd><kbd>o</kbd><kbd>w</kbd><kbd>c</kbd><kbd>j</kbd>
+              </div>
+              <div class="flow-arrow"><span></span></div>
+              <p class="stage-label">BAMBOO + ARECA</p>
+              <div class="result-word">được<span class="caret"></span></div>
+            </div>
+            <div class="demo-status">
+              <span><i class="status-dot"></i> FIFO tuần tự</span>
+              <span>Rewrite hoàn tất</span>
+            </div>
+          </div>
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+        </div>
+      </section>
+
+      <section id="features" class="section-block section-shell">
+        <div class="section-heading reveal">
+          <p class="eyebrow"><span></span> Được xây cho input trên Linux</p>
+          <h2>Một pipeline nhỏ, rõ ràng và có kiểm soát.</h2>
+          <p>
+            Areca tách engine tiếng Việt, scheduler và backend rewrite thành
+            những phần độc lập để dễ kiểm tra, cấu hình và thay thế.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card feature-wide reveal">
+            <div class="feature-icon queue-icon" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </div>
+            <p class="card-kicker">01 · ĐÚNG THỨ TỰ</p>
+            <h3>FIFO, single-flight</h3>
+            <p>
+              Key mới vẫn được nhận khi một rewrite đang chạy, nhưng luôn nằm
+              chờ trong queue. Không có hai key cùng sửa nội dung một lúc.
+            </p>
+            <div class="mini-queue" aria-hidden="true">
+              <span class="active">1</span><span>2</span><span>3</span><b>→</b><em>Bamboo</em>
+            </div>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">↝</div>
+            <p class="card-kicker">02 · REWRITE THÍCH ỨNG</p>
+            <h3>Hai backend, một kết quả</h3>
+            <p>
+              Ưu tiên SurroundingText khi đáng tin cậy; fallback sang phát
+              Backspace qua Fcitx5 khi ứng dụng trả snapshot không phù hợp.
+            </p>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-icon bamboo-icon" aria-hidden="true">Ă</div>
+            <p class="card-kicker">03 · BAMBOO CORE</p>
+            <h3>Xử lý tiếng Việt đã trưởng thành</h3>
+            <p>
+              Tận dụng trực tiếp bamboo-core cho Telex, VNI, kiểm tra chính tả,
+              quy tắc đặt dấu và nhiều bảng mã Unicode.
+            </p>
+          </article>
+
+          <article class="feature-card feature-wide reveal">
+            <div class="feature-icon modes-icon" aria-hidden="true">⌘</div>
+            <p class="card-kicker">04 · BA CHẾ ĐỘ</p>
+            <h3>Chọn cách gõ phù hợp</h3>
+            <div class="mode-list">
+              <span><b>Rewrite</b><small>Sửa trực tiếp nội dung</small></span>
+              <span><b>Preedit</b><small>Soạn trước trong Fcitx5</small></span>
+              <span><b>Redirect (EN)</b><small>Chuyển phím nguyên bản</small></span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="architecture" class="architecture section-block">
+        <div class="section-shell">
+          <div class="section-heading section-heading-light reveal">
+            <p class="eyebrow"><span></span> Luồng xử lý</p>
+            <h2>Mỗi phím đi qua một con đường có thể quan sát.</h2>
+          </div>
+
+          <div class="pipeline reveal" aria-label="Sơ đồ kiến trúc Areca">
+            <div class="pipeline-node">
+              <span>01</span><b>Fcitx5</b><small>Key event</small>
+            </div>
+            <i class="connector" aria-hidden="true"></i>
+            <div class="pipeline-node">
+              <span>02</span><b>KeyQueue</b><small>FIFO</small>
+            </div>
+            <i class="connector" aria-hidden="true"></i>
+            <div class="pipeline-node node-highlight">
+              <span>03</span><b>Bamboo</b><small>Vietnamese core</small>
+            </div>
+            <i class="connector" aria-hidden="true"></i>
+            <div class="backend-stack">
+              <div class="pipeline-node">
+                <span>04A</span><b>SurroundingText</b><small>Delete + commit</small>
+              </div>
+              <div class="pipeline-node">
+                <span>04B</span><b>Forward Backspace</b><small>Fallback tuần tự</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="invariant-row reveal">
+            <p><b>Không sleep main thread.</b> Delay dùng event loop của Fcitx5.</p>
+            <p><b>Không chen ngang rewrite.</b> Pipeline chỉ pump key kế tiếp sau khi hoàn tất.</p>
+            <p><b>Timing có thể cấu hình.</b> Tinh chỉnh riêng cho Wayland và từng backend.</p>
+          </div>
+
+          <a
+            class="text-link light-link"
+            href="https://github.com/xhkzeroone/ArecaIME/blob/main/docs/ARCHITECTURE.md"
+            target="_blank"
+            rel="noreferrer"
+            >Đọc tài liệu kiến trúc đầy đủ <span aria-hidden="true">→</span></a
+          >
+        </div>
+      </section>
+
+      <section id="install" class="install section-block section-shell">
+        <div class="install-copy reveal">
+          <p class="eyebrow"><span></span> Bắt đầu</p>
+          <h2>Cài đặt bằng một script.</h2>
+          <p>
+            Script tự nhận diện Arch Linux, Ubuntu/Debian hoặc Fedora và cài
+            addon cùng các thành phần cần thiết. Bạn cũng có thể cài riêng cho
+            user hiện tại.
+          </p>
+          <div class="distro-list" aria-label="Các bản phân phối được hỗ trợ">
+            <span>Arch</span><span>Ubuntu 24+</span><span>Debian</span><span>Fedora</span>
+          </div>
+          <a
+            class="text-link"
+            href="https://github.com/xhkzeroone/ArecaIME#cài-đặt"
+            target="_blank"
+            rel="noreferrer"
+            >Xem mọi tùy chọn cài đặt <span aria-hidden="true">→</span></a
+          >
+        </div>
+
+        <div class="terminal-card reveal">
+          <div class="terminal-head">
+            <span>Terminal</span>
+            <button class="copy-button" type="button" data-copy-target="install-command">
+              <span class="copy-icon" aria-hidden="true">▣</span>
+              <span class="copy-label">Sao chép</span>
+            </button>
+          </div>
+          <pre id="install-command"><code><span class="prompt">$</span> git clone --recurse-submodules \
+  https://github.com/xhkzeroone/ArecaIME.git
+<span class="prompt">$</span> cd ArecaIME
+<span class="prompt">$</span> ./scripts/install.sh</code></pre>
+          <div class="terminal-note">
+            <span>Chỉ cài cho user?</span>
+            <code>./scripts/install.sh --user</code>
+          </div>
+        </div>
+      </section>
+
+      <section id="credits" class="credits section-block section-shell reveal">
+        <div class="credits-logo">
+          <img src="assets/areca.svg" alt="Biểu tượng Areca" width="96" height="96" />
+        </div>
+        <div>
+          <p class="eyebrow"><span></span> Lời cảm ơn</p>
+          <h2>Areca đứng trên vai Bamboo.</h2>
+          <p>
+            Phần chuyển đổi Telex và các quy tắc tiếng Việt đến từ
+            <a href="https://github.com/BambooEngine/bamboo-core">Bamboo Engine / bamboo-core</a>
+            của <b>Lương Thành Lâm</b>. Xin cảm ơn tác giả Bamboo, Trung Ngo
+            (<code>bogo.js</code>) và Trần Kỳ Nam (<code>GoTiengViet</code>).
+          </p>
+          <p>Areca và bamboo-core đều được phát hành theo giấy phép MIT.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img src="assets/areca.svg" alt="" width="34" height="34" />
+          <span><b>Areca IME</b><small>Bộ gõ tiếng Việt cho Linux</small></span>
+        </div>
+        <nav aria-label="Liên kết cuối trang">
+          <a href="https://github.com/xhkzeroone/ArecaIME">GitHub</a>
+          <a href="https://github.com/xhkzeroone/ArecaIME/releases">Releases</a>
+          <a href="https://github.com/xhkzeroone/ArecaIME/blob/main/docs/DEBUGGING.md">Debugging</a>
+          <a href="https://github.com/xhkzeroone/ArecaIME/blob/main/LICENSE">MIT License</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
