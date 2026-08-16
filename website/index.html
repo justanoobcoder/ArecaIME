@@ -41,6 +41,7 @@
 
       <nav id="site-nav" class="site-nav" aria-label="Điều hướng chính">
         <a href="#features">Điểm nổi bật</a>
+        <a href="#direction">Định hướng</a>
         <a href="#architecture">Cách hoạt động</a>
         <a href="#install">Cài đặt</a>
         <a href="#credits">Cảm ơn</a>
@@ -167,6 +168,108 @@
               <span><b>Redirect (EN)</b><small>Chuyển phím nguyên bản</small></span>
             </div>
           </article>
+        </div>
+      </section>
+
+      <section id="direction" class="direction section-block">
+        <div class="section-shell">
+          <div class="direction-intro reveal">
+            <div class="section-heading">
+              <p class="eyebrow"><span></span> Cùng bài toán, khác điểm xuất phát</p>
+              <h2>Ít cấu hình thủ công hơn cho từng ứng dụng.</h2>
+              <p>
+                Không có một cách tích hợp phù hợp tuyệt đối với mọi môi trường.
+                Areca chọn ở lại trong hệ sinh thái Fcitx5, dùng Bamboo cho phần
+                tiếng Việt và tự thích ứng cách rewrite theo từng ô nhập liệu.
+              </p>
+            </div>
+            <p class="comparison-note">
+              Đây là so sánh về triết lý kỹ thuật, không phải bảng xếp hạng dự án.
+            </p>
+          </div>
+
+          <div class="comparison-table reveal" role="table" aria-label="So sánh các hướng thiết kế bộ gõ">
+            <div class="comparison-row comparison-head" role="row">
+              <span role="columnheader">Hướng tiếp cận</span>
+              <span role="columnheader">Điểm thuận lợi</span>
+              <span role="columnheader">Điều người dùng cần cân nhắc</span>
+            </div>
+
+            <div class="comparison-row" role="row">
+              <div class="approach-name" role="cell">
+                <i aria-hidden="true">01</i>
+                <span><b>Chỉ dùng Preedit</b><small>Một đường xử lý nhất quán</small></span>
+              </div>
+              <p role="cell">
+                State composition nằm trong bộ gõ và bám sát giao thức input
+                method, nhờ đó luồng xử lý thường đơn giản, dễ dự đoán.
+              </p>
+              <p role="cell">
+                Chữ đang soạn được hiển thị dưới dạng preedit; cảm giác nhập và
+                cách app trình bày có thể khác với việc gõ trực tiếp vào văn bản.
+              </p>
+            </div>
+
+            <div class="comparison-row" role="row">
+              <div class="approach-name" role="cell">
+                <i aria-hidden="true">02</i>
+                <span><b>Nhiều mode theo ứng dụng</b><small>Người dùng tự chọn backend</small></span>
+              </div>
+              <p role="cell">
+                Cho phép đổi chiến lược tương thích khi một ứng dụng hoạt động
+                tốt hơn với Preedit, SurroundingText hoặc cách rewrite khác.
+              </p>
+              <p role="cell">
+                Người dùng cần nhớ mode phù hợp cho từng app; trong cùng một app,
+                vùng soạn thảo, terminal và ô tìm kiếm vẫn có thể hành xử khác nhau.
+              </p>
+            </div>
+
+            <div class="comparison-row" role="row">
+              <div class="approach-name" role="cell">
+                <i aria-hidden="true">03</i>
+                <span><b>Lớp IME độc lập</b><small>Tự quản lý đường tích hợp</small></span>
+              </div>
+              <p role="cell">
+                Dự án có toàn quyền thiết kế vòng đời, giao diện và cách chuyển
+                key mà không bị giới hạn hoàn toàn bởi một framework có sẵn.
+              </p>
+              <p role="cell">
+                Đổi lại, lớp tích hợp phải tự theo kịp desktop, compositor,
+                toolkit và nhiều giao thức input khác nhau trên Linux.
+              </p>
+            </div>
+
+            <div class="comparison-row areca-row" role="row">
+              <div class="approach-name" role="cell">
+                <i aria-hidden="true">A</i>
+                <span><b>Hướng của Areca</b><small>Thích ứng theo từng input</small></span>
+              </div>
+              <p role="cell">
+                Giữ Fcitx5 làm nền tảng và tự đánh giá từng input context. Mỗi
+                ô nhập có state cùng verdict riêng để chọn đường rewrite phù hợp.
+              </p>
+              <p role="cell">
+                Người dùng không phải lập danh sách mode theo app. Phần phức tạp
+                được chuyển vào scheduler, reliability check và backend của Areca.
+              </p>
+            </div>
+          </div>
+
+          <div class="direction-pillars reveal">
+            <article>
+              <span aria-hidden="true">→</span>
+              <div><b>Dựa trên Fcitx5</b><p>Tận dụng lifecycle, cấu hình và frontend đã có của hệ sinh thái Linux.</p></div>
+            </article>
+            <article>
+              <span aria-hidden="true">→</span>
+              <div><b>Nhìn vào từng ô nhập</b><p>Quyết định backend gắn với input context, không áp một phán đoán cho toàn bộ app.</p></div>
+            </article>
+            <article>
+              <span aria-hidden="true">→</span>
+              <div><b>Tự động trong sử dụng hằng ngày</b><p>Areca nhận phần phức tạp để người dùng ít phải đổi mode khi chuyển nơi nhập.</p></div>
+            </article>
+          </div>
         </div>
       </section>
 

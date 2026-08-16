@@ -581,6 +581,162 @@ kbd {
 .mode-list b { font-size: 13px; }
 .mode-list small { margin-top: 3px; color: var(--muted); font-size: 10px; }
 
+.direction {
+  background: #efede3;
+  border-top: 1px solid var(--line);
+}
+
+.direction-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: 50px;
+}
+
+.direction-intro .section-heading {
+  margin-bottom: 0;
+}
+
+.comparison-note {
+  max-width: 270px;
+  margin: 0 0 4px;
+  padding-left: 17px;
+  color: var(--muted);
+  border-left: 2px solid var(--orange);
+  font-size: 12px;
+}
+
+.comparison-table {
+  overflow: hidden;
+  background: #faf9f3;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 55px rgba(12, 52, 37, 0.06);
+}
+
+.comparison-row {
+  display: grid;
+  grid-template-columns: 1.05fr 1.25fr 1.25fr;
+  gap: 30px;
+  align-items: center;
+  min-height: 130px;
+  padding: 24px 30px;
+  border-top: 1px solid var(--line);
+}
+
+.comparison-row:first-child {
+  border-top: 0;
+}
+
+.comparison-head {
+  min-height: 52px;
+  padding-block: 14px;
+  color: #73817b;
+  background: #e5e3d9;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.comparison-row > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.approach-name {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.approach-name i {
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--green-dark);
+  background: rgba(21, 153, 87, 0.09);
+  border-radius: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.approach-name span,
+.approach-name b,
+.approach-name small {
+  display: block;
+}
+
+.approach-name b {
+  font-size: 15px;
+}
+
+.approach-name small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.areca-row {
+  position: relative;
+  background: rgba(21, 153, 87, 0.075);
+}
+
+.areca-row::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  content: "";
+  background: var(--green);
+}
+
+.areca-row .approach-name i {
+  color: white;
+  background: var(--green);
+}
+
+.direction-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.direction-pillars article {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 11px;
+  padding: 21px;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.direction-pillars article > span {
+  color: var(--orange);
+  font-weight: 900;
+}
+
+.direction-pillars b {
+  font-size: 13px;
+}
+
+.direction-pillars p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .architecture {
   position: relative;
   overflow: hidden;
@@ -1026,6 +1182,19 @@ kbd {
   .hero-demo { width: min(680px, 100%); margin: 10px auto 0; }
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
 
+  .direction-intro {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .comparison-note {
+    max-width: 560px;
+  }
+
+  .direction-pillars {
+    grid-template-columns: 1fr;
+  }
+
   .pipeline {
     grid-template-columns: 1fr 36px 1fr 36px 1fr;
   }
@@ -1072,6 +1241,33 @@ kbd {
   .feature-wide { grid-column: auto; }
   .mode-list { grid-template-columns: 1fr; }
   .feature-card { min-height: auto; }
+
+  .comparison-head {
+    display: none;
+  }
+
+  .comparison-row {
+    grid-template-columns: 1fr;
+    gap: 13px;
+    padding: 24px;
+  }
+
+  .comparison-row > p {
+    padding-left: 52px;
+  }
+
+  .comparison-row > p::before {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--green-dark);
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .comparison-row > p:nth-child(2)::before { content: "Điểm thuận lợi"; }
+  .comparison-row > p:nth-child(3)::before { content: "Cần cân nhắc"; }
 
   .pipeline {
     grid-template-columns: 1fr;
