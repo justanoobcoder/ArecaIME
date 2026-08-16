@@ -246,12 +246,14 @@
                 <span><b>Hướng của Areca</b><small>Thích ứng theo từng input</small></span>
               </div>
               <p role="cell">
-                Giữ Fcitx5 làm nền tảng và tự đánh giá từng input context. Mỗi
-                ô nhập có state cùng verdict riêng để chọn đường rewrite phù hợp.
+                Giữ Fcitx5 làm nền tảng, tự đánh giá từng input context và dùng
+                <code>forwardKey()</code> cho fallback ngay trong addon—không
+                cần một dịch vụ uinput chạy riêng.
               </p>
               <p role="cell">
-                Người dùng không phải lập danh sách mode theo app. Phần phức tạp
-                được chuyển vào scheduler, reliability check và backend của Areca.
+                Người dùng không phải lập danh sách mode theo app hay cấp thêm
+                quyền điều khiển thiết bị input. Đổi lại, fallback vẫn cần
+                frontend chuyển key đúng và timing phù hợp với ứng dụng.
               </p>
             </div>
           </div>
@@ -269,6 +271,21 @@
               <span aria-hidden="true">→</span>
               <div><b>Tự động trong sử dụng hằng ngày</b><p>Areca nhận phần phức tạp để người dùng ít phải đổi mode khi chuyển nơi nhập.</p></div>
             </article>
+            <article>
+              <span aria-hidden="true">→</span>
+              <div><b>Không cần dịch vụ uinput</b><p>Fallback dùng Fcitx5 <code>forwardKey()</code>, không cần socket, daemon hay quyền truy cập thiết bị riêng.</p></div>
+            </article>
+          </div>
+
+          <div class="integration-line reveal">
+            <div class="integration-path" aria-hidden="true">
+              <span>Fcitx5</span><i>→</i><span>Areca</span><i>→</i><span>Ứng dụng</span>
+            </div>
+            <p>
+              Một pipeline liền mạch giúp giảm thành phần phải cài đặt và quản
+              lý. Người dùng tránh được bước cấp quyền uinput vốn có thể khác
+              nhau giữa các distro, đặc biệt trong lần cài đầu tiên.
+            </p>
           </div>
         </div>
       </section>
