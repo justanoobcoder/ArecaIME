@@ -11,7 +11,6 @@
 #include <fcitx/inputpanel.h>
 
 #include "preedit_logic.h"
-#include "surrounding_text_cache.h"
 
 namespace areca {
 namespace {
@@ -145,7 +144,6 @@ void PreeditModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
     if (state->composing.empty()) {
       state->engine->reset();
       event.forward();
-      updateSurroundingCacheAfterDelete(*inputContext, -1, 1);
       return;
     }
     try {
@@ -209,13 +207,11 @@ void PreeditModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
       state->composing.clear();
       updatePreedit(*inputContext, *state);
       event.forward();
-      updateSurroundingCacheAfterCommit(*inputContext, utf8Text);
       return;
     }
 
     if (!committed.empty()) {
       inputContext->commitString(committed);
-      updateSurroundingCacheAfterCommit(*inputContext, committed);
     }
     state->engine->reset();
     state->composing.clear();
@@ -260,7 +256,6 @@ void PreeditModeHandler::commitComposition(fcitx::InputContext &inputContext,
                                            PreeditInputState &state) {
   if (!state.composing.empty()) {
     inputContext.commitString(state.composing);
-    updateSurroundingCacheAfterCommit(inputContext, state.composing);
   }
   state.engine->reset();
   state.composing.clear();

@@ -127,9 +127,9 @@ người dùng bắt đầu một từ mới hoặc khi protected reset thực s
 
 Khi `deleteCount == 0`:
 
-- Nếu `commitText` giống text của phím gốc, scheduler dùng `commitString()` và
-  cập nhật cache SurroundingText bằng text của phím đó. Phím gốc đã bị accept
-  trước khi vào queue nên không replay bất đồng bộ bằng `forwardKey()`; GNOME
+- Nếu `commitText` giống text của phím gốc, scheduler dùng `commitString()`.
+  Phím gốc đã bị accept trước khi vào queue nên không replay bất đồng bộ bằng
+  `forwardKey()`; GNOME
   IBus Wayland có thể không chuyển loại forwarded key này tới text-input client.
 - Nếu Bamboo đã biến đổi output dù không cần xoá, scheduler commit
   `commitText`. Trường hợp điển hình là dấu của `Unicode tổ hợp`.
@@ -221,14 +221,8 @@ completion callback đúng một lần sau commit.
 
 ## Surrounding cache
 
-Các rewrite backend cập nhật object `surroundingText()` mà Fcitx đang cache:
-
-- Sau delete: xoá đúng `cacheDeleteCount` character.
-- Sau commit: chèn text tại cursor và cập nhật cursor/anchor.
-
-Backend autocomplete-forward xoá selection khỏi cache trước khi delegate Bamboo
-delete/commit. Forward-Backspace không tự đoán cache delete vì ứng dụng/frontend
-có thể cập nhật SurroundingText từ chính các KeyEvent vừa nhận.
+Areca không tự chỉnh object `surroundingText()` mà Fcitx đang cache sau delete,
+selection delete hoặc commit. Addon chờ frontend gửi snapshot mới từ ứng dụng.
 
 ## Reset barrier
 

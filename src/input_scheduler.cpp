@@ -5,8 +5,6 @@
 
 #include <fcitx-utils/log.h>
 
-#include "surrounding_text_cache.h"
-
 namespace areca {
 
 InputScheduler::InputScheduler(fcitx::EventLoop &eventLoop,
@@ -114,7 +112,6 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     // output tables that transform a single key without replacing old text.
     if (!result.commitText.empty()) {
       inputContext.commitString(result.commitText);
-      updateSurroundingCacheAfterCommit(inputContext, result.commitText);
     }
     if (debugProvider_()) {
       FCITX_INFO() << "areca: apply no-delete commit=" << result.commitText
@@ -133,7 +130,6 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.waylandAfterBackspaceWaitMs = timing.waylandAfterBackspaceWaitMs;
   plan.timerAccuracyUsec = timing.timerAccuracyUsec;
   plan.commitText = result.commitText;
-  plan.cacheDeleteCount = result.deleteCount;
 
   const auto selection = rewriteBackendSelector_(inputContext, result);
   if (!selection.backend) {

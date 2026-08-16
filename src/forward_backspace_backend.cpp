@@ -6,8 +6,6 @@
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
 
-#include "surrounding_text_cache.h"
-
 namespace areca {
 
 ForwardBackspaceBackend::ForwardBackspaceBackend(fcitx::EventLoop &eventLoop,
@@ -98,7 +96,6 @@ void ForwardBackspaceBackend::commitAndComplete() {
 
   if (!commitText_.empty()) {
     inputContext->commitString(commitText_);
-    updateSurroundingCacheAfterCommit(*inputContext, commitText_);
   }
 
   const uint64_t transactionId = transactionId_;

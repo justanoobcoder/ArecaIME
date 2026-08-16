@@ -4,8 +4,6 @@
 
 #include <fcitx-utils/keysym.h>
 
-#include "surrounding_text_cache.h"
-
 namespace areca {
 
 const char *AutocompleteForwardSurroundingBackend::name() const {
@@ -23,7 +21,6 @@ AutocompleteForwardSurroundingBackend::apply(fcitx::InputContext &inputContext,
     inputContext.forwardKey(backspace, true);
   }
 
-  updateSurroundingCacheAfterSelectionDelete(inputContext);
   return surroundingBackend_.apply(inputContext, plan, std::move(onDone));
 }
 

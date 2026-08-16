@@ -86,8 +86,8 @@ với text mà Bamboo tin rằng đang hiển thị. Kết quả được cache 
 - Không khớp, snapshot không hợp lệ hoặc app không hỗ trợ capability: fallback
   sang backend forward-Backspace.
 
-Areca cập nhật lại cache SurroundingText nội bộ sau delete và commit để lần xử
-lý kế tiếp không đọc một snapshot cũ.
+Areca không tự sửa cache SurroundingText nội bộ sau delete hoặc commit; addon
+chờ snapshot mới từ ứng dụng.
 
 ### Forward Backspace
 

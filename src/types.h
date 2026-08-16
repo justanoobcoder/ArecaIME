@@ -16,8 +16,6 @@ struct BambooResult {
 struct RewritePlan {
   uint64_t transactionId = 0;
   uint32_t backspaceCount = 0;
-  // Number of characters represented in the Fcitx surrounding-text cache.
-  uint32_t cacheDeleteCount = 0;
   uint32_t backspaceDelayMs = 1;
   uint32_t afterBackspaceWaitMs = 10;
   uint32_t waylandAfterBackspaceWaitMs = 3;

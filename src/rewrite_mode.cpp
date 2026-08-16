@@ -8,8 +8,6 @@
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
 
-#include "surrounding_text_cache.h"
-
 namespace areca {
 namespace {
 
@@ -184,7 +182,6 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
       state->engine->reset();
     }
     event.forward();
-    updateSurroundingCacheAfterDelete(*inputContext, -1, 1);
     return;
   }
   if (isEnter) {
