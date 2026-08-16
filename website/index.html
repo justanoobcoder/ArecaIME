@@ -68,6 +68,13 @@
             <a class="button button-primary" href="#install">Cài đặt Areca</a>
             <a
               class="button button-secondary"
+              href="https://github.com/xhkzeroone/ArecaIME/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              >Tải bản mới nhất <span aria-hidden="true">↓</span></a
+            >
+            <a
+              class="source-link"
               href="https://github.com/xhkzeroone/ArecaIME"
               target="_blank"
               rel="noreferrer"
@@ -214,13 +221,22 @@
           <p class="eyebrow"><span></span> Bắt đầu</p>
           <h2>Cài đặt bằng một script.</h2>
           <p>
-            Script tự nhận diện Arch Linux, Ubuntu/Debian hoặc Fedora và cài
-            addon cùng các thành phần cần thiết. Bạn cũng có thể cài riêng cho
-            user hiện tại.
+            Tải gói dựng sẵn cho distro của bạn hoặc dùng installer để build
+            trực tiếp từ mã nguồn. Sau khi cài, chỉ cần thêm Areca trong công
+            cụ cấu hình Fcitx5.
           </p>
           <div class="distro-list" aria-label="Các bản phân phối được hỗ trợ">
             <span>Arch</span><span>Ubuntu 24+</span><span>Debian</span><span>Fedora</span>
           </div>
+          <a
+            class="button button-primary release-button"
+            href="https://github.com/xhkzeroone/ArecaIME/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span class="download-mark" aria-hidden="true">↓</span>
+            Tải bản phát hành mới nhất
+          </a>
           <a
             class="text-link"
             href="https://github.com/xhkzeroone/ArecaIME#cài-đặt"
@@ -230,21 +246,172 @@
           >
         </div>
 
-        <div class="terminal-card reveal">
-          <div class="terminal-head">
-            <span>Terminal</span>
-            <button class="copy-button" type="button" data-copy-target="install-command">
-              <span class="copy-icon" aria-hidden="true">▣</span>
-              <span class="copy-label">Sao chép</span>
-            </button>
+        <div class="installer-card reveal">
+          <div class="installer-head">
+            <span>Cài đặt theo distro</span>
+            <a
+              href="https://github.com/xhkzeroone/ArecaIME/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              >GitHub Releases <span aria-hidden="true">↗</span></a
+            >
           </div>
-          <pre id="install-command"><code><span class="prompt">$</span> git clone --recurse-submodules \
+
+          <div class="distro-tabs" role="tablist" aria-label="Chọn bản phân phối Linux">
+            <button
+              id="tab-ubuntu"
+              class="distro-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="panel-ubuntu"
+              data-install-tab="ubuntu"
+            >Ubuntu</button>
+            <button
+              id="tab-arch"
+              class="distro-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-arch"
+              data-install-tab="arch"
+            >Arch</button>
+            <button
+              id="tab-fedora"
+              class="distro-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-fedora"
+              data-install-tab="fedora"
+            >Fedora</button>
+            <button
+              id="tab-source"
+              class="distro-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-source"
+              data-install-tab="source"
+            >Mã nguồn</button>
+          </div>
+
+          <div
+            id="panel-ubuntu"
+            class="install-panel"
+            role="tabpanel"
+            aria-labelledby="tab-ubuntu"
+            data-install-panel="ubuntu"
+          >
+            <div class="package-instruction">
+              <span class="step-number">1</span>
+              <p>
+                Mở <a href="https://github.com/xhkzeroone/ArecaIME/releases/latest">release mới nhất</a>
+                và tải gói <code>ubuntu24_amd64.deb</code> hoặc
+                <code>ubuntu26_amd64.deb</code> đúng phiên bản Ubuntu.
+              </p>
+            </div>
+            <div class="package-instruction">
+              <span class="step-number">2</span>
+              <p>Mở terminal tại thư mục Downloads rồi chạy:</p>
+            </div>
+            <div class="command-row">
+              <pre id="ubuntu-command"><code>sudo apt install ./fcitx5-areca_*_ubuntu*_amd64.deb</code></pre>
+              <button class="copy-button" type="button" data-copy-target="ubuntu-command">
+                <span class="copy-icon" aria-hidden="true">▣</span>
+                <span class="copy-label">Sao chép</span>
+              </button>
+            </div>
+            <p class="panel-note">Debian chưa có binary riêng; hãy chọn tab <b>Mã nguồn</b>.</p>
+          </div>
+
+          <div
+            id="panel-arch"
+            class="install-panel"
+            role="tabpanel"
+            aria-labelledby="tab-arch"
+            data-install-panel="arch"
+            hidden
+          >
+            <div class="package-instruction">
+              <span class="step-number">1</span>
+              <p>
+                Tải file <code>.pkg.tar.zst</code> từ
+                <a href="https://github.com/xhkzeroone/ArecaIME/releases/latest">release mới nhất</a>.
+              </p>
+            </div>
+            <div class="package-instruction">
+              <span class="step-number">2</span>
+              <p>Mở terminal tại thư mục chứa gói rồi chạy:</p>
+            </div>
+            <div class="command-row">
+              <pre id="arch-command"><code>sudo pacman -U ./fcitx5-areca-*.pkg.tar.zst</code></pre>
+              <button class="copy-button" type="button" data-copy-target="arch-command">
+                <span class="copy-icon" aria-hidden="true">▣</span>
+                <span class="copy-label">Sao chép</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            id="panel-fedora"
+            class="install-panel"
+            role="tabpanel"
+            aria-labelledby="tab-fedora"
+            data-install-panel="fedora"
+            hidden
+          >
+            <div class="package-instruction">
+              <span class="step-number">1</span>
+              <p>
+                Tải file <code>fedora-latest.x86_64.rpm</code> từ
+                <a href="https://github.com/xhkzeroone/ArecaIME/releases/latest">release mới nhất</a>.
+              </p>
+            </div>
+            <div class="package-instruction">
+              <span class="step-number">2</span>
+              <p>Mở terminal tại thư mục chứa gói rồi chạy:</p>
+            </div>
+            <div class="command-row">
+              <pre id="fedora-command"><code>sudo dnf install ./fcitx5-areca-*.rpm</code></pre>
+              <button class="copy-button" type="button" data-copy-target="fedora-command">
+                <span class="copy-icon" aria-hidden="true">▣</span>
+                <span class="copy-label">Sao chép</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            id="panel-source"
+            class="install-panel"
+            role="tabpanel"
+            aria-labelledby="tab-source"
+            data-install-panel="source"
+            hidden
+          >
+            <p class="source-intro">
+              Dùng được trên Arch/CachyOS, Debian/Ubuntu và Fedora. Script tự
+              cài dependency, build, test rồi cài addon.
+            </p>
+            <div class="command-row source-command-row">
+              <pre id="source-command"><code>git clone --recurse-submodules \
   https://github.com/xhkzeroone/ArecaIME.git
-<span class="prompt">$</span> cd ArecaIME
-<span class="prompt">$</span> ./scripts/install.sh</code></pre>
-          <div class="terminal-note">
-            <span>Chỉ cài cho user?</span>
-            <code>./scripts/install.sh --user</code>
+cd ArecaIME
+./scripts/install.sh</code></pre>
+              <button class="copy-button" type="button" data-copy-target="source-command">
+                <span class="copy-icon" aria-hidden="true">▣</span>
+                <span class="copy-label">Sao chép</span>
+              </button>
+            </div>
+            <p class="panel-note">Cài riêng cho user: <code>./scripts/install.sh --user</code></p>
+          </div>
+
+          <div class="after-install">
+            <span aria-hidden="true">✓</span>
+            <p>
+              Sau khi cài: mở <code>fcitx5-configtool</code>, tìm
+              <b>Areca (Bamboo)</b> và thêm vào danh sách input method.
+            </p>
           </div>
         </div>
       </section>

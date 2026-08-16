@@ -221,7 +221,20 @@ h1 em {
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
+}
+
+.source-link {
+  padding: 10px 4px;
+  color: var(--green-dark);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.source-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .button {
@@ -720,25 +733,179 @@ kbd {
   font-weight: 750;
 }
 
-.terminal-card {
+.release-button {
+  width: fit-content;
+  margin-top: 24px;
+}
+
+.download-mark {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  margin-right: 9px;
+  color: var(--green-dark);
+  background: white;
+  border-radius: 50%;
+  font-size: 15px;
+}
+
+.install-copy .text-link {
+  display: flex;
+  width: fit-content;
+}
+
+.installer-card {
   overflow: hidden;
-  color: #e6f0eb;
-  background: #0a1713;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 515px;
+  color: var(--ink);
+  background: #fffef9;
+  border: 1px solid var(--line);
   border-radius: 22px;
   box-shadow: var(--shadow);
 }
 
-.terminal-head {
+.installer-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 52px;
   padding: 0 18px;
-  color: #91a39c;
-  background: rgba(255, 255, 255, 0.045);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  background: #eeece3;
+  border-bottom: 1px solid var(--line);
   font-size: 12px;
+}
+
+.installer-head > span {
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.installer-head a {
+  color: var(--green-dark);
+  font-weight: 750;
+}
+
+.distro-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 8px;
+  background: #f7f5ed;
+  border-bottom: 1px solid var(--line);
+}
+
+.distro-tab {
+  min-height: 42px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.distro-tab:hover {
+  color: var(--ink);
+  background: rgba(21, 153, 87, 0.06);
+}
+
+.distro-tab.is-active {
+  color: white;
+  background: var(--green-dark);
+  box-shadow: 0 6px 16px rgba(11, 95, 58, 0.18);
+}
+
+.install-panel {
+  padding: 27px 26px 22px;
+}
+
+.install-panel[hidden] {
+  display: none;
+}
+
+.package-instruction {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 15px;
+}
+
+.package-instruction p,
+.source-intro {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.package-instruction a {
+  color: var(--green-dark);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.package-instruction code,
+.panel-note code,
+.after-install code {
+  color: var(--green-dark);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+  font-weight: 700;
+}
+
+.step-number {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  color: var(--green-dark);
+  background: rgba(21, 153, 87, 0.1);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.command-row {
+  position: relative;
+  overflow: hidden;
+  margin: 20px 0 0 38px;
+  color: #e6f0eb;
+  background: #0a1713;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.command-row pre {
+  min-height: 70px;
+  margin: 0;
+  padding: 25px 112px 22px 18px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.command-row code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.command-row .copy-button {
+  position: absolute;
+  top: 16px;
+  right: 13px;
+}
+
+.source-command-row {
+  margin-left: 0;
+}
+
+.source-command-row pre {
+  min-height: 144px;
 }
 
 .copy-button {
@@ -753,33 +920,38 @@ kbd {
 .copy-button:hover { background: rgba(255, 255, 255, 0.08); }
 .copy-icon { margin-right: 5px; }
 
-.terminal-card pre {
-  min-height: 245px;
-  margin: 0;
-  padding: 34px 28px;
-  overflow-x: auto;
-  font-size: clamp(12px, 1.35vw, 15px);
-  line-height: 1.9;
-}
-
-.terminal-card code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-}
-
-.prompt { color: var(--orange); }
-
-.terminal-note {
-  display: flex;
-  justify-content: space-between;
-  gap: 15px;
-  padding: 14px 20px;
-  color: #91a39c;
-  background: rgba(255, 255, 255, 0.035);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.panel-note {
+  margin: 18px 0 0 38px;
+  color: var(--muted);
   font-size: 11px;
 }
 
-.terminal-note code { color: #75d9a9; }
+.after-install {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 17px 25px;
+  color: var(--muted);
+  background: rgba(21, 153, 87, 0.055);
+  border-top: 1px solid rgba(21, 153, 87, 0.11);
+  font-size: 12px;
+}
+
+.after-install > span {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: white;
+  background: var(--green);
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.after-install p {
+  margin: 0;
+}
 
 .credits {
   display: grid;
@@ -927,11 +1099,18 @@ kbd {
 @media (max-width: 480px) {
   .hero-actions { flex-direction: column; }
   .button { width: 100%; }
+  .source-link { width: 100%; text-align: center; }
   .keys { gap: 4px; }
   kbd { width: 34px; }
   .demo-status span:last-child { display: none; }
-  .terminal-card pre { padding: 26px 18px; }
-  .terminal-note { flex-direction: column; }
+  .release-button { width: 100%; }
+  .distro-tabs { grid-template-columns: 1fr 1fr; }
+  .installer-head { align-items: flex-start; height: auto; padding-block: 14px; }
+  .install-panel { padding-inline: 16px; }
+  .command-row { margin-left: 0; }
+  .command-row pre { padding: 58px 16px 20px; }
+  .command-row .copy-button { left: 13px; right: auto; }
+  .panel-note { margin-left: 0; }
   .site-footer nav { display: grid; grid-template-columns: 1fr 1fr; }
 }
 

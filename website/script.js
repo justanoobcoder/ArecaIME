@@ -17,27 +17,64 @@ navigation?.addEventListener("click", (event) => {
   navigation.classList.remove("is-open");
 });
 
-const copyButton = document.querySelector("[data-copy-target]");
+document.querySelectorAll("[data-copy-target]").forEach((copyButton) => {
+  copyButton.addEventListener("click", async () => {
+    const targetId = copyButton.getAttribute("data-copy-target");
+    const target = targetId ? document.getElementById(targetId) : null;
+    const label = copyButton.querySelector(".copy-label");
 
-copyButton?.addEventListener("click", async () => {
-  const targetId = copyButton.getAttribute("data-copy-target");
-  const target = targetId ? document.getElementById(targetId) : null;
-  const label = copyButton.querySelector(".copy-label");
+    if (!target || !label) {
+      return;
+    }
 
-  if (!target || !label) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(target.innerText.replace(/^\$ /gm, ""));
-    label.textContent = "Đã chép";
-    window.setTimeout(() => {
-      label.textContent = "Sao chép";
-    }, 1800);
-  } catch {
-    label.textContent = "Không thể chép";
-  }
+    try {
+      await navigator.clipboard.writeText(target.innerText.replace(/^\$ /gm, ""));
+      label.textContent = "Đã chép";
+      window.setTimeout(() => {
+        label.textContent = "Sao chép";
+      }, 1800);
+    } catch {
+      label.textContent = "Không thể chép";
+    }
+  });
 });
+
+const installTabs = [...document.querySelectorAll("[data-install-tab]")];
+const installPanels = [...document.querySelectorAll("[data-install-panel]")];
+
+const selectInstallTab = (selectedTab) => {
+  const selectedName = selectedTab.getAttribute("data-install-tab");
+
+  installTabs.forEach((tab) => {
+    const active = tab === selectedTab;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.setAttribute("tabindex", active ? "0" : "-1");
+  });
+
+  installPanels.forEach((panel) => {
+    panel.hidden = panel.getAttribute("data-install-panel") !== selectedName;
+  });
+};
+
+installTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => selectInstallTab(tab));
+  tab.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const nextIndex = (index + direction + installTabs.length) % installTabs.length;
+    selectInstallTab(installTabs[nextIndex]);
+    installTabs[nextIndex].focus();
+  });
+});
+
+if (installTabs.length > 0) {
+  selectInstallTab(installTabs[0]);
+}
 
 const revealItems = document.querySelectorAll(".reveal");
 
