@@ -42,6 +42,7 @@ add_library(areca MODULE
     src/input_scheduler.cpp
     src/preedit_mode.cpp
     src/preedit_logic.cpp
+    src/program_compatibility.cpp
     src/redirect_mode.cpp
     src/reliability_checker.cpp
     src/rewrite_mode.cpp
@@ -145,4 +146,14 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-preedit-logic-test PRIVATE Fcitx5::Utils)
     add_test(NAME preedit-logic COMMAND areca-preedit-logic-test)
+
+    add_executable(areca-program-compatibility-test
+        tests/program_compatibility_test.cpp
+        src/program_compatibility.cpp)
+    target_compile_features(areca-program-compatibility-test PRIVATE cxx_std_20)
+    target_compile_options(areca-program-compatibility-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-program-compatibility-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    add_test(NAME program-compatibility COMMAND areca-program-compatibility-test)
 endif()

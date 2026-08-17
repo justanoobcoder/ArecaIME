@@ -138,10 +138,14 @@ Khi `deleteCount == 0`:
 Khi `deleteCount > 0`:
 
 1. `ReliabilityChecker` đánh giá input context.
-2. Nếu verdict reliable, capability mask chính xác là `0x72` và program thuộc
-   họ VS Code, checker cache `forceForwardBackspace` rồi chọn
-   `ForwardBackspaceBackend`. Các ứng dụng ngoài nhóm này không áp dụng rule
-   theo mask.
+2. Checker lọc program trước. Chỉ khi program thuộc họ VS Code, là IDE/code
+   editor/developer tool, hoặc là terminal Linux đã biết thì checker mới đọc và
+   so sánh capability mask. Nếu mask chính xác là `0x72`, checker cache
+   `forceForwardBackspace` rồi chọn `ForwardBackspaceBackend`. Các ứng dụng
+   ngoài allowlist không được xét rule theo mask; verdict unreliable vốn đã
+   chọn forward backend theo policy mặc định.
+   Program name rỗng cũng nằm ngoài allowlist và không được fallback theo
+   frontend, vì không đủ dữ liệu để ép an toàn.
 3. Verdict reliable còn lại chọn `SurroundingTextBackend`.
 4. Verdict unreliable chọn `ForwardBackspaceBackend`.
 5. Browser inline-autocomplete không dùng forward backend. Browser
