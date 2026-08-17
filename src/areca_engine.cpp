@@ -51,6 +51,8 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       autocompleteForwardBackend_(1), autocompleteEdgeForwardBackend_(2),
       forwardBackspaceBackend_(instance_->eventLoop(),
                                [this]() { return debugEnabled(); }),
+      uinputBackspaceBackend_(instance_->eventLoop(),
+                              [this]() { return debugEnabled(); }),
       scheduler_(
           instance_->eventLoop(),
           [this](fcitx::InputContext &inputContext) -> VietnameseEngine * {
@@ -143,7 +145,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
   if (!state) {
-    return {&forwardBackspaceBackend_};
+    return {&uinputBackspaceBackend_};
   }
 
   if (!backendVerdictContextKnown_ ||
@@ -179,7 +181,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   if (decision.useSurrounding) {
     return {&surroundingBackend_};
   }
-  return {&forwardBackspaceBackend_};
+  return {&uinputBackspaceBackend_};
 }
 
 InputModeHandler &ArecaEngine::activeHandler() {

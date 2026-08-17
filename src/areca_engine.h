@@ -16,6 +16,7 @@
 #include "reliability_checker.h"
 #include "rewrite_mode.h"
 #include "surrounding_text_backend.h"
+#include "uinput_backspace_backend.h"
 
 namespace areca {
 
@@ -82,6 +83,7 @@ private:
   AutocompleteForwardSurroundingBackend autocompleteForwardBackend_;
   AutocompleteForwardSurroundingBackend autocompleteEdgeForwardBackend_;
   ForwardBackspaceBackend forwardBackspaceBackend_;
+  UinputBackspaceBackend uinputBackspaceBackend_;
   InputScheduler scheduler_;
   RewriteModeHandler rewriteHandler_;
   PreeditModeHandler preeditHandler_;

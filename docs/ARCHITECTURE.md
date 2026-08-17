@@ -23,6 +23,7 @@ Wayland và Fcitx5.
 | `SurroundingTextBackend` | Gọi `deleteSurroundingText()` và `commitString()`. |
 | `AutocompleteForwardSurroundingBackend` | Forward Backspace để xử lý selection autocomplete rồi delegate Bamboo delete/commit cho `SurroundingTextBackend`; Edge trong URL field phát hai Backspace, mọi case khác phát một. |
 | `ForwardBackspaceBackend` | Phát tuần tự Backspace press/release bằng `forwardKey()`, chờ settling delay rồi commit text và hoàn tất transaction. |
+| `UinputBackspaceBackend` | Gửi sự kiện Backspace (EV_KEY KEY_BACKSPACE) trực tiếp tới Linux input subsystem qua `/dev/uinput`, rồi commit replacement text. Fallback về `ForwardBackspaceBackend` nếu uinput không khả dụng. |
 
 ## Phân tách cấu hình
 
