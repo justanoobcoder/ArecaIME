@@ -155,13 +155,11 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       }
       return {&uinputBackspaceBackend_};
     }
+    return {&forwardBackspaceBackend_};
   }
 
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
   if (!state) {
-    if (uinputBackspaceBackend_.isAvailable()) {
-      return {&uinputBackspaceBackend_};
-    }
     return {&forwardBackspaceBackend_};
   }
 
@@ -197,9 +195,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
 
   if (decision.useSurrounding) {
     return {&surroundingBackend_};
-  }
-  if (uinputBackspaceBackend_.isAvailable()) {
-    return {&uinputBackspaceBackend_};
   }
   return {&forwardBackspaceBackend_};
 }
