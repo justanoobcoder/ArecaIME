@@ -23,122 +23,6 @@ std::string normalizedProgramName(std::string program) {
   return program;
 }
 
-bool isTerminalProgram(const std::string &program) {
-  // Executable names and desktop/application IDs used by terminals shipped by
-  // the major desktop environments and Linux distributions.
-  static constexpr auto distroTerminals =
-      std::to_array<std::string_view>({"gnome-terminal",
-                                       "gnome-terminal-server",
-                                       "gnome-terminal.real",
-                                       "org.gnome.terminal",
-                                       "kgx",
-                                       "org.gnome.console",
-                                       "ptyxis",
-                                       "app.devsuite.ptyxis",
-                                       "konsole",
-                                       "org.kde.konsole",
-                                       "xfce4-terminal",
-                                       "org.xfce.terminal",
-                                       "mate-terminal",
-                                       "org.mate.terminal",
-                                       "lxterminal",
-                                       "qterminal",
-                                       "org.lxqt.qterminal",
-                                       "deepin-terminal",
-                                       "com.deepin.terminal",
-                                       "pantheon-terminal",
-                                       "io.elementary.terminal",
-                                       "cosmic-term",
-                                       "com.system76.cosmicterm",
-                                       "cutefish-terminal",
-                                       "com.cutefish.terminal",
-                                       "ukui-terminal",
-                                       "kylin-terminal",
-                                       "terminology",
-                                       "sakura",
-                                       "lilyterm",
-                                       "roxterm",
-                                       "vala-terminal",
-                                       "eterm",
-                                       "mlterm",
-                                       "xterm",
-                                       "uxterm",
-                                       "rxvt",
-                                       "urxvt",
-                                       "zutty",
-                                       "x-terminal-emulator"});
-
-  // Standalone and third-party terminal emulators. Keep short/generic names as
-  // exact matches so applications containing words such as "terminal" or
-  // "wave" are not pulled into the workaround accidentally.
-  static constexpr auto thirdPartyTerminals =
-      std::to_array<std::string_view>({"alacritty",
-                                       "io.alacritty.alacritty",
-                                       "kitty",
-                                       "net.kovidgoyal.kitty",
-                                       "wezterm",
-                                       "org.wezfurlong.wezterm",
-                                       "foot",
-                                       "footclient",
-                                       "st",
-                                       "tilix",
-                                       "terminix",
-                                       "com.gexperts.tilix",
-                                       "terminator",
-                                       "net.launchpad.terminator",
-                                       "guake",
-                                       "org.guake.guake",
-                                       "yakuake",
-                                       "org.kde.yakuake",
-                                       "tilda",
-                                       "blackbox",
-                                       "com.raggesilver.blackbox",
-                                       "ghostty",
-                                       "com.mitchellh.ghostty",
-                                       "warp-terminal",
-                                       "dev.warp.warp",
-                                       "tabby",
-                                       "tabby-terminal",
-                                       "org.tabby",
-                                       "hyper",
-                                       "co.zeit.hyper",
-                                       "rio",
-                                       "com.raphaelamorim.rio",
-                                       "contour",
-                                       "org.contourterminal.contour",
-                                       "waveterm",
-                                       "dev.waveterm.wave",
-                                       "extraterm",
-                                       "com.extraterm.extraterm",
-                                       "termius-app",
-                                       "com.termius.termius",
-                                       "cool-retro-term",
-                                       "org.cool-retro-term",
-                                       "rxvt-unicode",
-                                       "urxvtc",
-                                       "urxvtd"});
-
-  const auto isExactMatch = [&program](const auto &names) {
-    return std::find(names.begin(), names.end(), program) != names.end();
-  };
-  if (isExactMatch(distroTerminals) || isExactMatch(thirdPartyTerminals)) {
-    return true;
-  }
-
-  // Development/nightly desktop IDs and versioned package executables retain
-  // one of these unambiguous prefixes.
-  static constexpr auto prefixes = std::to_array<std::string_view>(
-      {"org.gnome.terminal.", "org.gnome.console.", "app.devsuite.ptyxis.",
-       "org.kde.konsole.", "org.xfce.terminal.", "org.mate.terminal.",
-       "com.deepin.terminal.", "io.elementary.terminal.",
-       "com.system76.cosmicterm.", "warp-terminal-", "dev.warp.warp-",
-       "wezterm-", "kitty-"});
-  return std::any_of(prefixes.begin(), prefixes.end(),
-                     [&program](std::string_view prefix) {
-                       return program.starts_with(prefix);
-                     });
-}
-
 bool isProgrammingProgram(const std::string &program) {
   // IDEs and code editors. Both executable names and desktop/application IDs
   // are included because input-method frontends may report either form.
@@ -237,9 +121,6 @@ bool isProgrammingProgram(const std::string &program) {
     return true;
   }
 
-  // Package channels and IDE releases often append edition/year/version
-  // suffixes. These prefixes are specific enough to avoid generic matches such
-  // as "studio", "idea", "atom" or "fleet" in unrelated applications.
   static constexpr auto prefixes =
       std::to_array<std::string_view>({"jetbrains-",
                                        "com.jetbrains.",
@@ -282,6 +163,116 @@ bool isProgrammingProgram(const std::string &program) {
 
 } // namespace
 
+bool isTerminalProgram(const std::string &rawProgram) {
+  const std::string program = normalizedProgramName(rawProgram);
+  static constexpr auto distroTerminals =
+      std::to_array<std::string_view>({"gnome-terminal",
+                                       "gnome-terminal-server",
+                                       "gnome-terminal.real",
+                                       "org.gnome.terminal",
+                                       "kgx",
+                                       "org.gnome.console",
+                                       "ptyxis",
+                                       "app.devsuite.ptyxis",
+                                       "konsole",
+                                       "org.kde.konsole",
+                                       "xfce4-terminal",
+                                       "org.xfce.terminal",
+                                       "mate-terminal",
+                                       "org.mate.terminal",
+                                       "lxterminal",
+                                       "qterminal",
+                                       "org.lxqt.qterminal",
+                                       "deepin-terminal",
+                                       "com.deepin.terminal",
+                                       "pantheon-terminal",
+                                       "io.elementary.terminal",
+                                       "cosmic-term",
+                                       "com.system76.cosmicterm",
+                                       "cutefish-terminal",
+                                       "com.cutefish.terminal",
+                                       "ukui-terminal",
+                                       "kylin-terminal",
+                                       "terminology",
+                                       "sakura",
+                                       "lilyterm",
+                                       "roxterm",
+                                       "vala-terminal",
+                                       "eterm",
+                                       "mlterm",
+                                       "xterm",
+                                       "uxterm",
+                                       "rxvt",
+                                       "urxvt",
+                                       "zutty",
+                                       "x-terminal-emulator"});
+
+  static constexpr auto thirdPartyTerminals =
+      std::to_array<std::string_view>({"alacritty",
+                                       "io.alacritty.alacritty",
+                                       "kitty",
+                                       "net.kovidgoyal.kitty",
+                                       "wezterm",
+                                       "org.wezfurlong.wezterm",
+                                       "foot",
+                                       "footclient",
+                                       "st",
+                                       "tilix",
+                                       "terminix",
+                                       "com.gexperts.tilix",
+                                       "terminator",
+                                       "net.launchpad.terminator",
+                                       "guake",
+                                       "org.guake.guake",
+                                       "yakuake",
+                                       "org.kde.yakuake",
+                                       "tilda",
+                                       "blackbox",
+                                       "com.raggesilver.blackbox",
+                                       "ghostty",
+                                       "com.mitchellh.ghostty",
+                                       "warp-terminal",
+                                       "dev.warp.warp",
+                                       "tabby",
+                                       "tabby-terminal",
+                                       "org.tabby",
+                                       "hyper",
+                                       "co.zeit.hyper",
+                                       "rio",
+                                       "com.raphaelamorim.rio",
+                                       "contour",
+                                       "org.contourterminal.contour",
+                                       "waveterm",
+                                       "dev.waveterm.wave",
+                                       "extraterm",
+                                       "com.extraterm.extraterm",
+                                       "termius-app",
+                                       "com.termius.termius",
+                                       "cool-retro-term",
+                                       "org.cool-retro-term",
+                                       "rxvt-unicode",
+                                       "urxvtc",
+                                       "urxvtd"});
+
+  const auto isExactMatch = [&program](const auto &names) {
+    return std::find(names.begin(), names.end(), program) != names.end();
+  };
+  if (isExactMatch(distroTerminals) || isExactMatch(thirdPartyTerminals)) {
+    return true;
+  }
+
+  static constexpr auto prefixes = std::to_array<std::string_view>(
+      {"org.gnome.terminal.", "org.gnome.console.", "app.devsuite.ptyxis.",
+       "org.kde.konsole.", "org.xfce.terminal.", "org.mate.terminal.",
+       "com.deepin.terminal.", "io.elementary.terminal.",
+       "com.system76.cosmicterm.", "warp-terminal-", "dev.warp.warp-",
+       "wezterm-", "kitty-"});
+  return std::any_of(prefixes.begin(), prefixes.end(),
+                     [&program](std::string_view prefix) {
+                       return program.starts_with(prefix);
+                     });
+}
+
 bool isVSCodeFamilyProgram(const std::string &rawProgram) {
   const std::string program = normalizedProgramName(rawProgram);
   if (program == "code" || program.starts_with("code-")) {
@@ -300,33 +291,6 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
       program.starts_with("void-");
   return isVSCodeFamily || isProgrammingProgram(program) ||
          isTerminalProgram(program);
-}
-
-bool isGtk4TerminalProgram(const std::string &rawProgram) {
-  const std::string program = normalizedProgramName(rawProgram);
-  static constexpr auto gtk4Terminals = std::to_array<std::string_view>({
-      "ghostty",
-      "com.mitchellh.ghostty",
-      "kgx",
-      "org.gnome.console",
-      "ptyxis",
-      "app.devsuite.ptyxis",
-      "blackbox",
-      "com.raggesilver.blackbox",
-  });
-  const auto isExactMatch = [&program](const auto &names) {
-    return std::find(names.begin(), names.end(), program) != names.end();
-  };
-  if (isExactMatch(gtk4Terminals)) {
-    return true;
-  }
-  static constexpr auto prefixes = std::to_array<std::string_view>(
-      {"org.gnome.console.", "app.devsuite.ptyxis.", "com.mitchellh.ghostty.",
-       "com.raggesilver.blackbox."});
-  return std::any_of(prefixes.begin(), prefixes.end(),
-                     [&program](std::string_view prefix) {
-                       return program.starts_with(prefix);
-                     });
 }
 
 } // namespace areca

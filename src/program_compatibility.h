@@ -8,7 +8,7 @@ namespace areca {
 // expose the otherwise reliable 0x72 capability mask.
 bool isVSCodeFamilyProgram(const std::string &program);
 
-// Terminal applications built with GTK4 that ignore DBus ForwardKey.
-bool isGtk4TerminalProgram(const std::string &program);
+// Terminal applications across all Linux desktop environments (GNOME, MATE, Mint, XFCE, KDE, etc.).
+bool isTerminalProgram(const std::string &program);
 
 } // namespace areca

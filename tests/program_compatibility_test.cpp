@@ -55,12 +55,17 @@ int main() {
   assert(!isVSCodeFamilyProgram("firefox"));
   assert(!isVSCodeFamilyProgram(""));
 
-  using areca::isGtk4TerminalProgram;
-  assert(isGtk4TerminalProgram("ghostty"));
-  assert(isGtk4TerminalProgram("com.mitchellh.ghostty"));
-  assert(isGtk4TerminalProgram("org.gnome.Console.desktop"));
-  assert(isGtk4TerminalProgram("app.devsuite.Ptyxis.desktop"));
-  assert(isGtk4TerminalProgram("com.raggesilver.BlackBox.desktop"));
-  assert(!isGtk4TerminalProgram("gnome-terminal-server"));
-  assert(!isGtk4TerminalProgram("konsole"));
+  using areca::isTerminalProgram;
+  assert(isTerminalProgram("ghostty"));
+  assert(isTerminalProgram("com.mitchellh.ghostty"));
+  assert(isTerminalProgram("org.gnome.Console.desktop"));
+  assert(isTerminalProgram("app.devsuite.Ptyxis.desktop"));
+  assert(isTerminalProgram("com.raggesilver.BlackBox.desktop"));
+  assert(isTerminalProgram("gnome-terminal-server"));
+  assert(isTerminalProgram("mate-terminal"));
+  assert(isTerminalProgram("xfce4-terminal"));
+  assert(isTerminalProgram("konsole"));
+  assert(isTerminalProgram("io.elementary.terminal"));
+  assert(!isTerminalProgram("firefox"));
+  assert(!isTerminalProgram(""));
 }
