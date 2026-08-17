@@ -184,12 +184,13 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   const char *frontend = inputContext.frontend();
+  const std::string &program = inputContext.program();
   if (frontend && std::string_view(frontend) == "dbus" &&
-      isGtk4TerminalProgram(inputContext.program())) {
+      (program.empty() || isGtk4TerminalProgram(program))) {
     if (uinputBackspaceBackend_.isAvailable()) {
       if (debugEnabled()) {
-        FCITX_INFO() << "areca: GTK4 DBus terminal selected uinput backend"
-                     << " program=" << inputContext.program()
+        FCITX_INFO() << "areca: DBus unknown/GTK4 program selected uinput backend"
+                     << " program=" << program
                      << " backend=" << uinputBackspaceBackend_.name();
       }
       return {&uinputBackspaceBackend_};
