@@ -11,7 +11,7 @@ extern "C" {
 uint64_t ArecaBambooCreate(char *inputMethod, int modernStyle);
 void ArecaBambooDestroy(uint64_t id);
 int ArecaBambooCanProcess(uint64_t id, uint32_t key);
-char *ArecaBambooProcess(uint64_t id, uint32_t key);
+char *ArecaBambooProcess(uint64_t id, uint32_t key, int spellCheck);
 char *ArecaBambooFinalizeWord(uint64_t id, int spellCheck);
 char *ArecaBambooBackspace(uint64_t id);
 void ArecaBambooReset(uint64_t id);
@@ -154,7 +154,7 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
     trailingBoundaryCount_ = 0;
   }
 
-  char *raw = ArecaBambooProcess(handle_, codepoint);
+  char *raw = ArecaBambooProcess(handle_, codepoint, spellCheck_ ? 1 : 0);
   if (!raw) {
     throw std::runtime_error("Bamboo processing failed");
   }

@@ -126,8 +126,8 @@ int main() {
   const auto newWordTone = type(engine, 's');
   assert(newWordTone.currentText == "b");
 
-  // At a word boundary, spell check restores an invalid Vietnamese-looking
-  // syllable to the original Latin keystrokes before appending the boundary.
+  // With real-time spell check, an invalid Vietnamese-looking syllable
+  // is restored to the original Latin keystrokes immediately.
   engine.reset();
   display.clear();
   for (char key : std::string("awbc")) {
@@ -138,11 +138,11 @@ int main() {
     display.erase(eraseFrom, display.end());
     display += result.commitText;
   }
-  assert(display == "ăbc");
+  assert(display == "awbc");
   auto checkedBoundary = type(engine, ' ');
-  assert(checkedBoundary.currentText == "ăbc");
-  assert(checkedBoundary.deleteCount == 3);
-  assert(checkedBoundary.commitText == "awbc ");
+  assert(checkedBoundary.currentText == "awbc");
+  assert(checkedBoundary.deleteCount == 0);
+  assert(checkedBoundary.commitText == " ");
 
   areca::BambooEngineAdapter uncheckedEngine("Telex 2", false);
   for (char key : std::string("awbc")) {
