@@ -144,20 +144,6 @@ void ArecaEngine::clearBackendVerdictForLifecycle(
 RewriteBackendSelection
 ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
-  const char *frontend = inputContext.frontend();
-  if (frontend && std::string_view(frontend) == "dbus" &&
-      isGtk4TerminalProgram(inputContext.program())) {
-    if (uinputBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO() << "areca: GTK4 DBus terminal selected uinput backend"
-                     << " program=" << inputContext.program()
-                     << " backend=" << uinputBackspaceBackend_.name();
-      }
-      return {&uinputBackspaceBackend_};
-    }
-    return {&forwardBackspaceBackend_};
-  }
-
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
   if (!state) {
     return {&forwardBackspaceBackend_};
@@ -196,6 +182,20 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   if (decision.useSurrounding) {
     return {&surroundingBackend_};
   }
+
+  const char *frontend = inputContext.frontend();
+  if (frontend && std::string_view(frontend) == "dbus" &&
+      isGtk4TerminalProgram(inputContext.program())) {
+    if (uinputBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO() << "areca: GTK4 DBus terminal selected uinput backend"
+                     << " program=" << inputContext.program()
+                     << " backend=" << uinputBackspaceBackend_.name();
+      }
+      return {&uinputBackspaceBackend_};
+    }
+  }
+
   return {&forwardBackspaceBackend_};
 }
 
