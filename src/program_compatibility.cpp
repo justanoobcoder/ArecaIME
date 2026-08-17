@@ -302,4 +302,31 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
          isTerminalProgram(program);
 }
 
+bool isGtk4TerminalProgram(const std::string &rawProgram) {
+  const std::string program = normalizedProgramName(rawProgram);
+  static constexpr auto gtk4Terminals = std::to_array<std::string_view>({
+      "ghostty",
+      "com.mitchellh.ghostty",
+      "kgx",
+      "org.gnome.console",
+      "ptyxis",
+      "app.devsuite.ptyxis",
+      "blackbox",
+      "com.raggesilver.blackbox",
+  });
+  const auto isExactMatch = [&program](const auto &names) {
+    return std::find(names.begin(), names.end(), program) != names.end();
+  };
+  if (isExactMatch(gtk4Terminals)) {
+    return true;
+  }
+  static constexpr auto prefixes = std::to_array<std::string_view>(
+      {"org.gnome.console.", "app.devsuite.ptyxis.", "com.mitchellh.ghostty.",
+       "com.raggesilver.blackbox."});
+  return std::any_of(prefixes.begin(), prefixes.end(),
+                     [&program](std::string_view prefix) {
+                       return program.starts_with(prefix);
+                     });
+}
+
 } // namespace areca
