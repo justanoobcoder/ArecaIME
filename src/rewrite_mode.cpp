@@ -56,19 +56,21 @@ bool isSelectAllShortcut(const fcitx::Key &rawKey) {
 } // namespace
 
 RewriteInputState::RewriteInputState(std::string inputMethod, bool spellCheck,
+                                     bool realtimeSpellcheck,
                                      bool modernStyle,
                                      std::string outputCharset,
                                      bool macroEnabled, bool capitalizeMacro,
                                      uint64_t macroRevision,
                                      std::vector<MacroDefinition> macros)
     : inputMethod(std::move(inputMethod)), spellCheck(spellCheck),
+      realtimeSpellcheck(realtimeSpellcheck),
       modernStyle(modernStyle), outputCharset(std::move(outputCharset)),
       macroEnabled(macroEnabled), capitalizeMacro(capitalizeMacro),
       macroRevision(macroRevision),
       engine(std::make_unique<BambooEngineAdapter>(
-          this->inputMethod, this->spellCheck, this->modernStyle,
-          this->outputCharset, this->macroEnabled, this->capitalizeMacro,
-          std::move(macros))) {}
+          this->inputMethod, this->spellCheck, this->realtimeSpellcheck,
+          this->modernStyle, this->outputCharset, this->macroEnabled,
+          this->capitalizeMacro, std::move(macros))) {}
 
 RewriteModeHandler::RewriteModeHandler(fcitx::EventLoop &eventLoop,
                                        StateFactory &stateFactory,

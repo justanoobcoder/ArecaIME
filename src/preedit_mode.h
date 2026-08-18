@@ -19,6 +19,7 @@ namespace areca {
 
 struct PreeditInputState final : public fcitx::InputContextProperty {
   explicit PreeditInputState(std::string inputMethod, bool spellCheck,
+                             bool realtimeSpellcheck,
                              bool modernStyle, std::string outputCharset,
                              bool macroEnabled, bool capitalizeMacro,
                              uint64_t macroRevision,
@@ -26,6 +27,7 @@ struct PreeditInputState final : public fcitx::InputContextProperty {
 
   std::string inputMethod;
   bool spellCheck;
+  bool realtimeSpellcheck;
   bool modernStyle;
   std::string outputCharset;
   bool macroEnabled;

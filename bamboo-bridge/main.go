@@ -170,13 +170,20 @@ func ArecaBambooCanProcess(id C.uint64_t, key C.uint32_t) C.int {
 }
 
 //export ArecaBambooProcess
-func ArecaBambooProcess(id C.uint64_t, key C.uint32_t) *C.char {
+func ArecaBambooProcess(id C.uint64_t, key C.uint32_t, spellCheck C.int) *C.char {
 	engine := engineFor(id)
 	if engine == nil {
 		return nil
 	}
 	engine.ProcessKey(rune(key), bamboo.VietnameseMode)
-	return C.CString(engine.GetProcessedString(bamboo.VietnameseMode))
+	
+	text := engine.GetProcessedString(bamboo.VietnameseMode)
+	if spellCheck != 0 && bamboo.HasAnyVietnameseRune(text) && !engine.IsValid(false) {
+		engine.RestoreLastWord(false)
+		text = engine.GetProcessedString(bamboo.EnglishMode)
+	}
+	
+	return C.CString(text)
 }
 
 //export ArecaBambooFinalizeWord

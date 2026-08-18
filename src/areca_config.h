@@ -16,6 +16,12 @@ enum class PresentationMode { Rewrite, Preedit, Redirect };
 FCITX_CONFIG_ENUM_NAME_WITH_I18N(PresentationMode, N_("Rewrite trực tiếp"),
                                  N_("Preedit"), N_("Redirect (EN)"));
 
+enum class SpellcheckMode { Off, Basic, Realtime };
+FCITX_CONFIG_ENUM_NAME_WITH_I18N(SpellcheckMode,
+                                 N_("Không kiểm tra (Tắt)"),
+                                 N_("Khôi phục từ sau khi gõ xong"),
+                                 N_("Khôi phục từ ngay trong lúc gõ"));
+
 struct StringListAnnotation : public fcitx::EnumAnnotation {
   void setList(std::vector<std::string> list) { list_ = std::move(list); }
 
@@ -101,9 +107,9 @@ FCITX_CONFIGURATION(
                           "Telex 2"};
     fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
         outputCharset{this, "OutputCharset", N_("Bảng mã đầu ra"), "Unicode"};
-    fcitx::Option<bool> spellCheck{
-        this, "SpellCheck",
-        N_("Kiểm tra chính tả và khôi phục từ không hợp lệ"), true};
+    fcitx::OptionWithAnnotation<SpellcheckMode, fcitx::EnumAnnotation>
+        spellcheckMode{this, "SpellcheckMode", N_("Chế độ kiểm tra chính tả"),
+                       SpellcheckMode::Realtime};
     fcitx::Option<bool> modernStyle{
         this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"), true};
     fcitx::Option<bool> autoCapitalizeAfterPunctuation{

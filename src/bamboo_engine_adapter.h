@@ -26,7 +26,9 @@ public:
 class BambooEngineAdapter final : public VietnameseEngine {
 public:
   explicit BambooEngineAdapter(std::string inputMethod = "Telex 2",
-                               bool spellCheck = true, bool modernStyle = true,
+                               bool spellCheck = true,
+                               bool realtimeSpellcheck = true,
+                               bool modernStyle = true,
                                std::string outputCharset = "Unicode",
                                bool macroEnabled = true,
                                bool capitalizeMacro = true,
@@ -50,6 +52,7 @@ private:
 
   uint64_t handle_ = 0;
   bool spellCheck_ = true;
+  bool realtimeSpellcheck_ = true;
   std::string outputCharset_;
   bool macroEnabled_ = true;
   bool capitalizeMacro_ = true;
