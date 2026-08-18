@@ -67,12 +67,15 @@ std::vector<std::string> splitLines(char *raw) {
 } // namespace
 
 BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod,
-                                         bool spellCheck, bool modernStyle,
+                                         bool spellCheck,
+                                         bool realtimeSpellcheck,
+                                         bool modernStyle,
                                          std::string outputCharset,
                                          bool macroEnabled,
                                          bool capitalizeMacro,
                                          std::vector<MacroDefinition> macros)
-    : spellCheck_(spellCheck), outputCharset_(std::move(outputCharset)),
+    : spellCheck_(spellCheck), realtimeSpellcheck_(realtimeSpellcheck),
+      outputCharset_(std::move(outputCharset)),
       macroEnabled_(macroEnabled), capitalizeMacro_(capitalizeMacro) {
   handle_ = ArecaBambooCreate(inputMethod.data(), modernStyle ? 1 : 0);
   if (!handle_) {
@@ -154,7 +157,7 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
     trailingBoundaryCount_ = 0;
   }
 
-  char *raw = ArecaBambooProcess(handle_, codepoint, spellCheck_ ? 1 : 0);
+  char *raw = ArecaBambooProcess(handle_, codepoint, realtimeSpellcheck_ ? 1 : 0);
   if (!raw) {
     throw std::runtime_error("Bamboo processing failed");
   }

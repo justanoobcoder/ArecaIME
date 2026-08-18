@@ -36,14 +36,18 @@ constexpr auto kPkgConfigPath = fcitx::StandardPath::Type::PkgConfig;
 ArecaEngine::ArecaEngine(fcitx::Instance *instance)
     : instance_(instance), rewriteStateFactory_([this](fcitx::InputContext &) {
         return new RewriteInputState(
-            config_.bambooInputMethod.value(), config_.spellCheck.value(),
+            config_.bambooInputMethod.value(),
+            config_.spellcheckMode.value() != SpellcheckMode::Off,
+            config_.spellcheckMode.value() == SpellcheckMode::Realtime,
             config_.modernStyle.value(), config_.outputCharset.value(),
             config_.enableMacro.value(), config_.capitalizeMacro.value(),
             macroRevision_, macroDefinitions());
       }),
       preeditStateFactory_([this](fcitx::InputContext &) {
         return new PreeditInputState(
-            config_.bambooInputMethod.value(), config_.spellCheck.value(),
+            config_.bambooInputMethod.value(),
+            config_.spellcheckMode.value() != SpellcheckMode::Off,
+            config_.spellcheckMode.value() == SpellcheckMode::Realtime,
             config_.modernStyle.value(), config_.outputCharset.value(),
             config_.enableMacro.value(), config_.capitalizeMacro.value(),
             macroRevision_, macroDefinitions());
@@ -410,7 +414,9 @@ void ArecaEngine::applyConfig() {
   }
 
   const auto inputMethod = config_.bambooInputMethod.value();
-  const bool spellCheck = config_.spellCheck.value();
+  const auto spellcheckMode = config_.spellcheckMode.value();
+  const bool spellCheck = spellcheckMode != SpellcheckMode::Off;
+  const bool realtimeSpellcheck = spellcheckMode == SpellcheckMode::Realtime;
   const bool modernStyle = config_.modernStyle.value();
   const auto outputCharset = config_.outputCharset.value();
   const bool macroEnabled = config_.enableMacro.value();
@@ -420,7 +426,7 @@ void ArecaEngine::applyConfig() {
   const bool modeChanged = requestedMode != activePresentationMode_;
   const auto macros = macroDefinitions();
   instance_->inputContextManager().foreach (
-      [this, &inputMethod, spellCheck, modernStyle, &outputCharset,
+      [this, &inputMethod, spellCheck, realtimeSpellcheck, modernStyle, &outputCharset,
        macroEnabled, capitalizeMacro, autoCapitalize, modeChanged,
        &macros](fcitx::InputContext *inputContext) {
         if (modeChanged) {
@@ -437,6 +443,7 @@ void ArecaEngine::applyConfig() {
           }
           if (state->inputMethod == inputMethod &&
               state->spellCheck == spellCheck &&
+              state->realtimeSpellcheck == realtimeSpellcheck &&
               state->modernStyle == modernStyle &&
               state->outputCharset == outputCharset &&
               state->macroEnabled == macroEnabled &&
@@ -447,10 +454,11 @@ void ArecaEngine::applyConfig() {
           try {
             resetMode();
             state->engine = std::make_unique<BambooEngineAdapter>(
-                inputMethod, spellCheck, modernStyle, outputCharset,
+                inputMethod, spellCheck, realtimeSpellcheck, modernStyle, outputCharset,
                 macroEnabled, capitalizeMacro, macros);
             state->inputMethod = inputMethod;
             state->spellCheck = spellCheck;
+            state->realtimeSpellcheck = realtimeSpellcheck;
             state->modernStyle = modernStyle;
             state->outputCharset = outputCharset;
             state->macroEnabled = macroEnabled;
