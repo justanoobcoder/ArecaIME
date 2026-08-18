@@ -109,7 +109,7 @@ FCITX_CONFIGURATION(
         outputCharset{this, "OutputCharset", N_("Bảng mã đầu ra"), "Unicode"};
     fcitx::OptionWithAnnotation<SpellcheckMode, fcitx::EnumAnnotation>
         spellcheckMode{this, "SpellcheckMode", N_("Chế độ kiểm tra chính tả"),
-                       SpellcheckMode::Basic};
+                       SpellcheckMode::Realtime};
     fcitx::Option<bool> modernStyle{
         this, "ModernStyle", N_("Đặt dấu kiểu oà, uý thay cho òa, úy"), true};
     fcitx::Option<bool> autoCapitalizeAfterPunctuation{
