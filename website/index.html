@@ -82,6 +82,32 @@
               >Xem mã nguồn <span aria-hidden="true">↗</span></a
             >
           </div>
+
+          <!-- Uinput check & fix (moved below installer card) -->
+          <div class="uinput-check section-block reveal" style="margin-top:1.5rem; padding:1rem; border-radius:6px;">
+            <h3>Kiểm tra &amp; Sửa quyền <b>/dev/uinput</b></h3>
+            <p>Nếu lần cài đặt đầu tiên thấy chức năng fallback hoặc uinput không hoạt động, hãy kiểm tra và áp dụng các bước sau.</p>
+
+            <h4><b>1. Kiểm tra thiết bị</b></h4>
+            <pre>ls -l /dev/uinput /dev/input/uinput 2>/dev/null</pre>
+
+            <h4><b>2. Xem rule udev đã cài chưa</b></h4>
+            <pre>ls -l /etc/udev/rules.d/99-uinput-areca.rules /lib/udev/rules.d/99-uinput-areca.rules 2>/dev/null</pre>
+
+            <h4><b>3. Nếu chưa có — cài rule (yêu cầu quyền sudo)</b></h4>
+            <pre>sudo cp data/99-uinput-areca.rules /etc/udev/rules.d/99-uinput-areca.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger</pre>
+
+            <h4><b>4. Áp dụng tạm thời / sửa quyền ngay</b></h4>
+            <pre>sudo chown root:input /dev/uinput 2>/dev/null || sudo chown root:input /dev/input/uinput
+sudo chmod 0660 /dev/uinput 2>/dev/null || sudo chmod 0660 /dev/input/uinput</pre>
+
+            <h4><b>5. Thêm user vào nhóm input</b></h4>
+            <pre>sudo usermod -aG input $USER</pre>
+
+            <p style="margin-top:0.5rem;"><b>Lưu ý:</b> Sau khi thêm user vào nhóm, đăng xuất và đăng nhập lại để nhóm có hiệu lực. Nếu muốn cấp quyền cho mọi user (ít an toàn hơn), thay MODE="0660" bằng MODE="0666" trong file rule.</p>
+          </div>
           <p class="experimental-note">
             <span aria-hidden="true">●</span> Dự án đang trong giai đoạn thử nghiệm
           </p>
@@ -406,31 +432,7 @@
               data-install-tab="fedora"
             >Fedora</button>
 
-            <!-- Uinput check & fix -->
-            <div class="uinput-check section-block reveal" style="margin-top:1.5rem; padding:1rem; border-radius:6px; background:#fff7e6;">
-              <h3 style="color:#b45309;">Kiểm tra &amp; Sửa quyền <b style="color:#b45309;">/dev/uinput</b></h3>
-              <p>Nếu lần cài đặt đầu tiên thấy chức năng fallback hoặc uinput không hoạt động, hãy kiểm tra và áp dụng các bước sau.</p>
-
-              <h4><b style="color:#b45309;">1. Kiểm tra thiết bị</b></h4>
-              <pre style="background:#fff; padding:0.5rem; border-radius:4px;">ls -l /dev/uinput /dev/input/uinput 2>/dev/null</pre>
-
-              <h4><b style="color:#b45309;">2. Xem rule udev đã cài chưa</b></h4>
-              <pre style="background:#fff; padding:0.5rem; border-radius:4px;">ls -l /etc/udev/rules.d/99-uinput-areca.rules /lib/udev/rules.d/99-uinput-areca.rules 2>/dev/null</pre>
-
-              <h4><b style="color:#b45309;">3. Nếu chưa có — cài rule (yêu cầu quyền sudo)</b></h4>
-              <pre style="background:#fff; padding:0.5rem; border-radius:4px;">sudo cp data/99-uinput-areca.rules /etc/udev/rules.d/99-uinput-areca.rules
-  sudo udevadm control --reload-rules
-  sudo udevadm trigger</pre>
-
-              <h4><b style="color:#b45309;">4. Áp dụng tạm thời / sửa quyền ngay</b></h4>
-              <pre style="background:#fff; padding:0.5rem; border-radius:4px;">sudo chown root:input /dev/uinput 2>/dev/null || sudo chown root:input /dev/input/uinput
-  sudo chmod 0660 /dev/uinput 2>/dev/null || sudo chmod 0660 /dev/input/uinput</pre>
-
-              <h4><b style="color:#b45309;">5. Thêm user vào nhóm input</b></h4>
-              <pre style="background:#fff; padding:0.5rem; border-radius:4px;">sudo usermod -aG input $USER</pre>
-
-              <p style="margin-top:0.5rem;"><b style="color:#b45309;">Lưu ý:</b> Sau khi thêm user vào nhóm, đăng xuất và đăng nhập lại để nhóm có hiệu lực. Nếu muốn cấp quyền cho mọi user (ít an toàn hơn), thay MODE="0660" bằng MODE="0666" trong file rule.</p>
-            </div>
+            
             <button
               id="tab-source"
               class="distro-tab"
