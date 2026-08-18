@@ -241,6 +241,11 @@ if is_user_prefix; then
 else
   echo "[areca] Installing with sudo"
   sudo cmake --install "$ARECA_BUILD_DIR"
+  if [[ -n "$ARECA_TARGET_USER" ]] && command -v usermod >/dev/null 2>&1; then
+    echo "[areca] Configuring /dev/uinput group permissions for $ARECA_TARGET_USER"
+    sudo usermod -aG input "$ARECA_TARGET_USER" || true
+    sudo udevadm control --reload-rules >/dev/null 2>&1 && sudo udevadm trigger >/dev/null 2>&1 || true
+  fi
 fi
 
 update_icon_cache

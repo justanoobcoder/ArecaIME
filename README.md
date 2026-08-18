@@ -109,10 +109,14 @@ forward Backspace × N
 Trong toàn bộ transaction, scheduler vẫn giữ `processing=true`, vì vậy key đến
 sau chỉ được append vào FIFO.
 
-Sau khi SurroundingText được đánh giá reliable, Areca chỉ dùng capability mask
-chính xác `0x72` để ép backend forward-Backspace khi program được nhận diện là
-VS Code hoặc một bản phân nhánh của nó. Mask không được xét khi verdict
-unreliable và không ảnh hưởng các ứng dụng ngoài nhóm này.
+Areca lọc program trước: chỉ VS Code và các bản phân nhánh,
+IDE/code editor/developer tool, hoặc terminal Linux đã biết (terminal của
+distro/desktop environment và terminal bên thứ ba) mới được kiểm tra capability
+mask. Trong nhóm này, addon chỉ ép backend forward-Backspace khi mask chính xác
+là `0x72`. Mask không được xét cho các ứng dụng ngoài allowlist này; input có
+SurroundingText unreliable vốn đã đi qua forward backend theo policy mặc định.
+Nếu frontend không cung cấp program name, addon không áp dụng rule này để tránh
+ép nhầm và làm hỏng ứng dụng không xác định.
 
 ## Bảo vệ state trước reset của ứng dụng
 

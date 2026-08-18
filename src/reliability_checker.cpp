@@ -1,16 +1,12 @@
 #include "reliability_checker.h"
 
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <string_view>
-
 #include <fcitx-utils/capabilityflags.h>
 #include <fcitx-utils/log.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/surroundingtext.h>
 
 #include "browser_autocomplete.h"
+#include "program_compatibility.h"
 #include "word_segment.h"
 
 namespace areca {
@@ -18,38 +14,6 @@ namespace {
 
 constexpr size_t kMinMatch = 1;
 constexpr uint64_t kForwardBackspaceCapabilityMask = 0x72;
-
-std::string normalizedProgramName(std::string program) {
-  const auto slash = program.find_last_of('/');
-  if (slash != std::string::npos) {
-    program.erase(0, slash + 1);
-  }
-  std::transform(program.begin(), program.end(), program.begin(),
-                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  constexpr std::string_view desktopSuffix = ".desktop";
-  if (program.ends_with(desktopSuffix)) {
-    program.resize(program.size() - desktopSuffix.size());
-  }
-  return program;
-}
-
-bool isVSCodeFamilyProgram(const std::string &rawProgram) {
-  const std::string program = normalizedProgramName(rawProgram);
-  if (program == "code" || program.starts_with("code-")) {
-    return true;
-  }
-
-  static constexpr std::array<std::string_view, 10> markers = {
-      "visual-studio-code", "visualstudio.code", "vscode", "codium",
-      "cursor",             "windsurf",          "antigravity",
-      "positron",           "pearai",            "trae"};
-  return std::any_of(markers.begin(), markers.end(),
-                     [&program](std::string_view marker) {
-                       return program.find(marker) != std::string::npos;
-                     }) ||
-         program == "kiro" || program.starts_with("kiro-") ||
-         program == "void" || program.starts_with("void-");
-}
 
 } // namespace
 
@@ -97,13 +61,15 @@ ReliabilityDecision ReliabilityChecker::evaluate(
       FCITX_INFO()
           << "areca: reliability first-probe no surrounding capability";
     }
-    state.forceForwardBackspace =
-        state.reliable &&
-        capabilities.toInteger() == kForwardBackspaceCapabilityMask &&
-        isVSCodeFamilyProgram(inputContext.program());
+    state.forceForwardBackspace = false;
+    if (isVSCodeFamilyProgram(inputContext.program())) {
+      const uint64_t capabilityMask = capabilities.toInteger();
+      state.forceForwardBackspace =
+          capabilityMask == kForwardBackspaceCapabilityMask;
+    }
     if (state.forceForwardBackspace && debug) {
       FCITX_INFO() << "areca: reliability first-probe force_forward=1"
-                   << " reason=vscode-family-reliable-capability-mask-0x72";
+                   << " reason=program-compatibility-capability-mask-0x72";
     }
     // Absence of the capability is also a complete first verdict. Cache the
     // false result instead of attempting the same probe on every rewrite.

@@ -18,6 +18,7 @@
 #include <fcitx/inputcontextmanager.h>
 
 #include "browser_autocomplete.h"
+#include "program_compatibility.h"
 
 namespace areca {
 namespace {
@@ -55,6 +56,8 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       autocompleteForwardBackend_(1), autocompleteEdgeForwardBackend_(2),
       forwardBackspaceBackend_(instance_->eventLoop(),
                                [this]() { return debugEnabled(); }),
+      uinputBackspaceBackend_(instance_->eventLoop(),
+                              [this]() { return debugEnabled(); }),
       scheduler_(
           instance_->eventLoop(),
           [this](fcitx::InputContext &inputContext) -> VietnameseEngine * {
@@ -183,6 +186,21 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   if (decision.useSurrounding) {
     return {&surroundingBackend_};
   }
+
+  const char *frontend = inputContext.frontend();
+  const std::string &program = inputContext.program();
+  if (frontend && std::string_view(frontend) == "dbus" &&
+      (program.empty() || isTerminalProgram(program))) {
+    if (uinputBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO() << "areca: DBus terminal/unknown program selected uinput backend"
+                     << " program=" << program
+                     << " backend=" << uinputBackspaceBackend_.name();
+      }
+      return {&uinputBackspaceBackend_};
+    }
+  }
+
   return {&forwardBackspaceBackend_};
 }
 

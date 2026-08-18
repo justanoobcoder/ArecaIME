@@ -42,11 +42,13 @@ add_library(areca MODULE
     src/input_scheduler.cpp
     src/preedit_mode.cpp
     src/preedit_logic.cpp
+    src/program_compatibility.cpp
     src/redirect_mode.cpp
     src/reliability_checker.cpp
     src/rewrite_mode.cpp
     src/sentence_capitalizer.cpp
     src/surrounding_text_backend.cpp
+    src/uinput_backspace_backend.cpp
     src/word_segment.cpp)
 set_target_properties(areca PROPERTIES PREFIX "" OUTPUT_NAME "areca")
 target_compile_features(areca PRIVATE cxx_std_20)
@@ -89,6 +91,9 @@ foreach(ARECA_ICON_NAME
             DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/symbolic/apps"
             RENAME "${ARECA_ICON_NAME}.svg")
 endforeach()
+
+install(FILES "data/99-uinput-areca.rules"
+        DESTINATION "lib/udev/rules.d")
 
 if(BUILD_TESTING)
     add_executable(areca-bamboo-test
@@ -145,4 +150,25 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-preedit-logic-test PRIVATE Fcitx5::Utils)
     add_test(NAME preedit-logic COMMAND areca-preedit-logic-test)
+
+    add_executable(areca-program-compatibility-test
+        tests/program_compatibility_test.cpp
+        src/program_compatibility.cpp)
+    target_compile_features(areca-program-compatibility-test PRIVATE cxx_std_20)
+    target_compile_options(areca-program-compatibility-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-program-compatibility-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    add_test(NAME program-compatibility COMMAND areca-program-compatibility-test)
+
+    add_executable(areca-uinput-backspace-test
+        tests/uinput_backspace_backend_test.cpp
+        src/uinput_backspace_backend.cpp)
+    target_compile_features(areca-uinput-backspace-test PRIVATE cxx_std_20)
+    target_compile_options(areca-uinput-backspace-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-uinput-backspace-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-uinput-backspace-test PRIVATE Fcitx5::Core Fcitx5::Utils)
+    add_test(NAME uinput-backspace COMMAND areca-uinput-backspace-test)
 endif()
