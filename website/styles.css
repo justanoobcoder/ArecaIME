@@ -801,10 +801,12 @@ kbd {
 
 /* Styles for the uinput check/fix panel */
 .uinput-check {
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.92);
+  grid-column: 1 / -1;
+  margin-top: 1rem;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 16px;
   box-shadow: 0 8px 30px rgba(12, 52, 37, 0.04);
 }
 .uinput-check h3 {

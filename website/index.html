@@ -83,31 +83,6 @@
             >
           </div>
 
-          <!-- Uinput check & fix (moved below installer card) -->
-          <div class="uinput-check section-block reveal" style="margin-top:1.5rem; padding:1rem; border-radius:6px;">
-            <h3>Kiểm tra &amp; Sửa quyền <b>/dev/uinput</b></h3>
-            <p>Nếu lần cài đặt đầu tiên thấy chức năng fallback hoặc uinput không hoạt động, hãy kiểm tra và áp dụng các bước sau.</p>
-
-            <h4><b>1. Kiểm tra thiết bị</b></h4>
-            <pre>ls -l /dev/uinput /dev/input/uinput 2>/dev/null</pre>
-
-            <h4><b>2. Xem rule udev đã cài chưa</b></h4>
-            <pre>ls -l /etc/udev/rules.d/99-uinput-areca.rules /lib/udev/rules.d/99-uinput-areca.rules 2>/dev/null</pre>
-
-            <h4><b>3. Nếu chưa có — cài rule (yêu cầu quyền sudo)</b></h4>
-            <pre>sudo cp data/99-uinput-areca.rules /etc/udev/rules.d/99-uinput-areca.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger</pre>
-
-            <h4><b>4. Áp dụng tạm thời / sửa quyền ngay</b></h4>
-            <pre>sudo chown root:input /dev/uinput 2>/dev/null || sudo chown root:input /dev/input/uinput
-sudo chmod 0660 /dev/uinput 2>/dev/null || sudo chmod 0660 /dev/input/uinput</pre>
-
-            <h4><b>5. Thêm user vào nhóm input</b></h4>
-            <pre>sudo usermod -aG input $USER</pre>
-
-            <p style="margin-top:0.5rem;"><b>Lưu ý:</b> Sau khi thêm user vào nhóm, đăng xuất và đăng nhập lại để nhóm có hiệu lực. Nếu muốn cấp quyền cho mọi user (ít an toàn hơn), thay MODE="0660" bằng MODE="0666" trong file rule.</p>
-          </div>
           <p class="experimental-note">
             <span aria-hidden="true">●</span> Dự án đang trong giai đoạn thử nghiệm
           </p>
@@ -560,6 +535,41 @@ cd ArecaIME
               Sau khi cài: mở <code>fcitx5-configtool</code>, tìm
               <b>Areca (Bamboo)</b> và thêm vào danh sách input method.
             </p>
+          </div>
+        </div>
+
+        <!-- Uinput check & fix -->
+        <div class="uinput-check reveal">
+          <h3>Kiểm tra &amp; Sửa quyền <b>/dev/uinput</b> (Dành cho gói cài đặt .deb / .rpm / .pkg)</h3>
+          <p>Khi cài từ gói phát hành, file rule <code>99-uinput-areca.rules</code> đã được hệ thống tự động cài sẵn. Bạn hãy chọn 1 trong 2 cách sửa dưới đây:</p>
+
+          <div style="margin-top: 1rem; padding: 12px 16px; background: rgba(21, 153, 87, 0.08); border-left: 4px solid #159957; border-radius: 8px;">
+            <h4 style="margin: 0 0 6px 0; color: #159957; font-size: 15px;"><b>Cách 1: Sửa triệt để &amp; Lâu dài (Khuyên dùng)</b></h4>
+            <p style="margin: 0;"><b>Bước 1:</b> Thêm tài khoản hiện tại vào nhóm <code>input</code>:</p>
+            <pre style="margin-top: 4px;">sudo usermod -aG input $USER</pre>
+            <p style="margin-top: 6px; margin-bottom: 0;"><b>Bước 2:</b> <b>Đăng xuất và đăng nhập lại</b> (hoặc khởi động lại máy).</p>
+            <p style="margin-top: 6px; color: #159957; font-size: 13px;">✔ <b>Hoàn tất!</b> Khi đăng nhập lại, quyền nhóm sẽ có hiệu lực vĩnh viễn (bạn không cần làm thêm Cách 2).</p>
+          </div>
+
+          <div style="margin-top: 1rem; padding: 12px 16px; background: rgba(180, 83, 9, 0.06); border-left: 4px solid #b45309; border-radius: 8px;">
+            <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 15px;"><b>Cách 2: Sửa nhanh (Dùng ngay không cần đăng xuất)</b></h4>
+            <p style="margin: 0;">Nếu đang cần gõ ngay mà chưa muốn đăng xuất tài khoản, hãy chạy các lệnh sau:</p>
+            <pre style="margin-top: 6px;">sudo udevadm control --reload-rules &amp;&amp; sudo udevadm trigger
+sudo chown root:input /dev/uinput 2>/dev/null || sudo chown root:input /dev/input/uinput
+sudo chmod 0660 /dev/uinput 2>/dev/null || sudo chmod 0660 /dev/input/uinput</pre>
+          </div>
+
+          <div style="margin-top: 1.2rem;">
+            <h4 style="margin: 0 0 4px 0;"><b>Kiểm tra lại quyền thiết bị (Tùy chọn)</b></h4>
+            <pre>ls -l /dev/uinput /dev/input/uinput 2>/dev/null</pre>
+            <p style="margin-top:0.3rem;"><i>Kết quả chính xác có dạng: <code>crw-rw---- 1 root input ... /dev/uinput</code></i></p>
+          </div>
+
+          <div style="margin-top: 1rem;">
+            <h4 style="margin: 0 0 4px 0;"><b>Nếu hệ thống chưa có file udev rule (Trường hợp ngoại lệ)</b></h4>
+            <p style="margin: 0 0 4px 0; font-size: 13px;">Chỉ thực hiện nếu kiểm tra thấy thiếu file rule udev trên distro của bạn:</p>
+            <pre>echo 'KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-uinput-areca.rules
+sudo udevadm control --reload-rules &amp;&amp; sudo udevadm trigger</pre>
           </div>
         </div>
       </section>
