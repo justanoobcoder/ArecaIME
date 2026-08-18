@@ -83,12 +83,20 @@ deleteCount = 1
 commitText  = "ă"
 ```
 
-Ký tự Bamboo không xử lý được được xem như word boundary. Nếu `SpellCheck`
-được bật, bridge gọi `IsValid(true)` trước khi reset. Một từ có ký tự tiếng
-Việt nhưng cấu trúc âm tiết không hợp lệ được `RestoreLastWord(false)` về chuỗi
-phím Latin ban đầu; adapter tạo delta rewrite cho phần restore rồi nối boundary.
-Từ hợp lệ chỉ commit boundary như bình thường. Tính năng này dùng luật có sẵn
-của `bamboo-core`, chưa dùng dictionary ngoài.
+Ký tự Bamboo không xử lý được được xem như word boundary. Hành vi tại boundary
+phụ thuộc vào `SpellcheckMode`:
+
+- `"Không kiểm tra (Tắt)"`: không kiểm tra, commit từ nguyên trạng.
+- `"Khôi phục từ sau khi gõ xong"`: gọi `IsValid(true)` trước khi reset. Từ có
+  ký tự tiếng Việt nhưng cấu trúc âm tiết không hợp lệ được
+  `RestoreLastWord(false)` về chuỗi phím Latin ban đầu; adapter tạo delta
+  rewrite cho phần restore rồi nối boundary. Từ hợp lệ chỉ commit boundary
+  như bình thường.
+- `"Khôi phục từ ngay trong lúc gõ"`: như mức trên và ngoài ra khi xử
+  lý từng ký tự trung gian, bridge truyền `spellCheck=1` vào
+  `ArecaBambooProcess` để Bamboo kiểm tra và rollback ngay trong lúc gõ.
+
+Tính năng này dùng luật có sẵn của `bamboo-core`, chưa dùng dictionary ngoài.
 
 Khi tạo engine, bridge ánh xạ `ModernStyle=True` sang cách đặt dấu `oà/uý` và
 `ModernStyle=False` sang `òa/úy`. Việc ánh xạ ngược với tên flag nội bộ
