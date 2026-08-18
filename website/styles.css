@@ -799,6 +799,36 @@ kbd {
   background: var(--night);
 }
 
+/* Styles for the uinput check/fix panel */
+.uinput-check {
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(12, 52, 37, 0.04);
+}
+.uinput-check h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #b45309;
+}
+.uinput-check h4 { margin: 12px 0 6px; }
+.uinput-check h4 b { color: #b45309; }
+.uinput-check p { color: var(--muted); font-size: 14px; }
+.uinput-check pre {
+  background: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(16, 33, 28, 0.04);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #23302b;
+  overflow: auto;
+  margin: 6px 0 0 0;
+}
+
+.uinput-check p b { font-weight: 800; }
+
 .architecture::before {
   position: absolute;
   top: -250px;
