@@ -84,10 +84,7 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       preeditHandler_(
           instance_->eventLoop(), preeditStateFactory_,
           [this]() { return debugEnabled(); },
-          [this]() { return config_.autoCapitalizeAfterPunctuation.value(); },
-          [this]() {
-            return static_cast<uint32_t>(advancedConfig_.resetDelayMs.value());
-          }) {
+          [this]() { return config_.autoCapitalizeAfterPunctuation.value(); }) {
   instance_->inputContextManager().registerProperty("arecaRewriteState",
                                                     &rewriteStateFactory_);
   instance_->inputContextManager().registerProperty("arecaPreeditState",
@@ -400,7 +397,6 @@ void ArecaEngine::reloadConfig() {
       config_.legacyAfterBackspaceWaitMs.value());
   advancedConfig_.postCommitDelayMs.setValue(
       config_.legacyPostCommitDelayMs.value());
-  advancedConfig_.resetDelayMs.setValue(config_.legacyResetDelayMs.value());
   fcitx::readAsIni(advancedConfig_, kPkgConfigPath, kAdvancedConfigPath);
   fcitx::readAsIni(macroTable_, kPkgConfigPath, kMacroConfigPath);
   ++macroRevision_;

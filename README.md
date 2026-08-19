@@ -75,7 +75,7 @@ Các invariant quan trọng:
 Chi tiết từng component và state machine nằm trong
 [Tài liệu kiến trúc](docs/ARCHITECTURE.md).
 
-## Hai đường rewrite
+## Các đường rewrite
 
 ### SurroundingText
 
@@ -84,14 +84,17 @@ với text mà Bamboo tin rằng đang hiển thị. Kết quả được cache 
 
 - Khớp: dùng `deleteSurroundingText()` rồi `commitString()`.
 - Không khớp, snapshot không hợp lệ hoặc app không hỗ trợ capability: fallback
-  sang backend forward-Backspace.
+  sang uinput hoặc forward-Backspace.
 
-Areca không tự sửa cache SurroundingText nội bộ sau delete hoặc commit; addon
-chờ snapshot mới từ ứng dụng.
+Areca tự động cập nhật cache SurroundingText nội bộ (`st.deleteText()` và `st.setText()`) ngay sau mỗi thao tác xóa và commit, giữ cho bộ đệm Fcitx5 luôn đồng bộ tức thì với màn hình.
+
+### Uinput Backspace
+
+Khi `/dev/uinput` khả dụng và ứng dụng cần phát Backspace ở mức phần cứng kernel (như terminal DBus hoặc ứng dụng chưa xác định), Areca tự động dùng `UinputBackspaceBackend` gửi sự kiện `KEY_BACKSPACE` trực tiếp qua thiết bị uinput kernel rồi commit text mới. Script cài đặt tự động tạo file rule `99-uinput-areca.rules` để phân quyền cho nhóm `uinput`.
 
 ### Forward Backspace
 
-Khi SurroundingText không đáng tin cậy, addon dùng
+Khi SurroundingText không đáng tin cậy và uinput không khả dụng, addon dùng
 `InputContext::forwardKey()` để phát đúng `N` cặp Backspace press/release. Phím
 đầu được phát ngay; các phím sau cách nhau `BackspaceDelayMs`. Sau Backspace
 cuối, backend chờ `AfterBackspaceWaitMs`, commit text mới, báo hoàn tất đúng một
@@ -120,17 +123,11 @@ Nếu frontend không cung cấp program name, addon không áp dụng rule này
 
 ## Bảo vệ state trước reset của ứng dụng
 
-Một số ứng dụng gọi `reset()` nhiều lần trong lúc người dùng vẫn đang gõ. Areca
-không xoá state ngay:
+Một số ứng dụng gọi `reset()` nhiều lần trong lúc người dùng vẫn đang gõ. Areca bảo vệ trạng thái gõ bằng cơ chế:
 
-- Mỗi reset mở lại một quiet window `ResetDelayMs`, mặc định 250 ms.
-- Text key mới trong cửa sổ đó huỷ reset.
-- Nếu rewrite bất đồng bộ đang pending, reset tiếp tục được hoãn.
-- Chỉ khi không có input mới và không còn transaction pending, Bamboo state và
-  queue của input context mới được reset.
-- Verdict SurroundingText được lưu ở cấp addon. Backspace, Ctrl+A và phím di
-  chuyển bảo vệ riêng verdict này trong 1 giây; lifecycle vẫn reset các state
-  nhập khác như bình thường.
+- Trong vòng 50 ms ngay sau khi hoàn tất rewrite (hoặc khi có rewrite/key đang xử lý), Areca tự động từ chối các lệnh reset dội ngược từ trình duyệt web để giữ ổn định con trỏ.
+- Khi không còn rewrite pending và ngoài cửa sổ 50 ms, lệnh reset hợp lệ từ ứng dụng sẽ xoá Bamboo state và queue của input context ngay lập tức.
+- Verdict SurroundingText được lưu ở cấp addon. Backspace, Ctrl+A và phím di chuyển bảo vệ riêng verdict này trong 1 giây; lifecycle vẫn reset các state nhập khác như bình thường.
 
 Password field luôn bypass Bamboo, SurroundingText và rewrite backend; phím gốc được
 forward thẳng để không đưa nội dung nhạy cảm vào state của addon.

@@ -44,12 +44,10 @@ public:
   using StateFactory = fcitx::FactoryFor<PreeditInputState>;
   using DebugProvider = std::function<bool()>;
   using AutoCapitalizeProvider = std::function<bool()>;
-  using ResetDelayProvider = std::function<uint32_t()>;
 
   PreeditModeHandler(fcitx::EventLoop &eventLoop, StateFactory &stateFactory,
                      DebugProvider debugProvider,
-                     AutoCapitalizeProvider autoCapitalizeProvider,
-                     ResetDelayProvider resetDelayProvider);
+                     AutoCapitalizeProvider autoCapitalizeProvider);
   ~PreeditModeHandler();
 
   void activate(fcitx::InputContext &inputContext) override;
@@ -73,7 +71,6 @@ private:
   StateFactory &stateFactory_;
   DebugProvider debugProvider_;
   AutoCapitalizeProvider autoCapitalizeProvider_;
-  ResetDelayProvider resetDelayProvider_;
   std::shared_ptr<void> lifetime_ = std::make_shared<int>(0);
 };
 

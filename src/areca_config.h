@@ -73,9 +73,7 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<bool> preciseTiming{this, "PreciseTiming",
                                       N_("Dùng timer độ chính xác cao"), true};
-    fcitx::Option<int, fcitx::IntConstrain> resetDelayMs{
-        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 250,
-        fcitx::IntConstrain(0, 5000)};);
+);
 
 FCITX_CONFIGURATION(
     ArecaConfig,
@@ -98,9 +96,6 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyPostCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
-        fcitx::IntConstrain(0, 5000)};
-    fcitx::HiddenOption<int, fcitx::IntConstrain> legacyResetDelayMs{
-        this, "ResetDelayMs", N_("Delay trước khi thực thi reset (ms)"), 250,
         fcitx::IntConstrain(0, 5000)};
     fcitx::OptionWithAnnotation<std::string, StringListAnnotation>
         bambooInputMethod{this, "BambooInputMethod", N_("Kiểu gõ Bamboo"),
