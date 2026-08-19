@@ -75,7 +75,7 @@ Các invariant quan trọng:
 Chi tiết từng component và state machine nằm trong
 [Tài liệu kiến trúc](docs/ARCHITECTURE.md).
 
-## Hai đường rewrite
+## Các đường rewrite
 
 ### SurroundingText
 
@@ -84,14 +84,17 @@ với text mà Bamboo tin rằng đang hiển thị. Kết quả được cache 
 
 - Khớp: dùng `deleteSurroundingText()` rồi `commitString()`.
 - Không khớp, snapshot không hợp lệ hoặc app không hỗ trợ capability: fallback
-  sang backend forward-Backspace.
+  sang uinput hoặc forward-Backspace.
 
-Areca không tự sửa cache SurroundingText nội bộ sau delete hoặc commit; addon
-chờ snapshot mới từ ứng dụng.
+Areca tự động cập nhật cache SurroundingText nội bộ (`st.deleteText()` và `st.setText()`) ngay sau mỗi thao tác xóa và commit, giữ cho bộ đệm Fcitx5 luôn đồng bộ tức thì với màn hình.
+
+### Uinput Backspace
+
+Khi `/dev/uinput` khả dụng và ứng dụng cần phát Backspace ở mức phần cứng kernel (như terminal DBus hoặc ứng dụng chưa xác định), Areca tự động dùng `UinputBackspaceBackend` gửi sự kiện `KEY_BACKSPACE` trực tiếp qua thiết bị uinput kernel rồi commit text mới. Script cài đặt tự động tạo file rule `99-uinput-areca.rules` để phân quyền cho nhóm `uinput`.
 
 ### Forward Backspace
 
-Khi SurroundingText không đáng tin cậy, addon dùng
+Khi SurroundingText không đáng tin cậy và uinput không khả dụng, addon dùng
 `InputContext::forwardKey()` để phát đúng `N` cặp Backspace press/release. Phím
 đầu được phát ngay; các phím sau cách nhau `BackspaceDelayMs`. Sau Backspace
 cuối, backend chờ `AfterBackspaceWaitMs`, commit text mới, báo hoàn tất đúng một
@@ -120,17 +123,11 @@ Nếu frontend không cung cấp program name, addon không áp dụng rule này
 
 ## Bảo vệ state trước reset của ứng dụng
 
-Một số ứng dụng gọi `reset()` nhiều lần trong lúc người dùng vẫn đang gõ. Areca
-không xoá state ngay:
+Một số ứng dụng gọi `reset()` nhiều lần trong lúc người dùng vẫn đang gõ. Areca bảo vệ trạng thái gõ bằng cơ chế:
 
-- Mỗi reset mở lại một quiet window `ResetDelayMs`, mặc định 250 ms.
-- Text key mới trong cửa sổ đó huỷ reset.
-- Nếu rewrite bất đồng bộ đang pending, reset tiếp tục được hoãn.
-- Chỉ khi không có input mới và không còn transaction pending, Bamboo state và
-  queue của input context mới được reset.
-- Verdict SurroundingText được lưu ở cấp addon. Backspace, Ctrl+A và phím di
-  chuyển bảo vệ riêng verdict này trong 1 giây; lifecycle vẫn reset các state
-  nhập khác như bình thường.
+- Trong vòng 50 ms ngay sau khi hoàn tất rewrite (hoặc khi có rewrite/key đang xử lý), Areca tự động từ chối các lệnh reset dội ngược từ trình duyệt web để giữ ổn định con trỏ.
+- Khi không còn rewrite pending và ngoài cửa sổ 50 ms, lệnh reset hợp lệ từ ứng dụng sẽ xoá Bamboo state và queue của input context ngay lập tức.
+- Verdict SurroundingText được lưu ở cấp addon. Backspace, Ctrl+A và phím di chuyển bảo vệ riêng verdict này trong 1 giây; lifecycle vẫn reset các state nhập khác như bình thường.
 
 Password field luôn bypass Bamboo, SurroundingText và rewrite backend; phím gốc được
 forward thẳng để không đưa nội dung nhạy cảm vào state của addon.
@@ -244,9 +241,12 @@ panel này được lưu tại `~/.config/fcitx5/conf/areca-advanced.conf`:
 BackspaceDelayMs=1
 AfterBackspaceWaitMs=10
 WaylandAfterBackspaceWaitMs=3
+XimAfterBackspaceWaitMs=10
+Fcitx4AfterBackspaceWaitMs=10
+DbusAfterBackspaceWaitMs=5
 PostCommitDelayMs=20
 PreciseTiming=True
-ResetDelayMs=250
+ForceUinput=False
 ```
 
 | Panel | Tuỳ chọn | Ý nghĩa |
@@ -262,11 +262,14 @@ ResetDelayMs=250
 | Chính | `CapitalizeMacro` | Tự đổi nội dung macro thành chữ thường/toàn chữ hoa theo cách viết key. |
 | Chính | `Debug` | Bật log chi tiết của addon. |
 | Nâng cao | `BackspaceDelayMs` | Delay giữa hai cặp Backspace press/release được forward. |
-| Nâng cao | `AfterBackspaceWaitMs` | Thời gian chờ sau Backspace cuối cho các frontend không phải Wayland. |
+| Nâng cao | `AfterBackspaceWaitMs` | Thời gian chờ sau Backspace cuối cho các frontend khác / chưa xác định, mặc định 10 ms. |
 | Nâng cao | `WaylandAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend Wayland, mặc định 3 ms. |
+| Nâng cao | `XimAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend XIM, mặc định 10 ms. |
+| Nâng cao | `Fcitx4AfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend Fcitx4, mặc định 10 ms. |
+| Nâng cao | `DbusAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend DBus, mặc định 5 ms. |
 | Nâng cao | `PostCommitDelayMs` | Settling window độc lập sau mọi text commit. |
 | Nâng cao | `PreciseTiming` | Dùng accuracy `1µs` cho timer Backspace và post-commit; nếu tắt sẽ dùng timer coalescing mặc định của event loop. |
-| Nâng cao | `ResetDelayMs` | Quiet window bảo vệ state trước reset từ ứng dụng. |
+| Nâng cao | `ForceUinput` | Ép dùng uinput thay cho forward Backspace khi khả dụng, mặc định `False`. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.
 Khi nâng cấp từ bản cũ, Areca tự đọc timing còn nằm trong `areca.conf`;
@@ -320,6 +323,16 @@ Areca không tự đổi mode theo ứng dụng.
 
 - [Kiến trúc và luồng hoạt động](docs/ARCHITECTURE.md)
 - [Cài đặt, reload và debug](docs/DEBUGGING.md)
+
+## 🌴 Tác giả & Đồng hành
+
+- **Kim Xuân Hồng** ([@kimxuanhong](https://github.com/kimxuanhong) / [@xhkzeroone](https://github.com/xhkzeroone)) — *Tác giả & Khởi tạo dự án*
+
+<a href="https://github.com/xhkzeroone/ArecaIME/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xhkzeroone/ArecaIME" alt="Areca IME Contributors" />
+</a>
+
+Mọi đóng góp báo lỗi hoặc gửi Pull Request đều được hoan nghênh. Xem hướng dẫn tại [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

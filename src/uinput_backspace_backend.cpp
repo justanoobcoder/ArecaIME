@@ -123,11 +123,7 @@ ApplyStatus UinputBackspaceBackend::apply(fcitx::InputContext &inputContext,
   sentBackspaces_ = 0;
   backspaceDelayMs_ = plan.backspaceDelayMs;
   const char *frontend = inputContext.frontend();
-  const bool isWaylandFrontend =
-      frontend && std::string_view(frontend) == "wayland";
-  afterBackspaceWaitMs_ = isWaylandFrontend
-                              ? plan.waylandAfterBackspaceWaitMs
-                              : plan.afterBackspaceWaitMs;
+  afterBackspaceWaitMs_ = resolveAfterBackspaceWaitMs(frontend, plan);
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
 

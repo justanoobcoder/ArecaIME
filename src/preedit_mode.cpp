@@ -73,12 +73,10 @@ PreeditInputState::PreeditInputState(std::string inputMethod, bool spellCheck,
 
 PreeditModeHandler::PreeditModeHandler(
     fcitx::EventLoop &eventLoop, StateFactory &stateFactory,
-    DebugProvider debugProvider, AutoCapitalizeProvider autoCapitalizeProvider,
-    ResetDelayProvider resetDelayProvider)
+    DebugProvider debugProvider, AutoCapitalizeProvider autoCapitalizeProvider)
     : eventLoop_(eventLoop), stateFactory_(stateFactory),
       debugProvider_(std::move(debugProvider)),
-      autoCapitalizeProvider_(std::move(autoCapitalizeProvider)),
-      resetDelayProvider_(std::move(resetDelayProvider)) {}
+      autoCapitalizeProvider_(std::move(autoCapitalizeProvider)) {}
 
 PreeditModeHandler::~PreeditModeHandler() { lifetime_.reset(); }
 
@@ -266,39 +264,7 @@ void PreeditModeHandler::commitComposition(fcitx::InputContext &inputContext,
 
 void PreeditModeHandler::requestProtectedReset(
     fcitx::InputContext &inputContext) {
-  auto *state = stateFor(inputContext);
-  if (!state) {
-    return;
-  }
-  state->delayedResetTimer.reset();
-  const auto inputContextRef = inputContext.watch();
-  const std::weak_ptr<void> lifetime = lifetime_;
-  const uint64_t deadline = fcitx::now(CLOCK_MONOTONIC) +
-                            static_cast<uint64_t>(resetDelayProvider_()) * 1000;
-  state->delayedResetTimer = eventLoop_.addTimeEvent(
-      CLOCK_MONOTONIC, deadline, 0,
-      [this, inputContextRef, lifetime](fcitx::EventSourceTime *, uint64_t) {
-        if (lifetime.expired()) {
-          return false;
-        }
-        auto *inputContext = inputContextRef.get();
-        if (!inputContext) {
-          return false;
-        }
-        auto *state = stateFor(*inputContext);
-        if (!state) {
-          return false;
-        }
-        auto completedTimer = std::move(state->delayedResetTimer);
-        resetContext(*inputContext);
-        if (debugProvider_()) {
-          FCITX_INFO() << "areca: preedit protected reset executed";
-        }
-        return false;
-      });
-  if (state->delayedResetTimer) {
-    state->delayedResetTimer->setOneShot();
-  }
+  resetContext(inputContext);
 }
 
 void PreeditModeHandler::cancelProtectedReset(

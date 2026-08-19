@@ -84,10 +84,7 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       preeditHandler_(
           instance_->eventLoop(), preeditStateFactory_,
           [this]() { return debugEnabled(); },
-          [this]() { return config_.autoCapitalizeAfterPunctuation.value(); },
-          [this]() {
-            return static_cast<uint32_t>(advancedConfig_.resetDelayMs.value());
-          }) {
+          [this]() { return config_.autoCapitalizeAfterPunctuation.value(); }) {
   instance_->inputContextManager().registerProperty("arecaRewriteState",
                                                     &rewriteStateFactory_);
   instance_->inputContextManager().registerProperty("arecaPreeditState",
@@ -201,6 +198,16 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       }
       return {&uinputBackspaceBackend_};
     }
+  }
+
+  if (advancedConfig_.forceUinput.value() &&
+      uinputBackspaceBackend_.isAvailable()) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: forced uinput backend for forward backspace fallback"
+                   << " program=" << program
+                   << " backend=" << uinputBackspaceBackend_.name();
+    }
+    return {&uinputBackspaceBackend_};
   }
 
   return {&forwardBackspaceBackend_};
@@ -400,7 +407,6 @@ void ArecaEngine::reloadConfig() {
       config_.legacyAfterBackspaceWaitMs.value());
   advancedConfig_.postCommitDelayMs.setValue(
       config_.legacyPostCommitDelayMs.value());
-  advancedConfig_.resetDelayMs.setValue(config_.legacyResetDelayMs.value());
   fcitx::readAsIni(advancedConfig_, kPkgConfigPath, kAdvancedConfigPath);
   fcitx::readAsIni(macroTable_, kPkgConfigPath, kMacroConfigPath);
   ++macroRevision_;
@@ -430,6 +436,12 @@ SchedulerTiming ArecaEngine::timing() const {
           static_cast<uint32_t>(advancedConfig_.afterBackspaceWaitMs.value()),
           static_cast<uint32_t>(
               advancedConfig_.waylandAfterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.ximAfterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.fcitx4AfterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.dbusAfterBackspaceWaitMs.value()),
           static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value()),
           advancedConfig_.preciseTiming.value() ? 1U : 0U};
 }

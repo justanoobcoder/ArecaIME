@@ -1,4 +1,5 @@
 #include "program_compatibility.h"
+#include "types.h"
 
 #include <cassert>
 
@@ -68,4 +69,21 @@ int main() {
   assert(isTerminalProgram("io.elementary.terminal"));
   assert(!isTerminalProgram("firefox"));
   assert(!isTerminalProgram(""));
+
+  using areca::resolveAfterBackspaceWaitMs;
+  areca::RewritePlan plan;
+  plan.afterBackspaceWaitMs = 10;
+  plan.waylandAfterBackspaceWaitMs = 3;
+  plan.ximAfterBackspaceWaitMs = 10;
+  plan.fcitx4AfterBackspaceWaitMs = 10;
+  plan.dbusAfterBackspaceWaitMs = 5;
+
+  assert(resolveAfterBackspaceWaitMs("wayland", plan) == 3);
+  assert(resolveAfterBackspaceWaitMs("xim", plan) == 10);
+  assert(resolveAfterBackspaceWaitMs("fcitx4", plan) == 10);
+  assert(resolveAfterBackspaceWaitMs("fcitx4frontend", plan) == 10);
+  assert(resolveAfterBackspaceWaitMs("dbus", plan) == 5);
+  assert(resolveAfterBackspaceWaitMs("dbusfrontend", plan) == 5);
+  assert(resolveAfterBackspaceWaitMs("unknown", plan) == 10);
+  assert(resolveAfterBackspaceWaitMs(nullptr, plan) == 10);
 }
