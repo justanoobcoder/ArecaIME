@@ -11,7 +11,4 @@ bool isVSCodeFamilyProgram(const std::string &program);
 // Terminal applications across all Linux desktop environments (GNOME, MATE, Mint, XFCE, KDE, etc.).
 bool isTerminalProgram(const std::string &program);
 
-// Firefox-family browsers (Firefox, Zen, LibreWolf, Waterfox, Floorp, Tor Browser, etc.).
-bool isFirefoxFamilyProgram(const std::string &program);
-
 } // namespace areca
