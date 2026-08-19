@@ -62,14 +62,20 @@ ReliabilityDecision ReliabilityChecker::evaluate(
           << "areca: reliability first-probe no surrounding capability";
     }
     state.forceForwardBackspace = false;
-    if (isVSCodeFamilyProgram(inputContext.program())) {
+    if (isFirefoxFamilyProgram(inputContext.program())) {
+      state.forceForwardBackspace = true;
+      if (debug) {
+        FCITX_INFO() << "areca: reliability first-probe force_forward=1"
+                     << " reason=firefox-family-no-dbus-delete-surrounding";
+      }
+    } else if (isVSCodeFamilyProgram(inputContext.program())) {
       const uint64_t capabilityMask = capabilities.toInteger();
       state.forceForwardBackspace =
           capabilityMask == kForwardBackspaceCapabilityMask;
-    }
-    if (state.forceForwardBackspace && debug) {
-      FCITX_INFO() << "areca: reliability first-probe force_forward=1"
-                   << " reason=program-compatibility-capability-mask-0x72";
+      if (state.forceForwardBackspace && debug) {
+        FCITX_INFO() << "areca: reliability first-probe force_forward=1"
+                     << " reason=program-compatibility-capability-mask-0x72";
+      }
     }
     // Absence of the capability is also a complete first verdict. Cache the
     // false result instead of attempting the same probe on every rewrite.
