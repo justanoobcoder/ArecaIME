@@ -321,6 +321,16 @@ Areca không tự đổi mode theo ứng dụng.
 - [Kiến trúc và luồng hoạt động](docs/ARCHITECTURE.md)
 - [Cài đặt, reload và debug](docs/DEBUGGING.md)
 
+## 🌴 Tác giả & Đồng hành
+
+- **Kim Xuân Hồng** ([@kimxuanhong](https://github.com/kimxuanhong) / [@xhkzeroone](https://github.com/xhkzeroone)) — *Tác giả & Khởi tạo dự án*
+
+<a href="https://github.com/xhkzeroone/ArecaIME/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xhkzeroone/ArecaIME" alt="Areca IME Contributors" />
+</a>
+
+Mọi đóng góp báo lỗi hoặc gửi Pull Request đều được hoan nghênh. Xem hướng dẫn tại [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Areca được phát hành theo giấy phép [MIT](LICENSE). `bamboo-core` là một dự án
