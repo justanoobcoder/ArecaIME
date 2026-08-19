@@ -61,26 +61,26 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> afterBackspaceWaitMs{
         this, "AfterBackspaceWaitMs",
-        N_("Thời gian chờ sau Backspace cuối (ms)"), 10,
+        N_("Chờ sau Backspace cuối (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> waylandAfterBackspaceWaitMs{
         this, "WaylandAfterBackspaceWaitMs",
-        N_("Thời gian chờ cho frontend Wayland sau Backspace cuối (ms)"),
+        N_("Chờ sau Backspace cuối Wayland (ms)"),
         3,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> ximAfterBackspaceWaitMs{
         this, "XimAfterBackspaceWaitMs",
-        N_("Thời gian chờ cho frontend XIM sau Backspace cuối (ms)"),
+        N_("Chờ sau Backspace cuối XIM (ms)"),
         10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterBackspaceWaitMs{
         this, "Fcitx4AfterBackspaceWaitMs",
-        N_("Thời gian chờ cho frontend Fcitx4 sau Backspace cuối (ms)"),
+        N_("Chờ sau Backspace cuối Fcitx4 (ms)"),
         10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> dbusAfterBackspaceWaitMs{
         this, "DbusAfterBackspaceWaitMs",
-        N_("Thời gian chờ cho frontend DBus sau Backspace cuối (ms)"),
+        N_("Chờ sau Backspace cuối DBus (ms)"),
         5,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
@@ -88,6 +88,9 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<bool> preciseTiming{this, "PreciseTiming",
                                       N_("Dùng timer độ chính xác cao"), true};
+    fcitx::Option<bool> forceUinput{
+        this, "ForceUinput", N_("Ép dùng uinput thay cho forward Backspace"),
+        false};
 );
 
 FCITX_CONFIGURATION(

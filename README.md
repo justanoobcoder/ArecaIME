@@ -246,6 +246,7 @@ Fcitx4AfterBackspaceWaitMs=10
 DbusAfterBackspaceWaitMs=5
 PostCommitDelayMs=20
 PreciseTiming=True
+ForceUinput=False
 ```
 
 | Panel | Tuỳ chọn | Ý nghĩa |
@@ -268,6 +269,7 @@ PreciseTiming=True
 | Nâng cao | `DbusAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend DBus, mặc định 5 ms. |
 | Nâng cao | `PostCommitDelayMs` | Settling window độc lập sau mọi text commit. |
 | Nâng cao | `PreciseTiming` | Dùng accuracy `1µs` cho timer Backspace và post-commit; nếu tắt sẽ dùng timer coalescing mặc định của event loop. |
+| Nâng cao | `ForceUinput` | Ép dùng uinput thay cho forward Backspace khi khả dụng, mặc định `False`. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.
 Khi nâng cấp từ bản cũ, Areca tự đọc timing còn nằm trong `areca.conf`;

@@ -200,6 +200,16 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     }
   }
 
+  if (advancedConfig_.forceUinput.value() &&
+      uinputBackspaceBackend_.isAvailable()) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: forced uinput backend for forward backspace fallback"
+                   << " program=" << program
+                   << " backend=" << uinputBackspaceBackend_.name();
+    }
+    return {&uinputBackspaceBackend_};
+  }
+
   return {&forwardBackspaceBackend_};
 }
 
