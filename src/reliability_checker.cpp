@@ -62,7 +62,8 @@ ReliabilityDecision ReliabilityChecker::evaluate(
           << "areca: reliability first-probe no surrounding capability";
     }
     state.forceForwardBackspace = false;
-    if (isVSCodeFamilyProgram(inputContext.program())) {
+    if (isVSCodeFamilyProgram(inputContext.program()) ||
+        isFirefoxFamilyProgram(inputContext.program())) {
       const uint64_t capabilityMask = capabilities.toInteger();
       state.forceForwardBackspace =
           capabilityMask == kForwardBackspaceCapabilityMask;
