@@ -426,6 +426,12 @@ SchedulerTiming ArecaEngine::timing() const {
           static_cast<uint32_t>(advancedConfig_.afterBackspaceWaitMs.value()),
           static_cast<uint32_t>(
               advancedConfig_.waylandAfterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.ximAfterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.fcitx4AfterBackspaceWaitMs.value()),
+          static_cast<uint32_t>(
+              advancedConfig_.dbusAfterBackspaceWaitMs.value()),
           static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value()),
           advancedConfig_.preciseTiming.value() ? 1U : 0U};
 }

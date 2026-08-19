@@ -141,6 +141,9 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.backspaceDelayMs = timing.backspaceDelayMs;
   plan.afterBackspaceWaitMs = timing.afterBackspaceWaitMs;
   plan.waylandAfterBackspaceWaitMs = timing.waylandAfterBackspaceWaitMs;
+  plan.ximAfterBackspaceWaitMs = timing.ximAfterBackspaceWaitMs;
+  plan.fcitx4AfterBackspaceWaitMs = timing.fcitx4AfterBackspaceWaitMs;
+  plan.dbusAfterBackspaceWaitMs = timing.dbusAfterBackspaceWaitMs;
   plan.timerAccuracyUsec = timing.timerAccuracyUsec;
   plan.commitText = result.commitText;
 

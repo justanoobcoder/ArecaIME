@@ -65,8 +65,23 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> waylandAfterBackspaceWaitMs{
         this, "WaylandAfterBackspaceWaitMs",
-        N_("Thời gian chờ trên trình duyệt (Wayland) sau Backspace cuối (ms)"),
+        N_("Thời gian chờ cho frontend Wayland sau Backspace cuối (ms)"),
         3,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> ximAfterBackspaceWaitMs{
+        this, "XimAfterBackspaceWaitMs",
+        N_("Thời gian chờ cho frontend XIM sau Backspace cuối (ms)"),
+        10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterBackspaceWaitMs{
+        this, "Fcitx4AfterBackspaceWaitMs",
+        N_("Thời gian chờ cho frontend Fcitx4 sau Backspace cuối (ms)"),
+        10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> dbusAfterBackspaceWaitMs{
+        this, "DbusAfterBackspaceWaitMs",
+        N_("Thời gian chờ cho frontend DBus sau Backspace cuối (ms)"),
+        5,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
