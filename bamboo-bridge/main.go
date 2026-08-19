@@ -175,12 +175,22 @@ func ArecaBambooProcess(id C.uint64_t, key C.uint32_t, spellCheck C.int) *C.char
 	if engine == nil {
 		return nil
 	}
+	prevText := engine.GetProcessedString(bamboo.VietnameseMode)
+
 	engine.ProcessKey(rune(key), bamboo.VietnameseMode)
 	
 	text := engine.GetProcessedString(bamboo.VietnameseMode)
 	if spellCheck != 0 && bamboo.HasAnyVietnameseRune(text) && !engine.IsValid(false) {
-		engine.RestoreLastWord(false)
-		text = engine.GetProcessedString(bamboo.EnglishMode)
+		if !bamboo.HasAnyVietnameseRune(prevText) {
+			for engine.GetProcessedString(bamboo.VietnameseMode) != "" {
+				engine.RemoveLastChar(true)
+			}
+			engine.ProcessString(prevText + string(key), bamboo.EnglishMode)
+			text = engine.GetProcessedString(bamboo.VietnameseMode)
+		} else {
+			engine.RestoreLastWord(false)
+			text = engine.GetProcessedString(bamboo.EnglishMode)
+		}
 	}
 	
 	return C.CString(text)
