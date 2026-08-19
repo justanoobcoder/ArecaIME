@@ -48,6 +48,7 @@ add_library(areca MODULE
     src/rewrite_mode.cpp
     src/sentence_capitalizer.cpp
     src/surrounding_text_backend.cpp
+    src/surrounding_text_cache.cpp
     src/uinput_backspace_backend.cpp
     src/word_segment.cpp)
 set_target_properties(areca PROPERTIES PREFIX "" OUTPUT_NAME "areca")
