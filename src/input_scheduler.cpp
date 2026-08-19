@@ -40,7 +40,7 @@ bool InputScheduler::shouldRejectReset() const {
   if (lastRewriteCompletionTimeUsec_ != 0) {
     const uint64_t now = fcitx::now(CLOCK_MONOTONIC);
     if (now >= lastRewriteCompletionTimeUsec_ &&
-        (now - lastRewriteCompletionTimeUsec_) <= 10000) {
+        (now - lastRewriteCompletionTimeUsec_) <= 50000) {
       return true;
     }
   }
@@ -50,7 +50,7 @@ bool InputScheduler::shouldRejectReset() const {
 void InputScheduler::resetContext(fcitx::InputContext &inputContext) {
   if (shouldRejectReset()) {
     if (debugProvider_()) {
-      FCITX_INFO() << "areca: reset rejected (active rewrite or 10ms post-commit window)";
+      FCITX_INFO() << "areca: reset rejected (active rewrite or 50ms post-commit window)";
     }
     return;
   }
