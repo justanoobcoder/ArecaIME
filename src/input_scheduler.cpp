@@ -33,14 +33,24 @@ void InputScheduler::enqueue(fcitx::InputContext &inputContext,
   scheduleNext();
 }
 
+bool InputScheduler::shouldRejectReset() const {
+  if (processing_ || rewritePending()) {
+    return true;
+  }
+  if (lastRewriteCompletionTimeUsec_ != 0) {
+    const uint64_t now = fcitx::now(CLOCK_MONOTONIC);
+    if (now >= lastRewriteCompletionTimeUsec_ &&
+        (now - lastRewriteCompletionTimeUsec_) <= 10000) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void InputScheduler::resetContext(fcitx::InputContext &inputContext) {
-  // A pending rewrite owns the engine and queue until its single completion
-  // callback runs. Treat reset as a no-op during that transaction, just like
-  // a guarded state clear.
-  if (rewritePending()) {
+  if (shouldRejectReset()) {
     if (debugProvider_()) {
-      FCITX_INFO() << "areca: reset blocked by pending rewrite tx="
-                   << activeTransactionId_;
+      FCITX_INFO() << "areca: reset rejected (active rewrite or 10ms post-commit window)";
     }
     return;
   }
@@ -189,6 +199,7 @@ void InputScheduler::finishKey() {
 }
 
 void InputScheduler::finishKeyAfterCommit() {
+  lastRewriteCompletionTimeUsec_ = fcitx::now(CLOCK_MONOTONIC);
   const auto timing = timingProvider_();
   const uint64_t delayUsec =
       static_cast<uint64_t>(timing.postCommitDelayMs) * 1000;

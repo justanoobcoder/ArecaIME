@@ -214,6 +214,12 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
 
 void RewriteModeHandler::requestProtectedReset(
     fcitx::InputContext &inputContext) {
+  if (scheduler_.shouldRejectReset()) {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: protected reset rejected (active rewrite or 10ms post-commit window)";
+    }
+    return;
+  }
   if (auto *state = stateFor(inputContext)) {
     scheduleProtectedReset(inputContext, *state);
   }

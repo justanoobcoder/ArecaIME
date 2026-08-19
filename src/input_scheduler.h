@@ -44,6 +44,7 @@ public:
   size_t queuedKeyCount() const { return queue_.size(); }
   bool rewritePending() const { return activeTransactionId_ != 0; }
   bool stalled() const { return stalled_; }
+  bool shouldRejectReset() const;
 
 private:
   void scheduleNext();
@@ -64,6 +65,7 @@ private:
   uint64_t nextSequence_ = 1;
   uint64_t nextTransactionId_ = 1;
   uint64_t activeTransactionId_ = 0;
+  uint64_t lastRewriteCompletionTimeUsec_ = 0;
   bool processing_ = false;
   bool stalled_ = false;
 };

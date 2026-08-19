@@ -341,6 +341,12 @@ void ArecaEngine::deactivate(const fcitx::InputMethodEntry &,
 void ArecaEngine::reset(const fcitx::InputMethodEntry &,
                         fcitx::InputContextEvent &event) {
   if (auto *inputContext = event.inputContext()) {
+    if (scheduler_.shouldRejectReset()) {
+      if (debugEnabled()) {
+        FCITX_INFO() << "areca: app reset rejected (active rewrite or 10ms post-commit window)";
+      }
+      return;
+    }
     if (activePresentationMode_ == PresentationMode::Rewrite) {
       clearBackendVerdictForLifecycle(*inputContext, "reset");
     }
