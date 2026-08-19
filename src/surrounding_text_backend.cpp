@@ -5,6 +5,8 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/log.h>
 
+#include "surrounding_text_cache.h"
+
 namespace areca {
 
 SurroundingTextBackend::SurroundingTextBackend(fcitx::EventLoop &eventLoop,
@@ -25,11 +27,15 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
   if (plan.backspaceCount) {
     inputContext.deleteSurroundingText(-static_cast<int>(plan.backspaceCount),
                                        plan.backspaceCount);
+    updateSurroundingCacheAfterDelete(
+        inputContext, -static_cast<int>(plan.backspaceCount),
+        plan.backspaceCount);
   }
 
   if (plan.backspaceCount == 0) {
     if (!plan.commitText.empty()) {
       inputContext.commitString(plan.commitText);
+      updateSurroundingCacheAfterCommit(inputContext, plan.commitText);
     }
     if (onDone) {
       onDone(plan.transactionId);
@@ -69,6 +75,7 @@ void SurroundingTextBackend::commitAndComplete() {
 
   if (!commitText_.empty()) {
     inputContext->commitString(commitText_);
+    updateSurroundingCacheAfterCommit(*inputContext, commitText_);
   }
 
   const uint64_t transactionId = transactionId_;
