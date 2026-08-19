@@ -53,7 +53,12 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
             config_.enableMacro.value(), config_.capitalizeMacro.value(),
             macroRevision_, macroDefinitions());
       }),
-      autocompleteForwardBackend_(1), autocompleteEdgeForwardBackend_(2),
+      surroundingBackend_(instance_->eventLoop(),
+                          [this]() { return debugEnabled(); }),
+      autocompleteForwardBackend_(instance_->eventLoop(),
+                                   [this]() { return debugEnabled(); }, 1),
+      autocompleteEdgeForwardBackend_(instance_->eventLoop(),
+                                      [this]() { return debugEnabled(); }, 2),
       forwardBackspaceBackend_(instance_->eventLoop(),
                                [this]() { return debugEnabled(); }),
       uinputBackspaceBackend_(instance_->eventLoop(),
