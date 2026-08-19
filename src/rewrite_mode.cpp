@@ -77,16 +77,14 @@ RewriteModeHandler::RewriteModeHandler(fcitx::EventLoop &eventLoop,
                                        InputScheduler &scheduler,
                                        BoolProvider autoCapitalizeProvider,
                                        BoolProvider debugProvider,
-                                       ResetDelayProvider resetDelayProvider,
                                        BackendVerdictProtector
                                            backendVerdictProtector)
     : eventLoop_(eventLoop), stateFactory_(stateFactory), scheduler_(scheduler),
       autoCapitalizeProvider_(std::move(autoCapitalizeProvider)),
       debugProvider_(std::move(debugProvider)),
-      resetDelayProvider_(std::move(resetDelayProvider)),
       backendVerdictProtector_(std::move(backendVerdictProtector)) {}
 
-RewriteModeHandler::~RewriteModeHandler() { lifetime_.reset(); }
+RewriteModeHandler::~RewriteModeHandler() {}
 
 RewriteInputState *
 RewriteModeHandler::stateFor(fcitx::InputContext &inputContext) const {
@@ -94,15 +92,11 @@ RewriteModeHandler::stateFor(fcitx::InputContext &inputContext) const {
 }
 
 void RewriteModeHandler::activate(fcitx::InputContext &inputContext) {
-  if (auto *state = stateFor(inputContext)) {
-    state->surroundingReliability.reset();
-  }
+  stateFor(inputContext);
 }
 
 void RewriteModeHandler::deactivate(fcitx::InputContext &inputContext) {
-  if (!scheduler_.rewritePending()) {
-    resetContext(inputContext);
-  }
+  resetContext(inputContext);
 }
 
 void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
@@ -141,7 +135,6 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
     return;
   }
   if (inputContext->capabilityFlags().test(fcitx::CapabilityFlag::Password)) {
-    cancelProtectedReset(*inputContext);
     resetContext(*inputContext);
     event.forward();
     return;
@@ -163,7 +156,6 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
       rawSym == FcitxKey_KP_Tab || rawSym == FcitxKey_ISO_Left_Tab ||
       rawSym == FcitxKey_Escape || hasRewriteShortcutModifier(rawKey);
   if (resetAndForward) {
-    cancelProtectedReset(*inputContext);
     state->sentenceCapitalization.reset();
     state->engine->reset();
     event.forward();
@@ -175,7 +167,6 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
     return;
   }
   if (isBackspace) {
-    cancelProtectedReset(*inputContext);
     state->sentenceCapitalization.reset();
     try {
       state->engine->backspace();
@@ -187,7 +178,6 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
     return;
   }
   if (isEnter) {
-    cancelProtectedReset(*inputContext);
     state->sentenceCapitalization.reset();
     state->engine->reset();
     event.forward();
@@ -207,70 +197,24 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
     event.forward();
     return;
   }
-  cancelProtectedReset(*inputContext);
   event.filterAndAccept();
   scheduler_.enqueue(*inputContext, codepoint, utf8Text);
 }
 
 void RewriteModeHandler::requestProtectedReset(
     fcitx::InputContext &inputContext) {
-  cancelProtectedReset(inputContext);
   if (scheduler_.shouldRejectReset()) {
     if (debugProvider_()) {
-      FCITX_INFO() << "areca: protected reset rejected (active rewrite or 50ms post-commit window)";
+      FCITX_INFO() << "areca: reset rejected (active rewrite or 50ms post-commit window)";
     }
     return;
   }
-  if (auto *state = stateFor(inputContext)) {
-    scheduleProtectedReset(inputContext, *state);
-  }
-}
-
-void RewriteModeHandler::scheduleProtectedReset(
-    fcitx::InputContext &inputContext, RewriteInputState &state) {
-  state.delayedResetTimer.reset();
-  const auto inputContextRef = inputContext.watch();
-  const std::weak_ptr<void> lifetime = lifetime_;
-  const uint64_t deadline = fcitx::now(CLOCK_MONOTONIC) +
-                            static_cast<uint64_t>(resetDelayProvider_()) * 1000;
-  state.delayedResetTimer = eventLoop_.addTimeEvent(
-      CLOCK_MONOTONIC, deadline, 0,
-      [this, inputContextRef, lifetime](fcitx::EventSourceTime *, uint64_t) {
-        if (lifetime.expired()) {
-          return false;
-        }
-        auto *inputContext = inputContextRef.get();
-        if (!inputContext) {
-          return false;
-        }
-        auto *state = stateFor(*inputContext);
-        if (!state) {
-          return false;
-        }
-        auto completedTimer = std::move(state->delayedResetTimer);
-        if (scheduler_.rewritePending()) {
-          scheduleProtectedReset(*inputContext, *state);
-          return false;
-        }
-        resetContext(*inputContext);
-        return false;
-      });
-  if (state.delayedResetTimer) {
-    state.delayedResetTimer->setOneShot();
-  }
-}
-
-void RewriteModeHandler::cancelProtectedReset(
-    fcitx::InputContext &inputContext) {
-  if (auto *state = stateFor(inputContext)) {
-    state->delayedResetTimer.reset();
-  }
+  resetContext(inputContext);
 }
 
 void RewriteModeHandler::resetContext(fcitx::InputContext &inputContext) {
   scheduler_.resetContext(inputContext);
   if (auto *state = stateFor(inputContext)) {
-    state->delayedResetTimer.reset();
     state->sentenceCapitalization.reset();
   }
 }

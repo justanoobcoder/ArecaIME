@@ -78,9 +78,6 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
           instance_->eventLoop(), rewriteStateFactory_, scheduler_,
           [this]() { return config_.autoCapitalizeAfterPunctuation.value(); },
           [this]() { return debugEnabled(); },
-          [this]() {
-            return static_cast<uint32_t>(advancedConfig_.resetDelayMs.value());
-          },
           [this](fcitx::InputContext &inputContext, const char *reason) {
             protectBackendVerdict(inputContext, reason);
           }),

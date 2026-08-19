@@ -39,14 +39,12 @@ struct RewriteInputState final : public fcitx::InputContextProperty {
   std::unique_ptr<VietnameseEngine> engine;
   SentenceCapitalizationState sentenceCapitalization;
   SurroundingReliabilityState surroundingReliability;
-  std::unique_ptr<fcitx::EventSourceTime> delayedResetTimer;
 };
 
 class RewriteModeHandler final : public InputModeHandler {
 public:
   using StateFactory = fcitx::FactoryFor<RewriteInputState>;
   using BoolProvider = std::function<bool()>;
-  using ResetDelayProvider = std::function<uint32_t()>;
   using BackendVerdictProtector =
       std::function<void(fcitx::InputContext &, const char *)>;
 
@@ -54,7 +52,6 @@ public:
                      InputScheduler &scheduler,
                      BoolProvider autoCapitalizeProvider,
                      BoolProvider debugProvider,
-                     ResetDelayProvider resetDelayProvider,
                      BackendVerdictProtector backendVerdictProtector);
   ~RewriteModeHandler();
 
@@ -63,21 +60,15 @@ public:
   void deactivate(fcitx::InputContext &inputContext) override;
   void handleKeyEvent(fcitx::KeyEvent &event) override;
   void requestProtectedReset(fcitx::InputContext &inputContext) override;
-  void cancelProtectedReset(fcitx::InputContext &inputContext);
   void resetContext(fcitx::InputContext &inputContext) override;
 
 private:
-  void scheduleProtectedReset(fcitx::InputContext &inputContext,
-                              RewriteInputState &state);
-
   fcitx::EventLoop &eventLoop_;
   StateFactory &stateFactory_;
   InputScheduler &scheduler_;
   BoolProvider autoCapitalizeProvider_;
   BoolProvider debugProvider_;
-  ResetDelayProvider resetDelayProvider_;
   BackendVerdictProtector backendVerdictProtector_;
-  std::shared_ptr<void> lifetime_ = std::make_shared<int>(0);
 };
 
 } // namespace areca
