@@ -293,4 +293,15 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
          isTerminalProgram(program);
 }
 
+bool isFirefoxFamilyProgram(const std::string &rawProgram) {
+  const std::string program = normalizedProgramName(rawProgram);
+  static constexpr auto markers = std::to_array<std::string_view>(
+      {"firefox", "zen", "librewolf", "waterfox", "floorp", "tor-browser",
+       "torbrowser", "mullvad-browser", "icecat", "palemoon", "basilisk"});
+  return std::any_of(markers.begin(), markers.end(),
+                     [&program](std::string_view marker) {
+                       return program.find(marker) != std::string::npos;
+                     });
+}
+
 } // namespace areca

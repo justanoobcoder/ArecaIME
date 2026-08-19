@@ -9,9 +9,13 @@ namespace areca {
 
 class AutocompleteForwardSurroundingBackend final : public RewriteBackend {
 public:
-  explicit AutocompleteForwardSurroundingBackend(
-      uint32_t forwardedBackspaces = 1)
-      : forwardedBackspaces_(forwardedBackspaces) {}
+  using DebugProvider = std::function<bool()>;
+
+  AutocompleteForwardSurroundingBackend(fcitx::EventLoop &eventLoop,
+                                        DebugProvider debugProvider,
+                                        uint32_t forwardedBackspaces = 1)
+      : surroundingBackend_(eventLoop, std::move(debugProvider)),
+        forwardedBackspaces_(forwardedBackspaces) {}
 
   const char *name() const override;
   ApplyStatus apply(fcitx::InputContext &inputContext, const RewritePlan &plan,

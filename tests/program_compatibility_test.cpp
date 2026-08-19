@@ -68,4 +68,16 @@ int main() {
   assert(isTerminalProgram("io.elementary.terminal"));
   assert(!isTerminalProgram("firefox"));
   assert(!isTerminalProgram(""));
+
+  using areca::isFirefoxFamilyProgram;
+  assert(isFirefoxFamilyProgram("firefox"));
+  assert(isFirefoxFamilyProgram("org.mozilla.firefox"));
+  assert(isFirefoxFamilyProgram("zen"));
+  assert(isFirefoxFamilyProgram("app.zen_browser.zen"));
+  assert(isFirefoxFamilyProgram("librewolf"));
+  assert(isFirefoxFamilyProgram("waterfox"));
+  assert(isFirefoxFamilyProgram("floorp"));
+  assert(isFirefoxFamilyProgram("tor-browser"));
+  assert(!isFirefoxFamilyProgram("google-chrome"));
+  assert(!isFirefoxFamilyProgram(""));
 }
