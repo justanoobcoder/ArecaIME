@@ -1,12 +1,9 @@
 #include "surrounding_text_backend.h"
 
-#include <string_view>
 #include <utility>
 
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/log.h>
-
-#include "program_compatibility.h"
 
 namespace areca {
 
@@ -24,7 +21,6 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
   }
 
   constexpr uint32_t kDefaultSurroundingWaitMs = 3;
-  constexpr uint32_t kFirefoxSurroundingWaitMs = 5;
 
   if (plan.backspaceCount) {
     inputContext.deleteSurroundingText(-static_cast<int>(plan.backspaceCount),
@@ -44,9 +40,7 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
   transactionId_ = plan.transactionId;
   inputContext_ = inputContext.watch();
   onDone_ = std::move(onDone);
-  waitMs_ = isFirefoxFamilyProgram(inputContext.program())
-                ? kFirefoxSurroundingWaitMs
-                : kDefaultSurroundingWaitMs;
+  waitMs_ = kDefaultSurroundingWaitMs;
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
 
