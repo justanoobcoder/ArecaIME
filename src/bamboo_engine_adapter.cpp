@@ -14,6 +14,7 @@ int ArecaBambooCanProcess(uint64_t id, uint32_t key);
 char *ArecaBambooProcess(uint64_t id, uint32_t key, int spellCheck);
 char *ArecaBambooFinalizeWord(uint64_t id, int spellCheck);
 char *ArecaBambooBackspace(uint64_t id);
+char *ArecaBambooRecoverBackspace(uint64_t id);
 void ArecaBambooReset(uint64_t id);
 char *ArecaBambooInputMethodNames();
 char *ArecaBambooCharsetNames();
@@ -176,6 +177,31 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
   result.commitText = next.substr(newChars[prefix].second);
   renderedText_ = std::move(next);
   result.newText = renderedText_;
+  return result;
+}
+
+BambooResult BambooEngineAdapter::processBackspace() {
+  BambooResult result;
+  result.currentText = renderedText_;
+
+  char *raw = ArecaBambooRecoverBackspace(handle_);
+  if (!raw) {
+    throw std::runtime_error("Bamboo Backspace processing failed");
+  }
+  renderedText_ = encode(raw);
+  std::free(raw);
+  result.newText = renderedText_;
+
+  const auto oldChars = codepoints(result.currentText);
+  const auto newChars = codepoints(result.newText);
+  size_t prefix = 0;
+  while (prefix + 1 < oldChars.size() && prefix + 1 < newChars.size() &&
+         oldChars[prefix].first == newChars[prefix].first) {
+    ++prefix;
+  }
+
+  result.deleteCount = static_cast<uint32_t>((oldChars.size() - 1) - prefix);
+  result.commitText = result.newText.substr(newChars[prefix].second);
   return result;
 }
 

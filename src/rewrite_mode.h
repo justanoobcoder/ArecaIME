@@ -39,6 +39,7 @@ struct RewriteInputState final : public fcitx::InputContextProperty {
   std::unique_ptr<VietnameseEngine> engine;
   SentenceCapitalizationState sentenceCapitalization;
   SurroundingReliabilityState surroundingReliability;
+  bool backspaceRecoveryAwaitingRelease = false;
 };
 
 class RewriteModeHandler final : public InputModeHandler {
@@ -47,12 +48,14 @@ public:
   using BoolProvider = std::function<bool()>;
   using BackendVerdictProtector =
       std::function<void(fcitx::InputContext &, const char *)>;
+  using BackspaceRecoveryProvider = std::function<bool()>;
 
   RewriteModeHandler(fcitx::EventLoop &eventLoop, StateFactory &stateFactory,
                      InputScheduler &scheduler,
                      BoolProvider autoCapitalizeProvider,
                      BoolProvider debugProvider,
-                     BackendVerdictProtector backendVerdictProtector);
+                     BackendVerdictProtector backendVerdictProtector,
+                     BackspaceRecoveryProvider backspaceRecoveryProvider);
   ~RewriteModeHandler();
 
   RewriteInputState *stateFor(fcitx::InputContext &inputContext) const;
@@ -63,12 +66,24 @@ public:
   void resetContext(fcitx::InputContext &inputContext) override;
 
 private:
+  bool syncEngineBackspace(RewriteInputState &state);
+  void forwardSyncedBackspace(fcitx::KeyEvent &event,
+                              RewriteInputState &state);
+  bool shouldRecoverBackspace(fcitx::InputContext &inputContext,
+                              RewriteInputState &state) const;
+  void deferBackspaceRecoveryUntilRelease(fcitx::KeyEvent &event,
+                                          RewriteInputState &state);
+  void runDeferredBackspaceRecovery(fcitx::InputContext &inputContext,
+                                    fcitx::KeyEvent &event,
+                                    RewriteInputState &state);
+
   fcitx::EventLoop &eventLoop_;
   StateFactory &stateFactory_;
   InputScheduler &scheduler_;
   BoolProvider autoCapitalizeProvider_;
   BoolProvider debugProvider_;
   BackendVerdictProtector backendVerdictProtector_;
+  BackspaceRecoveryProvider backspaceRecoveryProvider_;
 };
 
 } // namespace areca

@@ -246,6 +246,28 @@ int main() {
   }
   assert(display == "Viê\u0323t Nam ");
 
+  // Test spellcheck mistake recovery on Backspace:
+  // Typing "nhanhsh" (typo of "nhánh" + extra "h"), calling processBackspace()
+  // restores the valid Vietnamese syllable "nhánh".
+  engine.reset();
+  display.clear();
+  for (char key : std::string("nhanhsh")) {
+    applyToDisplay(display, type(engine, key));
+  }
+  assert(display == "nhanhsh");
+  auto backspaceResult = engine.processBackspace();
+  applyToDisplay(display, backspaceResult);
+  assert(display == "nhánh");
+
+  // Plain backspace only syncs Bamboo state for a forwarded physical key. It
+  // must not run spellcheck recovery behind the BackspaceRecovery option.
+  engine.reset();
+  for (char key : std::string("nhanhsh")) {
+    type(engine, key);
+  }
+  engine.backspace();
+  assert(engine.currentText() == "nhanhs");
+
   std::cout << "Bamboo adapter tests passed\n";
   return 0;
 }
