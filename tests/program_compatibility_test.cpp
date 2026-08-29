@@ -14,7 +14,6 @@ int main() {
   // Distribution/desktop terminals can be reported as executables or app IDs.
   assert(isVSCodeFamilyProgram("gnome-terminal-server"));
   assert(isVSCodeFamilyProgram("org.gnome.Console.desktop"));
-  assert(isVSCodeFamilyProgram("org.kde.konsole"));
   assert(isVSCodeFamilyProgram("xfce4-terminal"));
   assert(isVSCodeFamilyProgram("com.system76.CosmicTerm.desktop"));
 
@@ -33,7 +32,6 @@ int main() {
   assert(isVSCodeFamilyProgram("org.eclipse.Eclipse"));
   assert(isVSCodeFamilyProgram("dev.zed.Zed.desktop"));
   assert(isVSCodeFamilyProgram("org.gnome.Builder.Devel.desktop"));
-  assert(isVSCodeFamilyProgram("org.kde.kdevelop"));
   assert(isVSCodeFamilyProgram("/usr/bin/neovide"));
 
   // Specialized IDEs and other development tools.
@@ -65,8 +63,29 @@ int main() {
   assert(isTerminalProgram("gnome-terminal-server"));
   assert(isTerminalProgram("mate-terminal"));
   assert(isTerminalProgram("xfce4-terminal"));
-  assert(isTerminalProgram("konsole"));
   assert(isTerminalProgram("io.elementary.terminal"));
+  // KDE terminals deliberately stay outside the terminal compatibility path.
+  assert(!isTerminalProgram("konsole"));
+  assert(!isTerminalProgram("org.kde.Konsole.desktop"));
+  assert(!isTerminalProgram("org.kde.Konsole.Devel.desktop"));
+  assert(!isTerminalProgram("yakuake"));
+  assert(!isTerminalProgram("org.kde.Yakuake.desktop"));
+  assert(!isVSCodeFamilyProgram("konsole"));
+  assert(!isVSCodeFamilyProgram("org.kde.Konsole.Devel.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Yakuake.desktop"));
+  assert(!isVSCodeFamilyProgram("kate"));
+  assert(!isVSCodeFamilyProgram("org.kde.Kate.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Kate.Devel.desktop"));
+  assert(!isVSCodeFamilyProgram("kdevelop"));
+  assert(!isVSCodeFamilyProgram("org.kde.KDevelop.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.KDevelop.Devel.desktop"));
+  assert(!isVSCodeFamilyProgram("kdiff3"));
+  assert(!isVSCodeFamilyProgram("org.kde.KDiff3.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Dolphin.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Okular.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Gwenview.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Ark.desktop"));
+  assert(!isVSCodeFamilyProgram("org.kde.Spectacle.desktop"));
   assert(!isTerminalProgram("firefox"));
   assert(!isTerminalProgram(""));
 

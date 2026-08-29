@@ -54,8 +54,8 @@ bool isProgrammingProgram(const std::string &program) {
        "processing", "org.processing.processingide",
 
        // Linux desktop editors and IDEs.
-       "kate", "org.kde.kate", "kdevelop", "org.kde.kdevelop", "gnome-builder",
-       "org.gnome.builder", "geany", "org.geany.geany", "qtcreator",
+       "gnome-builder", "org.gnome.builder", "geany", "org.geany.geany",
+       "qtcreator",
        "qt-creator", "org.qt-project.qtcreator", "codeblocks", "anjuta",
        "org.gnome.anjuta", "bluefish", "nl.openoffice.bluefish", "cudatext",
        "io.github.cudatext.cudatext", "liteide", "notepadqq",
@@ -104,8 +104,7 @@ bool isProgrammingProgram(const std::string &program) {
        "com.syntevo.smartgit", "git-cola", "com.github.git-cola.git-cola",
        "gitg", "org.gnome.gitg", "github-desktop", "io.github.shiftey.desktop",
        "sublime_merge", "sublime-merge", "gitbutler", "com.gitbutler.gitbutler",
-       "gitfiend", "gitahead", "meld", "org.gnome.meld", "kdiff3",
-       "org.kde.kdiff3", "bcompare",
+       "gitfiend", "gitahead", "meld", "org.gnome.meld", "bcompare",
 
        // Container and cluster desktop environments used during development.
        "docker-desktop", "com.docker.desktop", "podman-desktop",
@@ -135,8 +134,6 @@ bool isProgrammingProgram(const std::string &program) {
                                        "zed-preview-",
                                        "zed-editor-",
                                        "dev.lapce.lapce.",
-                                       "org.kde.kate.",
-                                       "org.kde.kdevelop.",
                                        "org.gnome.builder.",
                                        "qtcreator-",
                                        "emacs-",
@@ -174,8 +171,6 @@ bool isTerminalProgram(const std::string &rawProgram) {
                                        "org.gnome.console",
                                        "ptyxis",
                                        "app.devsuite.ptyxis",
-                                       "konsole",
-                                       "org.kde.konsole",
                                        "xfce4-terminal",
                                        "org.xfce.terminal",
                                        "mate-terminal",
@@ -224,8 +219,6 @@ bool isTerminalProgram(const std::string &rawProgram) {
                                        "net.launchpad.terminator",
                                        "guake",
                                        "org.guake.guake",
-                                       "yakuake",
-                                       "org.kde.yakuake",
                                        "tilda",
                                        "blackbox",
                                        "com.raggesilver.blackbox",
@@ -263,10 +256,9 @@ bool isTerminalProgram(const std::string &rawProgram) {
 
   static constexpr auto prefixes = std::to_array<std::string_view>(
       {"org.gnome.terminal.", "org.gnome.console.", "app.devsuite.ptyxis.",
-       "org.kde.konsole.", "org.xfce.terminal.", "org.mate.terminal.",
-       "com.deepin.terminal.", "io.elementary.terminal.",
-       "com.system76.cosmicterm.", "warp-terminal-", "dev.warp.warp-",
-       "wezterm-", "kitty-"});
+       "org.xfce.terminal.", "org.mate.terminal.", "com.deepin.terminal.",
+       "io.elementary.terminal.", "com.system76.cosmicterm.",
+       "warp-terminal-", "dev.warp.warp-", "wezterm-", "kitty-"});
   return std::any_of(prefixes.begin(), prefixes.end(),
                      [&program](std::string_view prefix) {
                        return program.starts_with(prefix);
