@@ -55,10 +55,6 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       }),
       surroundingBackend_(instance_->eventLoop(),
                           [this]() { return debugEnabled(); }),
-      autocompleteForwardBackend_(instance_->eventLoop(),
-                                   [this]() { return debugEnabled(); }, 1),
-      autocompleteEdgeForwardBackend_(instance_->eventLoop(),
-                                      [this]() { return debugEnabled(); }, 2),
       forwardBackspaceBackend_(instance_->eventLoop(),
                                [this]() { return debugEnabled(); }),
       uinputBackspaceBackend_(instance_->eventLoop(),
@@ -171,17 +167,14 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       inputContext, result.currentText, backendVerdict_, debugEnabled());
   if (decision.browserAutocomplete) {
     const bool isUrl = capabilities.test(fcitx::CapabilityFlag::Url);
-    RewriteBackend *backend = &autocompleteForwardBackend_;
-    if (browserAutocompleteStrategy(inputContext.program(), isUrl) ==
-        BrowserAutocompleteStrategy::EdgeUrlForwardTwo) {
-      backend = &autocompleteEdgeForwardBackend_;
-    }
     if (debugEnabled()) {
-      FCITX_INFO() << "areca: browser autocomplete strategy=" << backend->name()
+      FCITX_INFO() << "areca: browser autocomplete strategy="
+                   << forwardBackspaceBackend_.name()
                    << " is_url=" << isUrl
+                   << " additional_backspaces=1"
                    << " bamboo_delete=" << result.deleteCount;
     }
-    return {backend};
+    return {&forwardBackspaceBackend_, 1};
   }
 
   if (decision.useSurrounding) {

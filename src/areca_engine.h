@@ -7,7 +7,6 @@
 #include <fcitx/instance.h>
 
 #include "areca_config.h"
-#include "autocomplete_surrounding_backend.h"
 #include "bamboo_engine_adapter.h"
 #include "forward_backspace_backend.h"
 #include "input_scheduler.h"
@@ -82,8 +81,6 @@ private:
   SurroundingReliabilityState backendVerdict_;
   uint64_t backendVerdictProtectedUntil_ = 0;
   SurroundingTextBackend surroundingBackend_;
-  AutocompleteForwardSurroundingBackend autocompleteForwardBackend_;
-  AutocompleteForwardSurroundingBackend autocompleteEdgeForwardBackend_;
   ForwardBackspaceBackend forwardBackspaceBackend_;
   UinputBackspaceBackend uinputBackspaceBackend_;
   std::unique_ptr<fcitx::EventSourceTime> uinputWarmupTimer_;

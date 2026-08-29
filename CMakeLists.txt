@@ -34,7 +34,6 @@ set_target_properties(areca-bamboo PROPERTIES IMPORTED_LOCATION "${BAMBOO_ARCHIV
 add_dependencies(areca-bamboo areca-bamboo-bridge)
 
 add_library(areca MODULE
-    src/autocomplete_surrounding_backend.cpp
     src/areca_engine.cpp
     src/bamboo_engine_adapter.cpp
     src/browser_autocomplete.cpp

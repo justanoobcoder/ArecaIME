@@ -21,7 +21,6 @@ Wayland và Fcitx5.
 | `ReliabilityChecker` | Probe SurroundingText lần đầu và cache verdict theo input context. |
 | `RewriteBackend` | Interface chung cho thao tác apply một `RewritePlan`. |
 | `SurroundingTextBackend` | Gọi `deleteSurroundingText()` và `commitString()`. |
-| `AutocompleteForwardSurroundingBackend` | Forward Backspace để xử lý selection autocomplete rồi delegate Bamboo delete/commit cho `SurroundingTextBackend`; Edge trong URL field phát hai Backspace, mọi case khác phát một. |
 | `ForwardBackspaceBackend` | Phát tuần tự Backspace press/release bằng `forwardKey()`, chờ settling delay rồi commit text và hoàn tất transaction. |
 | `UinputBackspaceBackend` | Gửi sự kiện Backspace (EV_KEY KEY_BACKSPACE) trực tiếp tới Linux input subsystem qua `/dev/uinput`, rồi commit replacement text. Fallback về `ForwardBackspaceBackend` nếu uinput không khả dụng. |
 
@@ -157,11 +156,10 @@ Khi `deleteCount > 0`:
    frontend, vì không đủ dữ liệu để ép an toàn.
 3. Verdict reliable còn lại chọn `SurroundingTextBackend`.
 4. Verdict unreliable chọn `ForwardBackspaceBackend`.
-5. Browser inline-autocomplete không dùng forward backend. Browser
-   chọn `AutocompleteForwardSurroundingBackend`. Chỉ khi program là Edge và
-   input context có `CapabilityFlag::Url` thì backend forward hai chu kỳ
-   Backspace press/release; mọi case khác forward một. Sau đó backend apply đúng
-   Bamboo `deleteCount` bằng SurroundingText.
+5. Browser autocomplete port hai case từ OpenKey: suffix được select tới cuối
+   dòng, hoặc không có selection nhưng có ít nhất hai ký tự tự mọc sau cursor.
+   Cả hai tăng Bamboo `deleteCount` đúng một rồi chọn
+   `ForwardBackspaceBackend`, giống phép `deleteCount += 1` của OpenKey.
 
 ## Preedit mode
 

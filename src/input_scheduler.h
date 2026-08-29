@@ -25,6 +25,7 @@ struct SchedulerTiming {
 
 struct RewriteBackendSelection {
   RewriteBackend *backend = nullptr;
+  uint32_t additionalBackspaces = 0;
 };
 
 class InputScheduler {

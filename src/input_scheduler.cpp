@@ -173,11 +173,13 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     return;
   }
   auto &backend = *selection.backend;
-  plan.backspaceCount = result.deleteCount;
+  plan.backspaceCount = result.deleteCount + selection.additionalBackspaces;
   if (debugProvider_()) {
     FCITX_INFO() << "areca: rewrite select backend=" << backend.name()
                  << " tx=" << plan.transactionId
                  << " bamboo_delete=" << result.deleteCount
+                 << " additional_backspaces="
+                 << selection.additionalBackspaces
                  << " plan_backspaces=" << plan.backspaceCount;
   }
 

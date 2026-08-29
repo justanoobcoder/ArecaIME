@@ -93,16 +93,6 @@ bool isBrowserLikeProgram(const std::string &rawProgram) {
                      });
 }
 
-BrowserAutocompleteStrategy
-browserAutocompleteStrategy(const std::string &rawProgram, bool isUrl) {
-  const std::string program = normalizedProgramName(rawProgram);
-  if (isUrl && (program.find("microsoft-edge") != std::string::npos ||
-                program.find("msedge") != std::string::npos)) {
-    return BrowserAutocompleteStrategy::EdgeUrlForwardTwo;
-  }
-  return BrowserAutocompleteStrategy::ForwardOne;
-}
-
 bool looksLikeBrowserAutocomplete(const std::string &text, unsigned int cursor,
                                   unsigned int anchor,
                                   const std::string &shownText) {
@@ -138,31 +128,53 @@ bool looksLikeBrowserAutocomplete(const std::string &text, unsigned int cursor,
       break;
     }
   }
-  if (!samePrefix || cursor == anchor) {
+  if (!samePrefix) {
     return false;
   }
 
-  const unsigned int selectionStart = std::min(cursor, anchor);
-  const unsigned int selectionEnd = std::max(cursor, anchor);
-  const bool selectionTouchesCursor =
-      selectionStart == cursor || selectionEnd == cursor ||
-      (selectionStart < cursor && selectionEnd > cursor);
+  const auto hasNewlineBetween = [&text](size_t from, size_t to) {
+    if (from > to) {
+      std::swap(from, to);
+    }
+    const size_t fromByte = utf8ByteOffsetForCharIndex(text, from);
+    const size_t toByte = utf8ByteOffsetForCharIndex(text, to);
+    const size_t newline = text.find('\n', fromByte);
+    return newline != std::string::npos && newline < toByte;
+  };
 
-  const size_t selectionStartByte =
-      utf8ByteOffsetForCharIndex(text, selectionStart);
-  const size_t nextLineBreak = text.find('\n', selectionStartByte);
-  const size_t lineEnd = nextLineBreak == std::string::npos
-                             ? textLength
-                             : utf8CharIndexForByteOffset(text, nextLineBreak);
-  const bool selectionGoesToLineEnd = selectionEnd == lineEnd;
+  // Case 1: omnibox/autocomplete selects the suffix through line end.
+  if (cursor != anchor) {
+    const unsigned int selectionStart = std::min(cursor, anchor);
+    const unsigned int selectionEnd = std::max(cursor, anchor);
 
-  const size_t selectionEndByte =
-      utf8ByteOffsetForCharIndex(text, selectionEnd);
-  const size_t newline = text.find('\n', selectionStartByte);
-  const bool hasNewline =
-      newline != std::string::npos && newline < selectionEndByte;
+    const bool selectionTouchesCursor =
+        selectionStart == cursor || selectionEnd == cursor ||
+        (selectionStart < cursor && selectionEnd > cursor);
 
-  return selectionTouchesCursor && selectionGoesToLineEnd && !hasNewline;
+    const size_t selectionStartByte =
+        utf8ByteOffsetForCharIndex(text, selectionStart);
+    const size_t nextLineBreak = text.find('\n', selectionStartByte);
+    const size_t lineEnd = nextLineBreak == std::string::npos
+                               ? textLength
+                               : utf8CharIndexForByteOffset(text, nextLineBreak);
+    const bool selectionGoesToLineEnd = selectionEnd == lineEnd;
+
+    return selectionTouchesCursor && selectionGoesToLineEnd &&
+           !hasNewlineBetween(selectionStart, selectionEnd);
+  }
+
+  // Case 2: search/address autocomplete appends text after the cursor without
+  // exposing a selection. Require at least two characters to avoid mistaking
+  // ordinary editing in the middle of a word for autocomplete.
+  if (cursor < textLength) {
+    const size_t cursorByte = utf8ByteOffsetForCharIndex(text, cursor);
+    if (text.find('\n', cursorByte) != std::string::npos) {
+      return false;
+    }
+    return textLength >= static_cast<size_t>(cursor) + 2;
+  }
+
+  return false;
 }
 
 } // namespace areca

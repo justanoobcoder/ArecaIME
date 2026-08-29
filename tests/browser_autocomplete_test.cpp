@@ -4,28 +4,22 @@
 #include "browser_autocomplete.h"
 
 int main() {
-  using areca::BrowserAutocompleteStrategy;
   using areca::looksLikeBrowserAutocomplete;
 
   assert(areca::isBrowserLikeProgram("google-chrome"));
-  assert(areca::browserAutocompleteStrategy("microsoft-edge", true) ==
-         BrowserAutocompleteStrategy::EdgeUrlForwardTwo);
-  assert(areca::browserAutocompleteStrategy("microsoft-edge", false) ==
-         BrowserAutocompleteStrategy::ForwardOne);
-  assert(areca::browserAutocompleteStrategy("msedge.desktop", true) ==
-         BrowserAutocompleteStrategy::EdgeUrlForwardTwo);
-  assert(areca::browserAutocompleteStrategy("google-chrome", true) ==
-         BrowserAutocompleteStrategy::ForwardOne);
-  assert(areca::browserAutocompleteStrategy("coccoc-browser-stable", true) ==
-         BrowserAutocompleteStrategy::ForwardOne);
   assert(areca::isBrowserLikeProgram("/usr/bin/firefox.desktop"));
   assert(areca::isBrowserLikeProgram(""));
   assert(!areca::isBrowserLikeProgram("org.kde.kate"));
   // User typed "go" and the browser selected "ogle" through line end.
   assert(looksLikeBrowserAutocomplete("google", 2, 6, "go"));
 
-  // The same snapshot without a selection is normal surrounding text.
-  assert(!looksLikeBrowserAutocomplete("google", 2, 2, "go"));
+  // No selection and no appended suffix is normal surrounding text.
+  assert(!looksLikeBrowserAutocomplete("go", 2, 2, "go"));
+
+  // OpenKey case 2: no selection, but autocomplete appended text after cursor.
+  assert(looksLikeBrowserAutocomplete("google", 2, 2, "go"));
+  assert(!looksLikeBrowserAutocomplete("goo", 2, 2, "go"));
+  assert(!looksLikeBrowserAutocomplete("go\nogle", 2, 2, "go"));
 
   // Selection not extending to line end is not browser inline autocomplete.
   assert(!looksLikeBrowserAutocomplete("google more", 2, 6, "go"));
