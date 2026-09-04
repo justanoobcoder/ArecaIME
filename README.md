@@ -156,6 +156,22 @@ Một số lựa chọn khác:
 ./scripts/install.sh --no-restart
 ```
 
+Đối với NixOS thì chỉ cần thêm `fcitx5-areca` vào danh sách addon của fcitx5, sau đó rebuild lại system:
+
+```nix
+i18n = {
+  inputMethod = {
+    enable = true;
+    type = "fcitx5";
+    fcitx5 = {
+      addons = with pkgs; [
+        fcitx5-areca
+      ];
+    };
+  };
+};
+```
+
 Sau khi cài, mở `fcitx5-configtool` và thêm **Areca (Bamboo)** vào danh sách
 input method.
 
