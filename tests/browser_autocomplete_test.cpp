@@ -16,8 +16,8 @@ int main() {
   // No selection and no appended suffix is normal surrounding text.
   assert(!looksLikeBrowserAutocomplete("go", 2, 2, "go"));
 
-  // OpenKey case 2: no selection, but autocomplete appended text after cursor.
-  assert(looksLikeBrowserAutocomplete("google", 2, 2, "go"));
+  // Without selection (cursor == anchor), text after cursor is middle-of-text editing, not autocomplete.
+  assert(!looksLikeBrowserAutocomplete("google", 2, 2, "go"));
   assert(!looksLikeBrowserAutocomplete("goo", 2, 2, "go"));
   assert(!looksLikeBrowserAutocomplete("go\nogle", 2, 2, "go"));
 

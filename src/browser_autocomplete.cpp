@@ -164,17 +164,6 @@ bool looksLikeBrowserAutocomplete(const std::string &text, unsigned int cursor,
            !hasNewlineBetween(selectionStart, selectionEnd);
   }
 
-  // Case 2: search/address autocomplete appends text after the cursor without
-  // exposing a selection. Require at least two characters to avoid mistaking
-  // ordinary editing in the middle of a word for autocomplete.
-  if (cursor < textLength) {
-    const size_t cursorByte = utf8ByteOffsetForCharIndex(text, cursor);
-    if (text.find('\n', cursorByte) != std::string::npos) {
-      return false;
-    }
-    return textLength >= static_cast<size_t>(cursor) + 2;
-  }
-
   return false;
 }
 
