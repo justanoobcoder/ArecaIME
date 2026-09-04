@@ -154,9 +154,10 @@ bool looksLikeBrowserAutocomplete(const std::string &text, unsigned int cursor,
     const size_t selectionStartByte =
         utf8ByteOffsetForCharIndex(text, selectionStart);
     const size_t nextLineBreak = text.find('\n', selectionStartByte);
-    const size_t lineEnd = nextLineBreak == std::string::npos
-                               ? textLength
-                               : utf8CharIndexForByteOffset(text, nextLineBreak);
+    const size_t lineEnd =
+        nextLineBreak == std::string::npos
+            ? textLength
+            : utf8CharIndexForByteOffset(text, nextLineBreak);
     const bool selectionGoesToLineEnd = selectionEnd == lineEnd;
 
     return selectionTouchesCursor && selectionGoesToLineEnd &&

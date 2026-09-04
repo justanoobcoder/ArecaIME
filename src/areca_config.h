@@ -17,8 +17,7 @@ FCITX_CONFIG_ENUM_NAME_WITH_I18N(PresentationMode, N_("Rewrite trực tiếp"),
                                  N_("Preedit"), N_("Redirect (EN)"));
 
 enum class SpellcheckMode { Off, Basic, Realtime };
-FCITX_CONFIG_ENUM_NAME_WITH_I18N(SpellcheckMode,
-                                 N_("Không kiểm tra (Tắt)"),
+FCITX_CONFIG_ENUM_NAME_WITH_I18N(SpellcheckMode, N_("Không kiểm tra (Tắt)"),
                                  N_("Khôi phục từ sau khi gõ xong"),
                                  N_("Khôi phục từ ngay trong lúc gõ"));
 
@@ -60,28 +59,46 @@ FCITX_CONFIGURATION(
         this, "BackspaceDelayMs", N_("Delay giữa các Backspace (ms)"), 1,
         fcitx::IntConstrain(0, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> afterBackspaceWaitMs{
-        this, "AfterBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối (ms)"), 10,
+        this, "AfterBackspaceWaitMs", N_("Chờ sau Backspace cuối (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> waylandAfterBackspaceWaitMs{
         this, "WaylandAfterBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối Wayland (ms)"),
-        3,
+        N_("Chờ sau Backspace cuối Wayland (ms)"), 3,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> ximAfterBackspaceWaitMs{
-        this, "XimAfterBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối XIM (ms)"),
-        10,
-        fcitx::IntConstrain(0, 5000)};
+        this, "XimAfterBackspaceWaitMs", N_("Chờ sau Backspace cuối XIM (ms)"),
+        10, fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterBackspaceWaitMs{
         this, "Fcitx4AfterBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối Fcitx4 (ms)"),
-        10,
+        N_("Chờ sau Backspace cuối Fcitx4 (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> dbusAfterBackspaceWaitMs{
         this, "DbusAfterBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối DBus (ms)"),
-        5,
+        N_("Chờ sau Backspace cuối DBus (ms)"), 20,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> uinputShiftSelectDelayMs{
+        this, "UinputShiftSelectDelayMs",
+        N_("Delay giữa các phím uinput Shift+Left (ms)"), 1,
+        fcitx::IntConstrain(0, 1000)};
+    fcitx::Option<int, fcitx::IntConstrain> afterUinputShiftSelectWaitMs{
+        this, "AfterUinputShiftSelectWaitMs",
+        N_("Chờ sau phím uinput Shift+Left cuối (ms)"), 20,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> waylandAfterUinputShiftSelectWaitMs{
+        this, "WaylandAfterUinputShiftSelectWaitMs",
+        N_("Chờ sau phím uinput Shift+Left cuối Wayland (ms)"), 10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> ximAfterUinputShiftSelectWaitMs{
+        this, "XimAfterUinputShiftSelectWaitMs",
+        N_("Chờ sau phím uinput Shift+Left cuối XIM (ms)"), 20,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterUinputShiftSelectWaitMs{
+        this, "Fcitx4AfterUinputShiftSelectWaitMs",
+        N_("Chờ sau phím uinput Shift+Left cuối Fcitx4 (ms)"), 20,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> dbusAfterUinputShiftSelectWaitMs{
+        this, "DbusAfterUinputShiftSelectWaitMs",
+        N_("Chờ sau phím uinput Shift+Left cuối DBus (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
@@ -94,7 +111,9 @@ FCITX_CONFIGURATION(
     fcitx::Option<bool> forceUinput{
         this, "ForceUinput", N_("Ép dùng uinput thay cho forward Backspace"),
         false};
-);
+    fcitx::Option<bool> useUinputShiftSelectForBrowser{
+        this, "UseUinputShiftSelectForBrowser",
+        N_("Ép uinput Shift+Left cho trình duyệt"), false};);
 
 FCITX_CONFIGURATION(
     ArecaConfig,
@@ -141,6 +160,7 @@ FCITX_CONFIGURATION(
     fcitx::SubConfigOption advancedEditor{
         this, "AdvancedEditor", N_("Cấu hình nâng cao"),
         "fcitx://config/addon/areca/advanced"};
-    fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"), false};);
+    fcitx::Option<bool> debug{this, "Debug", N_("Bật log debug Areca"),
+                              false};);
 
 } // namespace areca
