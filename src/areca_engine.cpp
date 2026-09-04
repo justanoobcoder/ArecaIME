@@ -168,13 +168,19 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const auto capabilities = inputContext.capabilityFlags();
   const auto decision = reliabilityChecker_.evaluate(
       inputContext, result.currentText, backendVerdict_, debugEnabled());
-  if (decision.browserAutocomplete) {
+  const auto &surrounding = inputContext.surroundingText();
+  const bool hasActiveSelection =
+      surrounding.isValid() && surrounding.cursor() != surrounding.anchor();
+
+  if (decision.browserAutocomplete || hasActiveSelection) {
     const bool isUrl = capabilities.test(fcitx::CapabilityFlag::Url);
     if (debugEnabled()) {
-      FCITX_INFO() << "areca: browser autocomplete strategy="
-                   << forwardBackspaceBackend_.name() << " is_url=" << isUrl
-                   << " additional_backspaces=1"
-                   << " bamboo_delete=" << result.deleteCount;
+      FCITX_INFO()
+          << "areca: browser autocomplete or active selection strategy="
+          << forwardBackspaceBackend_.name() << " is_url=" << isUrl
+          << " active_selection=" << hasActiveSelection
+          << " additional_backspaces=1"
+          << " bamboo_delete=" << result.deleteCount;
     }
     return {&forwardBackspaceBackend_, 1};
   }
