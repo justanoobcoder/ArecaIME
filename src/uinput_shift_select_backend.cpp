@@ -30,17 +30,17 @@ ApplyStatus UinputShiftSelectBackend::apply(fcitx::InputContext &inputContext,
   onDone_ = std::move(onDone);
   selectionCount_ = plan.backspaceCount;
   selectedCharacters_ = plan.backspaceCount;
-  backspaceDelayMs_ = plan.uinputShiftSelectDelayMs;
+  shiftSelectDelayMs_ = plan.uinputShiftSelectDelayMs;
   const char *frontend = inputContext.frontend();
-  afterBackspaceWaitMs_ = resolveAfterUinputShiftSelectWaitMs(frontend, plan);
+  afterSelectWaitMs_ = resolveAfterUinputShiftSelectWaitMs(frontend, plan);
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: uinput-shift-select start tx=" << transactionId_
                  << " select_left=" << selectionCount_
-                 << " delay_ms=" << backspaceDelayMs_
-                 << " after_wait_ms=" << afterBackspaceWaitMs_
+                 << " delay_ms=" << shiftSelectDelayMs_
+                 << " after_wait_ms=" << afterSelectWaitMs_
                  << " frontend=" << (frontend ? frontend : "")
                  << " accuracy_us=" << timerAccuracyUsec_;
   }
@@ -62,9 +62,9 @@ void UinputShiftSelectBackend::beginSelection() {
 
   device_.sendKeyEvent(KEY_LEFTSHIFT, 1); // Shift down
   shiftHeld_ = true;
-  // Wait one backspaceDelayMs cycle before the first Left so the browser
+  // Wait one shiftSelectDelayMs cycle before the first Left so the browser
   // has time to flush the Shift modifier state (needed for React/Facebook).
-  schedule(backspaceDelayMs_, [this]() { sendNextSelectionLeft(); });
+  schedule(shiftSelectDelayMs_, [this]() { sendNextSelectionLeft(); });
 }
 
 void UinputShiftSelectBackend::sendNextSelectionLeft() {
@@ -79,18 +79,17 @@ void UinputShiftSelectBackend::sendNextSelectionLeft() {
   --selectionCount_;
 
   if (selectionCount_) {
-    schedule(backspaceDelayMs_, [this]() { sendNextSelectionLeft(); });
+    schedule(shiftSelectDelayMs_, [this]() { sendNextSelectionLeft(); });
     return;
   }
 
   // Last Left done — delay before Shift UP.
-  schedule(backspaceDelayMs_, [this]() { releaseShiftThenCommit(); });
+  schedule(shiftSelectDelayMs_, [this]() { releaseShiftThenCommit(); });
 }
 
 void UinputShiftSelectBackend::releaseShiftThenCommit() {
   releaseShift();
-  const uint32_t waitMs = afterBackspaceWaitMs_;
-  schedule(waitMs, [this]() { commitSelectionAndComplete(); });
+  schedule(afterSelectWaitMs_, [this]() { commitSelectionAndComplete(); });
 }
 
 void UinputShiftSelectBackend::releaseShift() {
@@ -117,12 +116,7 @@ void UinputShiftSelectBackend::commitSelectionAndComplete() {
       device_.sendKeyEvent(KEY_BACKSPACE, 1);
       device_.sendKeyEvent(KEY_BACKSPACE, 0);
     }
-    const uint64_t transactionId = transactionId_;
-    auto onDone = std::move(onDone_);
-    clearPending();
-    if (onDone) {
-      onDone(transactionId);
-    }
+    finishTransaction();
     return;
   }
 
@@ -158,25 +152,25 @@ void UinputShiftSelectBackend::commitNextChar(size_t index) {
     const uint32_t charDelayMs = 1U;
     schedule(charDelayMs, [this, index]() { commitNextChar(index + 1); });
   } else {
-    const uint64_t transactionId = transactionId_;
-    auto onDone = std::move(onDone_);
-    clearPending();
-    if (onDone) {
-      onDone(transactionId);
-    }
+    finishTransaction();
   }
 }
 
 void UinputShiftSelectBackend::scheduleCommit() {
-  schedule(afterBackspaceWaitMs_, [this]() { commitSelectionAndComplete(); });
+  schedule(afterSelectWaitMs_, [this]() { commitSelectionAndComplete(); });
 }
 
 void UinputShiftSelectBackend::completeWithoutCommit() {
+  if (debugProvider_()) {
+    FCITX_INFO() << "areca: uinput-shift-select context lost tx="
+                 << transactionId_;
+  }
+  finishTransaction();
+}
+
+void UinputShiftSelectBackend::finishTransaction() {
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
-  if (debugProvider_()) {
-    FCITX_INFO() << "areca: uinput-shift-select context lost tx=" << transactionId;
-  }
   clearPending();
   if (onDone) {
     onDone(transactionId);
@@ -211,8 +205,8 @@ void UinputShiftSelectBackend::clearPending() {
   transactionId_ = 0;
   selectionCount_ = 0;
   selectedCharacters_ = 0;
-  backspaceDelayMs_ = 0;
-  afterBackspaceWaitMs_ = 0;
+  shiftSelectDelayMs_ = 0;
+  afterSelectWaitMs_ = 0;
   timerAccuracyUsec_ = 1;
   shiftHeld_ = false;
   commitText_.clear();

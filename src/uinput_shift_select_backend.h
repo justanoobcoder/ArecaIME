@@ -38,6 +38,7 @@ private:
   void commitNextChar(size_t index);
   void scheduleCommit();
   void completeWithoutCommit();
+  void finishTransaction();
   void schedule(uint32_t delayMs, std::function<void()> callback);
   void clearPending();
 
@@ -51,8 +52,8 @@ private:
   uint64_t transactionId_ = 0;
   uint32_t selectionCount_ = 0;
   uint32_t selectedCharacters_ = 0;
-  uint32_t backspaceDelayMs_ = 0;
-  uint32_t afterBackspaceWaitMs_ = 0;
+  uint32_t shiftSelectDelayMs_ = 0;
+  uint32_t afterSelectWaitMs_ = 0;
   uint64_t timerAccuracyUsec_ = 1;
   bool shiftHeld_ = false;
   std::string commitText_;
