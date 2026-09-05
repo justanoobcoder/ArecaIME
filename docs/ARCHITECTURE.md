@@ -4,6 +4,10 @@ Tài liệu này mô tả pipeline hiện tại của Areca. Mục tiêu thiết
 thứ tự input, tránh rewrite song song và cô lập engine tiếng Việt khỏi chi tiết
 Wayland và Fcitx5.
 
+> **Xem thêm:**
+> - [Giao diện HTML & Sequence Diagram tương tác](../website/architecture.html)
+> - [Đặc tả kỹ thuật & Sequence Diagram (Markdown)](ARECA_ARCHITECTURE_SPECIFICATION.md)
+
 ## Thành phần
 
 | Thành phần | Trách nhiệm |
@@ -399,6 +403,55 @@ Special key mà user chủ động gõ vẫn có policy tức thời:
 
 ## Hướng mở rộng
 
+### 1. Thêm Mode SurroundingOnly
 Policy `SurroundingOnly` sau này có thể được thêm như một rewrite mode thứ ba,
 với state và scheduler riêng hoặc backend selector luôn chọn
 `SurroundingTextBackend`. Nó không cần thay đổi `PreeditModeHandler`.
+
+### 2. Đề xuất cải tiến SurroundingTextBackend (Xóa từng ký tự thay vì xóa toàn bộ)
+
+#### Hiện trạng
+Hiện tại, `SurroundingTextBackend` thực hiện xóa `N` ký tự trong một câu lệnh duy nhất:
+```cpp
+inputContext.deleteSurroundingText(-static_cast<int>(plan.backspaceCount), plan.backspaceCount);
+```
+
+#### Hạn chế của cơ chế xóa gộp
+- **Lỗi tính offset của ứng dụng**: Một số trình duyệt (đặc biệt là Firefox Gecko trên Wayland) hoặc các bộ soạn thảo Web (Monaco Editor, CodeMirror) xử lý câu lệnh xóa gộp `-N` ký tự không ổn định khi phía sau con trỏ đang có các ký tự đặc biệt (như dấu ngoặc `}}` hoặc thẻ HTML).
+- **Rủi ro lệch vị trí xóa**: Việc xóa gộp một lượt có thể dẫn tới hiện tượng trình duyệt xóa thiếu ký tự hoặc tính nhầm độ dài ký tự UTF-8 multibyte.
+
+#### Giải pháp đề xuất
+Chuyển `SurroundingTextBackend` sang cơ chế vòng lặp xóa từng ký tự qua timer event-loop (tương tự như `UinputShiftSelectBackend`):
+1. Mỗi nhịp timer (ví dụ `1ms` - `3ms`), phát lệnh xóa 1 ký tự trước con trỏ: `deleteSurroundingText(-1, 1)`.
+2. Lặp lại `N` lần cho tới khi xóa đủ số ký tự cần thiết (`backspaceCount`).
+3. Chờ hết thời gian settling delay (`WaitMs`), sau đó mới thực hiện `commitString(commitText)`.
+
+#### Sơ đồ Sequence đề xuất
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as SurroundingTextBackend (Đề xuất)
+    participant IC as InputContext
+    participant EL as EventLoop
+
+    S->>B: apply(inputContext, plan, onDone)
+    
+    alt backspaceCount > 0
+        loop N = backspaceCount lần
+            B->>IC: deleteSurroundingText(-1, 1)
+            B->>B: updateSurroundingCacheAfterDelete(-1, 1)
+            B->>EL: addTimeEvent(DeleteDelayMs = 1ms)
+            EL-->>B: Timer callback
+        end
+        
+        B->>EL: addTimeEvent(WaitMs = 3ms)
+        EL-->>B: Timer callback (Settling wait hoàn tất)
+        B->>IC: commitString(commitText)
+        B->>B: updateSurroundingCacheAfterCommit(...)
+        B->>S: onDone(transactionId)
+    else backspaceCount == 0
+        B->>IC: commitString(commitText)
+        B->>S: onDone(transactionId)
+    end
+```

@@ -71,8 +71,8 @@ Các invariant quan trọng:
 - Phím mới vẫn được nhận vào queue khi backend đang chạy, nhưng chưa được xử lý.
 - Không `sleep()` trên main thread Fcitx5; mọi delay đều dùng event loop.
 
-Chi tiết từng component và state machine nằm trong
-[Tài liệu kiến trúc](docs/ARCHITECTURE.md).
+Chi tiết từng component, state machine và sơ đồ sequence diagram nằm trong
+[Tài liệu kiến trúc](docs/ARCHITECTURE.md), [Đặc tả kỹ thuật](docs/ARECA_ARCHITECTURE_SPECIFICATION.md) hoặc xem [Giao diện HTML trực quan](website/architecture.html).
 
 ## Các đường rewrite
 
@@ -350,7 +350,9 @@ Areca không tự đổi mode theo ứng dụng.
 
 ## Tài liệu
 
-- [Kiến trúc và luồng hoạt động](docs/ARCHITECTURE.md)
+- [Kiến trúc & luồng hoạt động (Tổng quan)](docs/ARCHITECTURE.md)
+- [Đặc tả kiến trúc & Sơ đồ Sequence](docs/ARECA_ARCHITECTURE_SPECIFICATION.md)
+- [Bản vẽ kiến trúc HTML tương tác](website/architecture.html)
 - [Cài đặt, reload và debug](docs/DEBUGGING.md)
 
 ## 🌴 Tác giả & Đồng hành
