@@ -22,7 +22,8 @@ Wayland và Fcitx5.
 | `RewriteBackend` | Interface chung cho thao tác apply một `RewritePlan`. |
 | `SurroundingTextBackend` | Gọi `deleteSurroundingText()` và `commitString()`. |
 | `ForwardBackspaceBackend` | Phát tuần tự Backspace press/release bằng `forwardKey()`, chờ settling delay rồi commit text và hoàn tất transaction. |
-| `UinputBackspaceBackend` | Gửi `Shift down`, `Left` × N, `Shift up`, `Delete` trực tiếp tới Linux input subsystem qua `/dev/uinput`, rồi commit replacement text. Riêng Edge thử chord `Shift+Left` riêng cho từng ký tự. Fallback về `ForwardBackspaceBackend` nếu uinput không khả dụng. |
+| `UinputBackspaceBackend` | Gửi phím `KEY_BACKSPACE` qua `/dev/uinput` cho terminal DBus và ứng dụng không xác định. |
+| `UinputShiftSelectBackend` | Gửi `Shift down`, `Left` × N, `Shift up` qua `/dev/uinput` để bôi đen, sau đó commit từng ký tự mới cho các ứng dụng trình duyệt web. |
 
 ## Phân tách cấu hình
 
@@ -154,12 +155,9 @@ Khi `deleteCount > 0`:
    chọn forward backend theo policy mặc định.
    Program name rỗng cũng nằm ngoài allowlist và không được fallback theo
    frontend, vì không đủ dữ liệu để ép an toàn.
-3. Verdict reliable còn lại chọn `SurroundingTextBackend`.
-4. Verdict unreliable chọn `ForwardBackspaceBackend`.
-5. Browser autocomplete port hai case từ OpenKey: suffix được select tới cuối
-   dòng, hoặc không có selection nhưng có ít nhất hai ký tự tự mọc sau cursor.
-   Cả hai tăng Bamboo `deleteCount` đúng một rồi chọn
-   `ForwardBackspaceBackend`, giống phép `deleteCount += 1` của OpenKey.
+3. Nếu `UseUinputShiftSelectForBrowser` bật, ứng dụng là trình duyệt web và `/dev/uinput` khả dụng: chọn `UinputShiftSelectBackend`. Tuy nhiên nếu phát hiện đang có bôi đen sẵn (`cursor != anchor`) hoặc có `browserAutocomplete`, hệ thống hủy chọn uinput-shift-select và fallback về `ForwardBackspaceBackend` (+1 phím Backspace phụ) để đảm bảo an toàn.
+4. Verdict reliable còn lại chọn `SurroundingTextBackend`.
+5. Verdict unreliable chọn `ForwardBackspaceBackend`.
 
 ## Preedit mode
 

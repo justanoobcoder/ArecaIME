@@ -70,6 +70,10 @@ areca: scheduler process
 areca: bamboo result
 areca: reliability first-probe
 areca: reliability first-probe force_forward=1 reason=program-compatibility-capability-mask-0x72
+areca: selected uinput-shift-select backend for browser
+areca: uinput-shift-select start tx=
+areca: uinput-select split commit (1ms)
+areca: browser autocomplete or active selection strategy=
 areca: rewrite select backend=
 areca: forward-backspace start
 areca: forward-backspace sent
