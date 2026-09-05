@@ -159,6 +159,152 @@ Khi `deleteCount > 0`:
 4. Verdict reliable còn lại chọn `SurroundingTextBackend`.
 5. Verdict unreliable chọn `ForwardBackspaceBackend`.
 
+## Sơ đồ Sequence chi tiết các Backend và Selection Logic
+
+### 1. Sơ đồ quyết định lựa chọn Backend (`selectRewriteBackend`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant E as ArecaEngine
+    participant R as ReliabilityChecker
+    participant IC as InputContext
+
+    S->>E: selectRewriteBackend(inputContext, result)
+    E->>R: evaluate(inputContext, shownText, verdict)
+    R-->>E: ReliabilityDecision
+    E->>IC: surroundingText() & check cursor/anchor
+    
+    alt browserAutocomplete OR (surrounding.isValid & cursor != anchor)
+        E-->>S: Return ForwardBackspaceBackend (+1 extra backspace)
+    else decision.useSurrounding & UseUinputShiftSelectForBrowser & isBrowser & uinputAvailable
+        E-->>S: Return UinputShiftSelectBackend
+    else decision.useSurrounding
+        E-->>S: Return SurroundingTextBackend
+    else DBus terminal/unknown & uinputAvailable
+        E-->>S: Return UinputBackspaceBackend
+    else ForceUinput & uinputAvailable
+        E-->>S: Return UinputBackspaceBackend
+    else Fallback
+        E-->>S: Return ForwardBackspaceBackend
+    end
+```
+
+### 2. Sơ đồ luồng `SurroundingTextBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as SurroundingTextBackend
+    participant IC as InputContext
+    participant EL as EventLoop
+
+    S->>B: apply(inputContext, plan, onDone)
+    alt backspaceCount > 0
+        B->>IC: deleteSurroundingText(-count, count)
+        B->>B: updateSurroundingCacheAfterDelete(...)
+        B->>EL: addTimeEvent(DefaultWaitMs = 3ms)
+        Note over B,EL: Chờ event-loop settling delay
+        EL-->>B: Timer callback
+        B->>IC: commitString(commitText)
+        B->>B: updateSurroundingCacheAfterCommit(...)
+        B->>S: onDone(transactionId)
+    else backspaceCount == 0
+        B->>IC: commitString(commitText)
+        B->>S: onDone(transactionId) (Immediate Completed)
+    end
+```
+
+### 3. Sơ đồ luồng `UinputShiftSelectBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as UinputShiftSelectBackend
+    participant DEV as UinputDevice (/dev/uinput)
+    participant EL as EventLoop
+    participant IC as InputContext
+
+    S->>B: apply(inputContext, plan, onDone)
+    B->>DEV: sendKeyEvent(KEY_LEFTSHIFT, 1) (Shift DOWN)
+    B->>EL: addTimeEvent(ShiftSelectDelayMs = 1ms)
+    
+    loop N = backspaceCount lần
+        EL-->>B: Timer callback
+        B->>DEV: sendKeyEvent(KEY_LEFT, 1) -> (KEY_LEFT, 0)
+        B->>EL: addTimeEvent(ShiftSelectDelayMs = 1ms)
+    end
+    
+    EL-->>B: Timer callback (Bôi đen hoàn tất)
+    B->>DEV: sendKeyEvent(KEY_LEFTSHIFT, 0) (Shift UP)
+    B->>EL: addTimeEvent(AfterSelectWaitMs)
+    
+    EL-->>B: Timer callback (Settling wait hoàn tất)
+    
+    loop Lần lượt từng ký tự UTF-8 trong commitText
+        B->>IC: commitString(utf8_char)
+        B->>EL: addTimeEvent(1ms)
+        EL-->>B: Timer callback
+    end
+    
+    B->>B: finishTransaction()
+    B->>S: onDone(transactionId)
+```
+
+### 4. Sơ đồ luồng `UinputBackspaceBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as UinputBackspaceBackend
+    participant DEV as UinputDevice (/dev/uinput)
+    participant EL as EventLoop
+    participant IC as InputContext
+
+    S->>B: apply(inputContext, plan, onDone)
+    
+    loop N = backspaceCount lần
+        B->>DEV: sendKeyEvent(KEY_BACKSPACE, 1) -> (KEY_BACKSPACE, 0)
+        B->>EL: addTimeEvent(BackspaceDelayMs)
+        EL-->>B: Timer callback
+    end
+    
+    B->>EL: addTimeEvent(AfterBackspaceWaitMs)
+    EL-->>B: Timer callback (Settling wait hoàn tất)
+    B->>IC: commitString(commitText)
+    B->>B: clearPending()
+    B->>S: onDone(transactionId)
+```
+
+### 5. Sơ đồ luồng `ForwardBackspaceBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as ForwardBackspaceBackend
+    participant IC as InputContext
+    participant EL as EventLoop
+
+    S->>B: apply(inputContext, plan, onDone)
+    
+    loop N = backspaceCount lần
+        B->>IC: forwardKey(Backspace press/release)
+        B->>EL: addTimeEvent(BackspaceDelayMs)
+        EL-->>B: Timer callback
+    end
+    
+    B->>EL: addTimeEvent(AfterBackspaceWaitMs)
+    EL-->>B: Timer callback (Settling wait hoàn tất)
+    B->>IC: commitString(commitText)
+    B->>B: clearPending()
+    B->>S: onDone(transactionId)
+```
+
 ## Preedit mode
 
 `PresentationMode=Preedit` không dùng `InputScheduler`, `RewriteBackend`,
