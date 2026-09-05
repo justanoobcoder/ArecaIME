@@ -165,6 +165,25 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     }
   }
 
+  const char *frontend = inputContext.frontend();
+  const std::string &program = inputContext.program();
+
+  const bool isDbusTerminalOrUnknown =
+      frontend && std::string_view(frontend) == "dbus" &&
+      (program.empty() || isTerminalProgram(program));
+
+  if (isDbusTerminalOrUnknown) {
+    if (uinputBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO()
+            << "areca: DBus terminal/unknown program selected uinput backend"
+            << " program=" << program
+            << " backend=" << uinputBackspaceBackend_.name();
+      }
+      return {&uinputBackspaceBackend_};
+    }
+  }
+
   const auto capabilities = inputContext.capabilityFlags();
   const auto decision = reliabilityChecker_.evaluate(
       inputContext, result.currentText, backendVerdict_, debugEnabled());
@@ -185,13 +204,13 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     return {&forwardBackspaceBackend_, 1};
   }
 
-  const char *frontend = inputContext.frontend();
-  const std::string &program = inputContext.program();
+  const bool isBrowserForShiftSelect = !program.empty() &&
+                                       !isTerminalProgram(program) &&
+                                       isBrowserLikeProgram(program);
 
   if (decision.useSurrounding) {
     if (advancedConfig_.useUinputShiftSelectForBrowser.value() &&
-        isBrowserLikeProgram(program) &&
-        uinputShiftSelectBackend_.isAvailable()) {
+        isBrowserForShiftSelect && uinputShiftSelectBackend_.isAvailable()) {
       if (debugEnabled()) {
         FCITX_INFO()
             << "areca: selected uinput-shift-select backend for browser"
@@ -205,8 +224,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   if (advancedConfig_.useUinputShiftSelectForBrowser.value() &&
-      isBrowserLikeProgram(program) &&
-      uinputShiftSelectBackend_.isAvailable()) {
+      isBrowserForShiftSelect && uinputShiftSelectBackend_.isAvailable()) {
     if (debugEnabled()) {
       FCITX_INFO() << "areca: selected uinput-shift-select backend for browser"
                    << " program=" << program
@@ -214,19 +232,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                    << " backend=" << uinputShiftSelectBackend_.name();
     }
     return {&uinputShiftSelectBackend_};
-  }
-
-  if (frontend && std::string_view(frontend) == "dbus" &&
-      (program.empty() || isTerminalProgram(program))) {
-    if (uinputBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO()
-            << "areca: DBus terminal/unknown program selected uinput backend"
-            << " program=" << program
-            << " backend=" << uinputBackspaceBackend_.name();
-      }
-      return {&uinputBackspaceBackend_};
-    }
   }
 
   if (advancedConfig_.forceUinput.value() &&
