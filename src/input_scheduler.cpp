@@ -55,7 +55,7 @@ bool InputScheduler::shouldRejectReset() const {
   if (lastRewriteCompletionTimeUsec_ != 0) {
     const uint64_t now = fcitx::now(CLOCK_MONOTONIC);
     if (now >= lastRewriteCompletionTimeUsec_ &&
-        (now - lastRewriteCompletionTimeUsec_) <= 50000) {
+        (now - lastRewriteCompletionTimeUsec_) <= 20000) {
       return true;
     }
   }
@@ -65,7 +65,8 @@ bool InputScheduler::shouldRejectReset() const {
 void InputScheduler::resetContext(fcitx::InputContext &inputContext) {
   if (shouldRejectReset()) {
     if (debugProvider_()) {
-      FCITX_INFO() << "areca: reset rejected (active rewrite or 50ms post-commit window)";
+      FCITX_INFO() << "areca: reset rejected (active rewrite or 20ms "
+                      "post-commit window)";
     }
     return;
   }
@@ -161,6 +162,15 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.ximAfterBackspaceWaitMs = timing.ximAfterBackspaceWaitMs;
   plan.fcitx4AfterBackspaceWaitMs = timing.fcitx4AfterBackspaceWaitMs;
   plan.dbusAfterBackspaceWaitMs = timing.dbusAfterBackspaceWaitMs;
+  plan.uinputShiftSelectDelayMs = timing.uinputShiftSelectDelayMs;
+  plan.afterUinputShiftSelectWaitMs = timing.afterUinputShiftSelectWaitMs;
+  plan.waylandAfterUinputShiftSelectWaitMs =
+      timing.waylandAfterUinputShiftSelectWaitMs;
+  plan.ximAfterUinputShiftSelectWaitMs = timing.ximAfterUinputShiftSelectWaitMs;
+  plan.fcitx4AfterUinputShiftSelectWaitMs =
+      timing.fcitx4AfterUinputShiftSelectWaitMs;
+  plan.dbusAfterUinputShiftSelectWaitMs =
+      timing.dbusAfterUinputShiftSelectWaitMs;
   plan.timerAccuracyUsec = timing.timerAccuracyUsec;
   plan.commitText = result.commitText;
 
@@ -178,8 +188,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     FCITX_INFO() << "areca: rewrite select backend=" << backend.name()
                  << " tx=" << plan.transactionId
                  << " bamboo_delete=" << result.deleteCount
-                 << " additional_backspaces="
-                 << selection.additionalBackspaces
+                 << " additional_backspaces=" << selection.additionalBackspaces
                  << " plan_backspaces=" << plan.backspaceCount;
   }
 

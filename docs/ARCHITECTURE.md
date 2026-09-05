@@ -4,6 +4,10 @@ Tài liệu này mô tả pipeline hiện tại của Areca. Mục tiêu thiết
 thứ tự input, tránh rewrite song song và cô lập engine tiếng Việt khỏi chi tiết
 Wayland và Fcitx5.
 
+> **Xem thêm:**
+> - [Giao diện HTML & Sequence Diagram tương tác](../website/architecture.html)
+> - [Đặc tả kỹ thuật & Sequence Diagram (Markdown)](ARECA_ARCHITECTURE_SPECIFICATION.md)
+
 ## Thành phần
 
 | Thành phần | Trách nhiệm |
@@ -22,7 +26,8 @@ Wayland và Fcitx5.
 | `RewriteBackend` | Interface chung cho thao tác apply một `RewritePlan`. |
 | `SurroundingTextBackend` | Gọi `deleteSurroundingText()` và `commitString()`. |
 | `ForwardBackspaceBackend` | Phát tuần tự Backspace press/release bằng `forwardKey()`, chờ settling delay rồi commit text và hoàn tất transaction. |
-| `UinputBackspaceBackend` | Gửi sự kiện Backspace (EV_KEY KEY_BACKSPACE) trực tiếp tới Linux input subsystem qua `/dev/uinput`, rồi commit replacement text. Fallback về `ForwardBackspaceBackend` nếu uinput không khả dụng. |
+| `UinputBackspaceBackend` | Gửi phím `KEY_BACKSPACE` qua `/dev/uinput` cho terminal DBus và ứng dụng không xác định. |
+| `UinputShiftSelectBackend` | Gửi `Shift down`, `Left` × N, `Shift up` qua `/dev/uinput` để bôi đen, sau đó commit từng ký tự mới cho các ứng dụng trình duyệt web. |
 
 ## Phân tách cấu hình
 
@@ -154,12 +159,155 @@ Khi `deleteCount > 0`:
    chọn forward backend theo policy mặc định.
    Program name rỗng cũng nằm ngoài allowlist và không được fallback theo
    frontend, vì không đủ dữ liệu để ép an toàn.
-3. Verdict reliable còn lại chọn `SurroundingTextBackend`.
-4. Verdict unreliable chọn `ForwardBackspaceBackend`.
-5. Browser autocomplete port hai case từ OpenKey: suffix được select tới cuối
-   dòng, hoặc không có selection nhưng có ít nhất hai ký tự tự mọc sau cursor.
-   Cả hai tăng Bamboo `deleteCount` đúng một rồi chọn
-   `ForwardBackspaceBackend`, giống phép `deleteCount += 1` của OpenKey.
+3. Nếu `UseUinputShiftSelectForBrowser` bật, ứng dụng là trình duyệt web và `/dev/uinput` khả dụng: chọn `UinputShiftSelectBackend`. Tuy nhiên nếu phát hiện đang có bôi đen sẵn (`cursor != anchor`) hoặc có `browserAutocomplete`, hệ thống hủy chọn uinput-shift-select và fallback về `ForwardBackspaceBackend` (+1 phím Backspace phụ) để đảm bảo an toàn.
+4. Verdict reliable còn lại chọn `SurroundingTextBackend`.
+5. Verdict unreliable chọn `ForwardBackspaceBackend`.
+
+## Sơ đồ Sequence chi tiết các Backend và Selection Logic
+
+### 1. Sơ đồ quyết định lựa chọn Backend (`selectRewriteBackend`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant E as ArecaEngine
+    participant R as ReliabilityChecker
+    participant IC as InputContext
+
+    S->>E: selectRewriteBackend(inputContext, result)
+    E->>R: evaluate(inputContext, shownText, verdict)
+    R-->>E: ReliabilityDecision
+    E->>IC: surroundingText() & check cursor/anchor
+    
+    alt browserAutocomplete OR (surrounding.isValid & cursor != anchor)
+        E-->>S: Return ForwardBackspaceBackend (+1 extra backspace)
+    else decision.useSurrounding & UseUinputShiftSelectForBrowser & isBrowser & uinputAvailable
+        E-->>S: Return UinputShiftSelectBackend
+    else decision.useSurrounding
+        E-->>S: Return SurroundingTextBackend
+    else DBus terminal/unknown & uinputAvailable
+        E-->>S: Return UinputBackspaceBackend
+    else ForceUinput & uinputAvailable
+        E-->>S: Return UinputBackspaceBackend
+    else Fallback
+        E-->>S: Return ForwardBackspaceBackend
+    end
+```
+
+### 2. Sơ đồ luồng `SurroundingTextBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as SurroundingTextBackend
+    participant IC as InputContext
+    participant EL as EventLoop
+
+    S->>B: apply(inputContext, plan, onDone)
+    alt backspaceCount > 0
+        B->>IC: deleteSurroundingText(-count, count)
+        B->>B: updateSurroundingCacheAfterDelete(...)
+        B->>EL: addTimeEvent(DefaultWaitMs = 3ms)
+        Note over B,EL: Chờ event-loop settling delay
+        EL-->>B: Timer callback
+        B->>IC: commitString(commitText)
+        B->>B: updateSurroundingCacheAfterCommit(...)
+        B->>S: onDone(transactionId)
+    else backspaceCount == 0
+        B->>IC: commitString(commitText)
+        B->>S: onDone(transactionId) (Immediate Completed)
+    end
+```
+
+### 3. Sơ đồ luồng `UinputShiftSelectBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as UinputShiftSelectBackend
+    participant DEV as UinputDevice (/dev/uinput)
+    participant EL as EventLoop
+    participant IC as InputContext
+
+    S->>B: apply(inputContext, plan, onDone)
+    B->>DEV: sendKeyEvent(KEY_LEFTSHIFT, 1) (Shift DOWN)
+    B->>EL: addTimeEvent(ShiftSelectDelayMs = 1ms)
+    
+    loop N = backspaceCount lần
+        EL-->>B: Timer callback
+        B->>DEV: sendKeyEvent(KEY_LEFT, 1) -> (KEY_LEFT, 0)
+        B->>EL: addTimeEvent(ShiftSelectDelayMs = 1ms)
+    end
+    
+    EL-->>B: Timer callback (Bôi đen hoàn tất)
+    B->>DEV: sendKeyEvent(KEY_LEFTSHIFT, 0) (Shift UP)
+    B->>EL: addTimeEvent(AfterSelectWaitMs)
+    
+    EL-->>B: Timer callback (Settling wait hoàn tất)
+    
+    loop Lần lượt từng ký tự UTF-8 trong commitText
+        B->>IC: commitString(utf8_char)
+        B->>EL: addTimeEvent(1ms)
+        EL-->>B: Timer callback
+    end
+    
+    B->>B: finishTransaction()
+    B->>S: onDone(transactionId)
+```
+
+### 4. Sơ đồ luồng `UinputBackspaceBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as UinputBackspaceBackend
+    participant DEV as UinputDevice (/dev/uinput)
+    participant EL as EventLoop
+    participant IC as InputContext
+
+    S->>B: apply(inputContext, plan, onDone)
+    
+    loop N = backspaceCount lần
+        B->>DEV: sendKeyEvent(KEY_BACKSPACE, 1) -> (KEY_BACKSPACE, 0)
+        B->>EL: addTimeEvent(BackspaceDelayMs)
+        EL-->>B: Timer callback
+    end
+    
+    B->>EL: addTimeEvent(AfterBackspaceWaitMs)
+    EL-->>B: Timer callback (Settling wait hoàn tất)
+    B->>IC: commitString(commitText)
+    B->>B: clearPending()
+    B->>S: onDone(transactionId)
+```
+
+### 5. Sơ đồ luồng `ForwardBackspaceBackend`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as ForwardBackspaceBackend
+    participant IC as InputContext
+    participant EL as EventLoop
+
+    S->>B: apply(inputContext, plan, onDone)
+    
+    loop N = backspaceCount lần
+        B->>IC: forwardKey(Backspace press/release)
+        B->>EL: addTimeEvent(BackspaceDelayMs)
+        EL-->>B: Timer callback
+    end
+    
+    B->>EL: addTimeEvent(AfterBackspaceWaitMs)
+    EL-->>B: Timer callback (Settling wait hoàn tất)
+    B->>IC: commitString(commitText)
+    B->>B: clearPending()
+    B->>S: onDone(transactionId)
+```
 
 ## Preedit mode
 
@@ -255,6 +403,55 @@ Special key mà user chủ động gõ vẫn có policy tức thời:
 
 ## Hướng mở rộng
 
+### 1. Thêm Mode SurroundingOnly
 Policy `SurroundingOnly` sau này có thể được thêm như một rewrite mode thứ ba,
 với state và scheduler riêng hoặc backend selector luôn chọn
 `SurroundingTextBackend`. Nó không cần thay đổi `PreeditModeHandler`.
+
+### 2. Đề xuất cải tiến SurroundingTextBackend (Xóa từng ký tự thay vì xóa toàn bộ)
+
+#### Hiện trạng
+Hiện tại, `SurroundingTextBackend` thực hiện xóa `N` ký tự trong một câu lệnh duy nhất:
+```cpp
+inputContext.deleteSurroundingText(-static_cast<int>(plan.backspaceCount), plan.backspaceCount);
+```
+
+#### Hạn chế của cơ chế xóa gộp
+- **Lỗi tính offset của ứng dụng**: Một số trình duyệt (đặc biệt là Firefox Gecko trên Wayland) hoặc các bộ soạn thảo Web (Monaco Editor, CodeMirror) xử lý câu lệnh xóa gộp `-N` ký tự không ổn định khi phía sau con trỏ đang có các ký tự đặc biệt (như dấu ngoặc `}}` hoặc thẻ HTML).
+- **Rủi ro lệch vị trí xóa**: Việc xóa gộp một lượt có thể dẫn tới hiện tượng trình duyệt xóa thiếu ký tự hoặc tính nhầm độ dài ký tự UTF-8 multibyte.
+
+#### Giải pháp đề xuất
+Chuyển `SurroundingTextBackend` sang cơ chế vòng lặp xóa từng ký tự qua timer event-loop (tương tự như `UinputShiftSelectBackend`):
+1. Mỗi nhịp timer (ví dụ `1ms` - `3ms`), phát lệnh xóa 1 ký tự trước con trỏ: `deleteSurroundingText(-1, 1)`.
+2. Lặp lại `N` lần cho tới khi xóa đủ số ký tự cần thiết (`backspaceCount`).
+3. Chờ hết thời gian settling delay (`WaitMs`), sau đó mới thực hiện `commitString(commitText)`.
+
+#### Sơ đồ Sequence đề xuất
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as InputScheduler
+    participant B as SurroundingTextBackend (Đề xuất)
+    participant IC as InputContext
+    participant EL as EventLoop
+
+    S->>B: apply(inputContext, plan, onDone)
+    
+    alt backspaceCount > 0
+        loop N = backspaceCount lần
+            B->>IC: deleteSurroundingText(-1, 1)
+            B->>B: updateSurroundingCacheAfterDelete(-1, 1)
+            B->>EL: addTimeEvent(DeleteDelayMs = 1ms)
+            EL-->>B: Timer callback
+        end
+        
+        B->>EL: addTimeEvent(WaitMs = 3ms)
+        EL-->>B: Timer callback (Settling wait hoàn tất)
+        B->>IC: commitString(commitText)
+        B->>B: updateSurroundingCacheAfterCommit(...)
+        B->>S: onDone(transactionId)
+    else backspaceCount == 0
+        B->>IC: commitString(commitText)
+        B->>S: onDone(transactionId)
+    end
+```

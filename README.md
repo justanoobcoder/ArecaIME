@@ -53,12 +53,11 @@ Fcitx5 keyEvent
                                              │
                          deleteCount > 0  ────┘
                                              │
-                         ReliabilityChecker  │
-                                  ┌──────────┴──────────┐
-                                  ▼                     ▼
-                       SurroundingTextBackend   ForwardBackspaceBackend
-                       delete + commit ngay     forward N Backspace
-                                                → wait → commit
+                                   ┌─────────┴─────────┐
+                                   ▼         ▼         ▼
+                        SurroundingText   Forward    UinputShiftSelect
+                        delete + commit   Backspace  Shift+Left bôi đen
+                                                     → commit từng char
 ```
 
 Các invariant quan trọng:
@@ -68,12 +67,12 @@ Các invariant quan trọng:
 - Key đầu được xử lý ngay; key sau chỉ được pump khi commit/rewrite trước đã
   hoàn tất và qua `PostCommitDelayMs`.
 - Chỉ có một rewrite bất đồng bộ pending.
-- Không commit text mới trước khi phát đủ Backspace và hết settling wait.
+- Không commit text mới trước khi phát đủ Backspace hoặc Shift+Left và hết settling wait.
 - Phím mới vẫn được nhận vào queue khi backend đang chạy, nhưng chưa được xử lý.
 - Không `sleep()` trên main thread Fcitx5; mọi delay đều dùng event loop.
 
-Chi tiết từng component và state machine nằm trong
-[Tài liệu kiến trúc](docs/ARCHITECTURE.md).
+Chi tiết từng component, state machine và sơ đồ sequence diagram nằm trong
+[Tài liệu kiến trúc](docs/ARCHITECTURE.md), [Đặc tả kỹ thuật](docs/ARECA_ARCHITECTURE_SPECIFICATION.md) hoặc xem [Giao diện HTML trực quan](website/architecture.html).
 
 ## Các đường rewrite
 
@@ -87,6 +86,18 @@ với text mà Bamboo tin rằng đang hiển thị. Kết quả được cache 
   sang uinput hoặc forward-Backspace.
 
 Areca tự động cập nhật cache SurroundingText nội bộ (`st.deleteText()` và `st.setText()`) ngay sau mỗi thao tác xóa và commit, giữ cho bộ đệm Fcitx5 luôn đồng bộ tức thì với màn hình.
+
+### Uinput Shift Select
+
+Khi tùy chọn `UseUinputShiftSelectForBrowser` được bật trên ứng dụng dạng trình duyệt web và `/dev/uinput` khả dụng, Areca sử dụng `UinputShiftSelectBackend`.
+
+Backend này hoạt động theo cơ chế:
+1. Nhấn giữ phím `Shift` ảo qua thiết bị kernel `/dev/uinput`.
+2. Phát phím `Left` `N` lần để bôi đen chính xác số ký tự cũ cần sửa.
+3. Thả phím `Shift`, chờ khoảng settling delay (`AfterUinputShiftSelectWaitMs` / `WaylandAfterUinputShiftSelectWaitMs`).
+4. Commit chuỗi ký tự mới từng ký tự một (split commit với delay `1ms`).
+
+Cơ chế bảo vệ: Nếu phát hiện trong ô nhập liệu đang có văn bản bôi đen sẵn (`cursor != anchor`) hoặc trình duyệt đang ở trạng thái Autocomplete gợi ý, hệ thống sẽ tự động chuyển sang `ForwardBackspaceBackend` (+1 phím Backspace phụ) để xóa an toàn vùng chọn cũ thay vì dùng phím `Shift+Left`.
 
 ### Uinput Backspace
 
@@ -339,7 +350,9 @@ Areca không tự đổi mode theo ứng dụng.
 
 ## Tài liệu
 
-- [Kiến trúc và luồng hoạt động](docs/ARCHITECTURE.md)
+- [Kiến trúc & luồng hoạt động (Tổng quan)](docs/ARCHITECTURE.md)
+- [Đặc tả kiến trúc & Sơ đồ Sequence](docs/ARECA_ARCHITECTURE_SPECIFICATION.md)
+- [Bản vẽ kiến trúc HTML tương tác](website/architecture.html)
 - [Cài đặt, reload và debug](docs/DEBUGGING.md)
 
 ## 🌴 Tác giả & Đồng hành
