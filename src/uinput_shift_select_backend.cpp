@@ -4,7 +4,6 @@
 #include <utility>
 
 #include <fcitx-utils/log.h>
-#include <fcitx-utils/utf8.h>
 
 namespace areca {
 
@@ -120,40 +119,14 @@ void UinputShiftSelectBackend::commitSelectionAndComplete() {
     return;
   }
 
-  commitChars_.clear();
-  auto it = commitText_.begin();
-  while (it != commitText_.end()) {
-    auto start = it;
-    uint32_t codepoint = 0;
-    it = fcitx::utf8::getNextChar(it, commitText_.end(), &codepoint);
-    commitChars_.emplace_back(start, it);
-  }
-
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: uinput-select split commit (1ms) tx="
-                 << transactionId_ << " chars=" << selectedCharacters_
-                 << " commit=" << commitText_
-                 << " split_count=" << commitChars_.size();
+    FCITX_INFO() << "areca: uinput-select commit tx=" << transactionId_
+                 << " chars=" << selectedCharacters_
+                 << " commit=" << commitText_;
   }
 
-  commitNextChar(0);
-}
-
-void UinputShiftSelectBackend::commitNextChar(size_t index) {
-  auto *inputContext = inputContext_.get();
-  if (!inputContext) {
-    completeWithoutCommit();
-    return;
-  }
-
-  inputContext->commitString(commitChars_[index]);
-
-  if (index + 1 < commitChars_.size()) {
-    const uint32_t charDelayMs = 1U;
-    schedule(charDelayMs, [this, index]() { commitNextChar(index + 1); });
-  } else {
-    finishTransaction();
-  }
+  inputContext->commitString(commitText_);
+  finishTransaction();
 }
 
 void UinputShiftSelectBackend::scheduleCommit() {
@@ -210,7 +183,6 @@ void UinputShiftSelectBackend::clearPending() {
   timerAccuracyUsec_ = 1;
   shiftHeld_ = false;
   commitText_.clear();
-  commitChars_.clear();
 }
 
 } // namespace areca
