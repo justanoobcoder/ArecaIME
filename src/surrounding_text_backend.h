@@ -8,6 +8,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/trackableobject.h>
 
+#include "event_loop_post.h"
 #include "rewrite_backend.h"
 
 namespace areca {
@@ -34,6 +35,7 @@ private:
   void clearPending();
 
   fcitx::EventLoop &eventLoop_;
+  EventLoopPostTask commitPost_;
   DebugProvider debugProvider_;
   std::unique_ptr<fcitx::EventSourceTime> timer_;
   fcitx::TrackableObjectReference<fcitx::InputContext> inputContext_;

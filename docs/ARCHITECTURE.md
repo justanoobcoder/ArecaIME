@@ -40,6 +40,9 @@ Các field timing cũ trong `areca.conf` được giữ ẩn để migrate cấu
 file nâng cao, nếu có, luôn được load sau và được ưu tiên.
 `PreciseTiming=True` đặt accuracy của timer Backspace và post-commit thành
 `1µs`; khi tắt, accuracy bằng `0` và event-loop backend được phép coalesce timer.
+Các timer chờ trước commit không gọi commit trực tiếp khi hết hạn. Cả năm rewrite
+backend đưa commit sang pha post của event loop để backlog hệ thống được xử lý
+trước. Timer giữa các bước xóa vẫn dispatch callback trực tiếp.
 
 ## Vòng đời text key trong Rewrite
 

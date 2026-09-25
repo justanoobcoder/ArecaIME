@@ -48,6 +48,7 @@ set_target_properties(areca-bamboo PROPERTIES IMPORTED_LOCATION "${BAMBOO_ARCHIV
 add_dependencies(areca-bamboo areca-bamboo-bridge)
 
 add_library(areca MODULE
+    src/adaptive_wait_monitor.cpp
     src/areca_engine.cpp
     src/bamboo_engine_adapter.cpp
     src/browser_autocomplete.cpp
@@ -177,6 +178,16 @@ if(BUILD_TESTING)
     target_include_directories(areca-adaptive-wait-test PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     add_test(NAME adaptive-wait COMMAND areca-adaptive-wait-test)
+
+    add_executable(areca-event-loop-post-test
+        tests/event_loop_post_test.cpp)
+    target_compile_features(areca-event-loop-post-test PRIVATE cxx_std_20)
+    target_compile_options(areca-event-loop-post-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-event-loop-post-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-event-loop-post-test PRIVATE Fcitx5::Utils)
+    add_test(NAME event-loop-post COMMAND areca-event-loop-post-test)
 
     add_executable(areca-bamboo-test
         tests/bamboo_engine_adapter_test.cpp

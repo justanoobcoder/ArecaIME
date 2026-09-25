@@ -11,7 +11,8 @@ namespace areca {
 
 SurroundingTextBackend::SurroundingTextBackend(fcitx::EventLoop &eventLoop,
                                                DebugProvider debugProvider)
-    : eventLoop_(eventLoop), debugProvider_(std::move(debugProvider)) {}
+    : eventLoop_(eventLoop), commitPost_(eventLoop),
+      debugProvider_(std::move(debugProvider)) {}
 
 SurroundingTextBackend::~SurroundingTextBackend() { clearPending(); }
 
@@ -61,7 +62,11 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
 }
 
 void SurroundingTextBackend::scheduleCommit() {
-  schedule(waitMs_, [this]() { commitAndComplete(); });
+  schedule(waitMs_, [this]() {
+    // Không commit ngay trong callback timer. Đưa sang pha post để event loop
+    // phản ánh backlog của hệ thống trước khi chèn text mới.
+    commitPost_.schedule([this]() { commitAndComplete(); });
+  });
 }
 
 void SurroundingTextBackend::commitAndComplete() {
@@ -122,6 +127,7 @@ void SurroundingTextBackend::schedule(uint32_t delayMs,
 
 void SurroundingTextBackend::clearPending() {
   timer_.reset();
+  commitPost_.cancel();
   inputContext_.unwatch();
   onDone_ = {};
   transactionId_ = 0;

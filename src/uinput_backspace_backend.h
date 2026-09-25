@@ -9,6 +9,7 @@
 #include <fcitx-utils/trackableobject.h>
 
 #include "adaptive_wait.h"
+#include "event_loop_post.h"
 #include "rewrite_backend.h"
 #include "uinput_device.h"
 
@@ -19,6 +20,7 @@ public:
   using DebugProvider = std::function<bool()>;
 
   UinputBackspaceBackend(fcitx::EventLoop &eventLoop, UinputDevice &device,
+                         AdaptiveWait &adaptiveWait,
                          DebugProvider debugProvider);
   ~UinputBackspaceBackend() override;
 
@@ -30,17 +32,27 @@ public:
   bool hasPending() const { return transactionId_ != 0; }
 
 private:
+  enum class TimerDispatch { TimerCallback, PostEvent };
+
   void sendNextBackspace();
   void scheduleNextBackspace();
   void scheduleCommit();
   void commitAfterAdaptiveWait(uint32_t appliedExtraWaitMs);
   void commitAndComplete();
   void completeWithoutCommit();
-  void schedule(uint32_t delayMs, std::function<void()> callback);
+  void schedule(uint32_t delayMs, TimerDispatch dispatch,
+                std::function<void()> callback);
+  void dispatchPostEvent(uint64_t deadlineUsec,
+                         std::function<void()> callback);
+  void observeAndRun(uint64_t deadlineUsec,
+                     std::function<void()> callback);
   void clearPending();
 
   fcitx::EventLoop &eventLoop_;
   UinputDevice &device_;
+  EventLoopPostTask commitPost_;
+  // State dùng chung với ForwardBackspaceBackend và probe lag toàn cục.
+  AdaptiveWait &adaptiveWait_;
   DebugProvider debugProvider_;
 
   std::unique_ptr<fcitx::EventSourceTime> timer_;
@@ -53,7 +65,6 @@ private:
   uint32_t afterBackspaceWaitMs_ = 0;
   uint64_t timerAccuracyUsec_ = 1;
   std::string commitText_;
-  AdaptiveWait adaptiveWait_;
 };
 
 } // namespace areca

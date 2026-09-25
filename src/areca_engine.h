@@ -9,6 +9,7 @@
 #include <fcitx/instance.h>
 
 #include "areca_config.h"
+#include "adaptive_wait_monitor.h"
 #include "bamboo_engine_adapter.h"
 #include "forward_backspace_backend.h"
 #include "input_scheduler.h"
@@ -113,6 +114,11 @@ private:
   fcitx::ICUUID backendVerdictContextId_{};
   SurroundingReliabilityState backendVerdict_;
   uint64_t backendVerdictProtectedUntil_ = 0;
+  // Một trạng thái adaptive dùng chung để khi đổi giữa forward và uinput,
+  // thông tin máy đang chậm không bị mất.
+  AdaptiveWait adaptiveWait_;
+  // Probe toàn cục chỉ cung cấp tín hiệu cho adaptiveWait_.
+  AdaptiveWaitMonitor adaptiveWaitMonitor_;
   SurroundingTextBackend surroundingBackend_;
   SurroundingTextV2Backend surroundingV2Backend_;
   ForwardBackspaceBackend forwardBackspaceBackend_;

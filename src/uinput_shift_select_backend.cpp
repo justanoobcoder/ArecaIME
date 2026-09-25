@@ -11,7 +11,7 @@ namespace areca {
 UinputShiftSelectBackend::UinputShiftSelectBackend(fcitx::EventLoop &eventLoop,
                                                    UinputDevice &device,
                                                    DebugProvider debugProvider)
-    : eventLoop_(eventLoop), device_(device),
+    : eventLoop_(eventLoop), device_(device), commitPost_(eventLoop),
       debugProvider_(std::move(debugProvider)) {}
 
 UinputShiftSelectBackend::~UinputShiftSelectBackend() { clearPending(); }
@@ -64,7 +64,8 @@ void UinputShiftSelectBackend::beginSelection() {
   shiftHeld_ = true;
   // Wait one shiftSelectDelayMs cycle before the first Left so the browser
   // has time to flush the Shift modifier state (needed for React/Facebook).
-  schedule(shiftSelectDelayMs_, [this]() { sendNextSelectionLeft(); });
+  schedule(shiftSelectDelayMs_, TimerDispatch::TimerCallback,
+           [this]() { sendNextSelectionLeft(); });
 }
 
 void UinputShiftSelectBackend::sendNextSelectionLeft() {
@@ -79,17 +80,20 @@ void UinputShiftSelectBackend::sendNextSelectionLeft() {
   --selectionCount_;
 
   if (selectionCount_) {
-    schedule(shiftSelectDelayMs_, [this]() { sendNextSelectionLeft(); });
+    schedule(shiftSelectDelayMs_, TimerDispatch::TimerCallback,
+             [this]() { sendNextSelectionLeft(); });
     return;
   }
 
   // Last Left done — delay before Shift UP.
-  schedule(shiftSelectDelayMs_, [this]() { releaseShiftThenCommit(); });
+  schedule(shiftSelectDelayMs_, TimerDispatch::TimerCallback,
+           [this]() { releaseShiftThenCommit(); });
 }
 
 void UinputShiftSelectBackend::releaseShiftThenCommit() {
   releaseShift();
-  schedule(afterSelectWaitMs_, [this]() { commitSelectionAndComplete(); });
+  schedule(afterSelectWaitMs_, TimerDispatch::PostEvent,
+           [this]() { commitSelectionAndComplete(); });
 }
 
 void UinputShiftSelectBackend::releaseShift() {
@@ -141,19 +145,22 @@ void UinputShiftSelectBackend::commitSelectionAndComplete() {
   }
 
   const uint32_t charDelayMs = 5U;
-  schedule(charDelayMs, [this, remainingText = std::move(remainingText)]() {
-    auto *inputContext = inputContext_.get();
-    if (!inputContext) {
-      completeWithoutCommit();
-      return;
-    }
-    inputContext->commitString(remainingText);
-    finishTransaction();
-  });
+  schedule(
+      charDelayMs, TimerDispatch::PostEvent,
+      [this, remainingText = std::move(remainingText)]() {
+        auto *inputContext = inputContext_.get();
+        if (!inputContext) {
+          completeWithoutCommit();
+          return;
+        }
+        inputContext->commitString(remainingText);
+        finishTransaction();
+      });
 }
 
 void UinputShiftSelectBackend::scheduleCommit() {
-  schedule(afterSelectWaitMs_, [this]() { commitSelectionAndComplete(); });
+  schedule(afterSelectWaitMs_, TimerDispatch::PostEvent,
+           [this]() { commitSelectionAndComplete(); });
 }
 
 void UinputShiftSelectBackend::completeWithoutCommit() {
@@ -174,20 +181,29 @@ void UinputShiftSelectBackend::finishTransaction() {
 }
 
 void UinputShiftSelectBackend::schedule(uint32_t delayMs,
+                                        TimerDispatch dispatch,
                                         std::function<void()> callback) {
   timer_.reset();
   const uint64_t deadline =
       fcitx::now(CLOCK_MONOTONIC) + static_cast<uint64_t>(delayMs) * 1000;
   timer_ =
       eventLoop_.addTimeEvent(CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
-                              [this, callback = std::move(callback)](
+                              [this, dispatch, callback = std::move(callback)](
                                   fcitx::EventSourceTime *, uint64_t) mutable {
                                 auto completedTimer = std::move(timer_);
-                                callback();
+                                if (dispatch == TimerDispatch::PostEvent) {
+                                  commitPost_.schedule(std::move(callback));
+                                } else {
+                                  callback();
+                                }
                                 return false;
                               });
   if (!timer_) {
-    callback();
+    if (dispatch == TimerDispatch::PostEvent) {
+      commitPost_.schedule(std::move(callback));
+    } else {
+      callback();
+    }
     return;
   }
   timer_->setOneShot();
@@ -195,6 +211,7 @@ void UinputShiftSelectBackend::schedule(uint32_t delayMs,
 
 void UinputShiftSelectBackend::clearPending() {
   timer_.reset();
+  commitPost_.cancel();
   releaseShift();
   inputContext_.unwatch();
   onDone_ = {};

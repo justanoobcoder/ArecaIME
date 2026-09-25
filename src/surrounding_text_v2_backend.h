@@ -8,6 +8,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/trackableobject.h>
 
+#include "event_loop_post.h"
 #include "rewrite_backend.h"
 
 namespace areca {
@@ -27,15 +28,19 @@ public:
   bool hasPending() const { return transactionId_ != 0; }
 
 private:
+  enum class TimerDispatch { TimerCallback, PostEvent };
+
   void beginIncrementalDelete();
   void sendNextDelete();
   void scheduleCommit();
   void commitAndComplete();
   void completeWithoutCommit();
-  void schedule(uint32_t delayMs, std::function<void()> callback);
+  void schedule(uint32_t delayMs, TimerDispatch dispatch,
+                std::function<void()> callback);
   void clearPending();
 
   fcitx::EventLoop &eventLoop_;
+  EventLoopPostTask commitPost_;
   DebugProvider debugProvider_;
   std::unique_ptr<fcitx::EventSourceTime> timer_;
   fcitx::TrackableObjectReference<fcitx::InputContext> inputContext_;

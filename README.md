@@ -167,11 +167,21 @@ forward Backspace × N
 Trong toàn bộ transaction, scheduler vẫn giữ `processing=true`, vì vậy key đến
 sau chỉ được append vào FIFO.
 
-`ForwardBackspaceBackend` và `UinputBackspaceBackend` tự theo dõi độ trễ của
-timer event loop. Mỗi callback trễ từ 5 ms làm thời gian chờ trước commit tăng
-thêm 5 ms, tối đa tổng cộng 50 ms. Mức tối thiểu là timing mặc định của frontend
-hiện tại. Sau 5 callback đúng giờ liên tiếp, thời gian chờ giảm 5 ms. Mức thích
-ứng được giữ riêng cho từng backend và được đặt lại khi addon khởi động lại.
+Areca thăm dò độ trễ của event loop mỗi 10 ms để nhận ra tình trạng chậm toàn
+hệ thống trước khi bắt đầu rewrite. `ForwardBackspaceBackend` và
+`UinputBackspaceBackend` dùng chung tín hiệu này, đồng thời tiếp tục đo timer
+trong transaction. Ngay ở callback đầu tiên trễ từ 5 ms, thời gian chờ trước
+commit tăng theo độ trễ quan sát được và được làm tròn lên bước 10 ms. Các lần
+trễ tiếp theo tiếp tục tăng ít nhất 10 ms, tối đa tổng cộng 50 ms. Mức tối thiểu
+là timing mặc định của frontend hiện tại. Sau 5 transaction đúng giờ liên tiếp,
+thời gian chờ giảm 10 ms. Timer giữa các Backspace không làm mức chờ giảm sớm.
+Mức thích ứng được đặt lại khi addon khởi động lại.
+
+Ở mọi rewrite backend có khoảng chờ giữa thao tác xóa và commit, timer hết hạn
+chỉ đánh dấu đã chờ đủ. Commit sau đó được đưa sang pha post của event loop thay
+vì chạy ngay bên trong callback timer. Vì vậy khi event loop đang tồn đọng công
+việc, thao tác commit tự chờ qua backlog đó. Timer giữa các bước xóa vẫn chạy
+trực tiếp để không kéo dài chuỗi Backspace, Shift+Left hoặc surrounding delete.
 
 Areca lọc program trước: chỉ VS Code và các bản phân nhánh,
 IDE/code editor/developer tool, hoặc terminal Linux đã biết (terminal của
@@ -206,6 +216,20 @@ Nếu dependency đã có sẵn:
 
 ```bash
 ./scripts/install.sh --skip-deps
+```
+
+Trên Arch/CachyOS, installer mặc định không chạy `pacman -Sy` hoặc nâng cấp toàn
+hệ thống. Nó dùng database package hiện có để cài dependency còn thiếu:
+
+```bash
+./scripts/install.sh --no-system-update
+```
+
+Nếu máy đã có đủ dependency, `--skip-deps` là đường cài không gọi `pacman`. Khi
+muốn chủ động nâng toàn hệ thống theo quy trình được Arch hỗ trợ, dùng:
+
+```bash
+./scripts/install.sh --system-update
 ```
 
 Một số lựa chọn khác:

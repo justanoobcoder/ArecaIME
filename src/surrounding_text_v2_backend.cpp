@@ -11,7 +11,8 @@ namespace areca {
 
 SurroundingTextV2Backend::SurroundingTextV2Backend(fcitx::EventLoop &eventLoop,
                                                    DebugProvider debugProvider)
-    : eventLoop_(eventLoop), debugProvider_(std::move(debugProvider)) {}
+    : eventLoop_(eventLoop), commitPost_(eventLoop),
+      debugProvider_(std::move(debugProvider)) {}
 
 SurroundingTextV2Backend::~SurroundingTextV2Backend() { clearPending(); }
 
@@ -78,10 +79,16 @@ void SurroundingTextV2Backend::sendNextDelete() {
   }
 
   if (remainingDeletes_ > 0) {
-    schedule(deleteDelayMs_, [this]() { sendNextDelete(); });
+    schedule(deleteDelayMs_, TimerDispatch::TimerCallback,
+             [this]() { sendNextDelete(); });
   } else {
-    schedule(afterDeleteWaitMs_, [this]() { commitAndComplete(); });
+    scheduleCommit();
   }
+}
+
+void SurroundingTextV2Backend::scheduleCommit() {
+  schedule(afterDeleteWaitMs_, TimerDispatch::PostEvent,
+           [this]() { commitAndComplete(); });
 }
 
 void SurroundingTextV2Backend::commitAndComplete() {
@@ -122,20 +129,29 @@ void SurroundingTextV2Backend::completeWithoutCommit() {
 }
 
 void SurroundingTextV2Backend::schedule(uint32_t delayMs,
+                                        TimerDispatch dispatch,
                                         std::function<void()> callback) {
   timer_.reset();
   const uint64_t deadline =
       fcitx::now(CLOCK_MONOTONIC) + static_cast<uint64_t>(delayMs) * 1000;
   timer_ =
       eventLoop_.addTimeEvent(CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
-                              [this, callback = std::move(callback)](
+                              [this, dispatch, callback = std::move(callback)](
                                   fcitx::EventSourceTime *, uint64_t) mutable {
                                 auto completedTimer = std::move(timer_);
-                                callback();
+                                if (dispatch == TimerDispatch::PostEvent) {
+                                  commitPost_.schedule(std::move(callback));
+                                } else {
+                                  callback();
+                                }
                                 return false;
                               });
   if (!timer_) {
-    callback();
+    if (dispatch == TimerDispatch::PostEvent) {
+      commitPost_.schedule(std::move(callback));
+    } else {
+      callback();
+    }
     return;
   }
   timer_->setOneShot();
@@ -143,6 +159,7 @@ void SurroundingTextV2Backend::schedule(uint32_t delayMs,
 
 void SurroundingTextV2Backend::clearPending() {
   timer_.reset();
+  commitPost_.cancel();
   inputContext_.unwatch();
   onDone_ = {};
   transactionId_ = 0;

@@ -9,8 +9,10 @@
 namespace areca {
 
 ForwardBackspaceBackend::ForwardBackspaceBackend(fcitx::EventLoop &eventLoop,
+                                                 AdaptiveWait &adaptiveWait,
                                                  DebugProvider debugProvider)
-    : eventLoop_(eventLoop), debugProvider_(std::move(debugProvider)) {}
+    : eventLoop_(eventLoop), commitPost_(eventLoop), adaptiveWait_(adaptiveWait),
+      debugProvider_(std::move(debugProvider)) {}
 
 ForwardBackspaceBackend::~ForwardBackspaceBackend() { clearPending(); }
 
@@ -21,6 +23,7 @@ ApplyStatus ForwardBackspaceBackend::apply(fcitx::InputContext &inputContext,
     return ApplyStatus::Failed;
   }
 
+  adaptiveWait_.beginTransaction();
   transactionId_ = plan.transactionId;
   inputContext_ = inputContext.watch();
   onDone_ = std::move(onDone);
@@ -78,7 +81,8 @@ void ForwardBackspaceBackend::sendNextBackspace() {
 }
 
 void ForwardBackspaceBackend::scheduleNextBackspace() {
-  schedule(backspaceDelayMs_, [this]() { sendNextBackspace(); });
+  schedule(backspaceDelayMs_, TimerDispatch::TimerCallback,
+           [this]() { sendNextBackspace(); });
 }
 
 void ForwardBackspaceBackend::scheduleCommit() {
@@ -92,7 +96,9 @@ void ForwardBackspaceBackend::scheduleCommit() {
                  << " extra_ms=" << extraWaitMs
                  << " effective_ms=" << effectiveWaitMs;
   }
-  schedule(effectiveWaitMs,
+  // Timer chỉ đánh dấu đã chờ đủ. Commit được đưa sang pha post của event loop
+  // để công việc đang nghẽn được phản ánh vào độ trễ trước khi commit thật.
+  schedule(effectiveWaitMs, TimerDispatch::PostEvent,
            [this, extraWaitMs]() { commitAfterAdaptiveWait(extraWaitMs); });
 }
 
@@ -108,9 +114,10 @@ void ForwardBackspaceBackend::commitAfterAdaptiveWait(
                    << transactionId_ << " additional_wait_ms="
                    << additionalWaitMs;
     }
-    schedule(additionalWaitMs, [this, currentExtraWaitMs]() {
-      commitAfterAdaptiveWait(currentExtraWaitMs);
-    });
+    schedule(additionalWaitMs, TimerDispatch::PostEvent,
+             [this, currentExtraWaitMs]() {
+               commitAfterAdaptiveWait(currentExtraWaitMs);
+             });
     return;
   }
   commitAndComplete();
@@ -129,9 +136,15 @@ void ForwardBackspaceBackend::commitAndComplete() {
 
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
+  const auto adjustment = adaptiveWait_.completeTransaction();
   if (debugProvider_()) {
     FCITX_INFO() << "areca: forward-backspace complete tx=" << transactionId
                  << " sent=" << sentBackspaces_ << " commit=" << commitText_;
+    if (adjustment == AdaptiveWait::Adjustment::Decreased) {
+      FCITX_INFO() << "areca: forward-backspace adaptive wait decayed tx="
+                   << transactionId << " extra_ms="
+                   << adaptiveWait_.effectiveExtraWaitMs(afterBackspaceWaitMs_);
+    }
   }
   clearPending();
   if (onDone) {
@@ -142,6 +155,7 @@ void ForwardBackspaceBackend::commitAndComplete() {
 void ForwardBackspaceBackend::completeWithoutCommit() {
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
+  adaptiveWait_.cancelTransaction();
   if (debugProvider_()) {
     FCITX_INFO() << "areca: forward-backspace context lost tx="
                  << transactionId;
@@ -153,46 +167,62 @@ void ForwardBackspaceBackend::completeWithoutCommit() {
 }
 
 void ForwardBackspaceBackend::schedule(uint32_t delayMs,
+                                       TimerDispatch dispatch,
                                        std::function<void()> callback) {
   timer_.reset();
   const uint64_t deadline =
       fcitx::now(CLOCK_MONOTONIC) + static_cast<uint64_t>(delayMs) * 1000;
   timer_ =
       eventLoop_.addTimeEvent(CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
-                              [this, deadline, callback = std::move(callback)](
+                              [this, deadline, dispatch,
+                               callback = std::move(callback)](
                                   fcitx::EventSourceTime *, uint64_t) mutable {
                                 auto completedTimer = std::move(timer_);
-                                const uint64_t firedAtUsec =
-                                    fcitx::now(CLOCK_MONOTONIC);
-                                const auto adjustment =
-                                    adaptiveWait_.observeTimer(deadline,
-                                                               firedAtUsec);
-                                if (debugProvider_() &&
-                                    adjustment !=
-                                        AdaptiveWait::Adjustment::None) {
-                                  FCITX_INFO()
-                                      << "areca: forward-backspace adaptive "
-                                         "wait changed tx="
-                                      << transactionId_ << " lateness_us="
-                                      << (firedAtUsec > deadline
-                                              ? firedAtUsec - deadline
-                                              : 0)
-                                      << " extra_ms="
-                                      << adaptiveWait_.effectiveExtraWaitMs(
-                                             afterBackspaceWaitMs_);
+                                if (dispatch == TimerDispatch::PostEvent) {
+                                  dispatchPostEvent(deadline,
+                                                    std::move(callback));
+                                } else {
+                                  observeAndRun(deadline, std::move(callback));
                                 }
-                                callback();
                                 return false;
                               });
   if (!timer_) {
-    callback();
+    if (dispatch == TimerDispatch::PostEvent) {
+      dispatchPostEvent(deadline, std::move(callback));
+    } else {
+      observeAndRun(deadline, std::move(callback));
+    }
     return;
   }
   timer_->setOneShot();
 }
 
+void ForwardBackspaceBackend::dispatchPostEvent(
+    uint64_t deadlineUsec, std::function<void()> callback) {
+  commitPost_.schedule([this, deadlineUsec, callback]() mutable {
+    observeAndRun(deadlineUsec, std::move(callback));
+  });
+}
+
+void ForwardBackspaceBackend::observeAndRun(
+    uint64_t deadlineUsec, std::function<void()> callback) {
+  const uint64_t firedAtUsec = fcitx::now(CLOCK_MONOTONIC);
+  const auto adjustment =
+      adaptiveWait_.observeTimer(deadlineUsec, firedAtUsec);
+  if (debugProvider_() && adjustment != AdaptiveWait::Adjustment::None) {
+    FCITX_INFO() << "areca: forward-backspace adaptive wait changed tx="
+                 << transactionId_ << " lateness_us="
+                 << (firedAtUsec > deadlineUsec ? firedAtUsec - deadlineUsec
+                                                : 0)
+                 << " extra_ms="
+                 << adaptiveWait_.effectiveExtraWaitMs(afterBackspaceWaitMs_);
+  }
+  callback();
+}
+
 void ForwardBackspaceBackend::clearPending() {
   timer_.reset();
+  commitPost_.cancel();
   inputContext_.unwatch();
   onDone_ = {};
   transactionId_ = 0;

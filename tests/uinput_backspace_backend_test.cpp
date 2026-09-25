@@ -9,7 +9,9 @@
 int main() {
   fcitx::EventLoop eventLoop;
   areca::UinputDevice device([]() { return false; });
-  areca::UinputBackspaceBackend backend(eventLoop, device, []() { return false; });
+  areca::AdaptiveWait adaptiveWait;
+  areca::UinputBackspaceBackend backend(eventLoop, device, adaptiveWait,
+                                        []() { return false; });
 
   assert(std::string(backend.name()) == "uinput-backspace");
   assert(!backend.hasPending());

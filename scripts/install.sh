@@ -7,6 +7,7 @@ ARECA_PREFIX="${PREFIX:-/usr}"
 ARECA_BUILD_TYPE="${BUILD_TYPE:-RelWithDebInfo}"
 ARECA_TARGET_USER="${SUDO_USER:-${USER:-}}"
 ARECA_INSTALL_DEPS=1
+ARECA_UPDATE_SYSTEM=0
 ARECA_RESTART_FCITX=1
 ARECA_RUN_TESTS=1
 
@@ -91,10 +92,26 @@ install_deps_debian() {
 }
 
 install_deps_arch() {
-  echo "[areca] Installing build dependencies with pacman"
-  sudo pacman -Sy --needed --noconfirm \
-    base-devel cmake ninja pkgconf extra-cmake-modules go libinput systemd-libs fcitx5 \
-    fcitx5-configtool
+  local packages=(base-devel cmake ninja pkgconf extra-cmake-modules go
+                  libinput systemd-libs fcitx5 fcitx5-configtool sdl3
+                  fontconfig)
+  if [[ "$ARECA_UPDATE_SYSTEM" == 1 ]]; then
+    echo "[areca] Updating Arch system and installing build dependencies"
+    sudo pacman -Syu --needed --noconfirm "${packages[@]}"
+    return
+  fi
+
+  # Không dùng pacman -Sy: refresh database rồi cài package mà không nâng toàn
+  # hệ thống là partial upgrade và không được Arch hỗ trợ.
+  echo "[areca] Installing Arch dependencies without refreshing or upgrading the system"
+  if ! sudo pacman -S --needed --noconfirm "${packages[@]}"; then
+    cat >&2 <<EOF
+[areca] Dependency installation failed without a system update.
+[areca] If dependencies are already installed, rerun with --skip-deps.
+[areca] To perform a supported full Arch upgrade, rerun with --system-update.
+EOF
+    return 1
+  fi
 }
 
 install_deps_fedora() {
@@ -152,6 +169,14 @@ while [[ $# -gt 0 ]]; do
       ARECA_INSTALL_DEPS=0
       shift
       ;;
+    --no-system-update)
+      ARECA_UPDATE_SYSTEM=0
+      shift
+      ;;
+    --system-update)
+      ARECA_UPDATE_SYSTEM=1
+      shift
+      ;;
     --skip-tests)
       ARECA_RUN_TESTS=0
       shift
@@ -170,6 +195,8 @@ Options:
   --build-dir PATH       CMake build directory (default: ./build)
   --build-type TYPE      CMake build type (default: RelWithDebInfo)
   --skip-deps            Do not install distro build dependencies
+  --no-system-update     Install Arch dependencies without pacman -Sy (default)
+  --system-update        Run pacman -Syu before building on Arch
   --skip-tests           Do not run CTest
   --no-restart           Do not attempt to restart Fcitx5
 

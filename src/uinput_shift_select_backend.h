@@ -9,6 +9,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/trackableobject.h>
 
+#include "event_loop_post.h"
 #include "rewrite_backend.h"
 #include "uinput_device.h"
 
@@ -30,6 +31,8 @@ public:
   bool hasPending() const { return transactionId_ != 0; }
 
 private:
+  enum class TimerDispatch { TimerCallback, PostEvent };
+
   void beginSelection();
   void sendNextSelectionLeft();
   void releaseShiftThenCommit();
@@ -38,11 +41,13 @@ private:
   void scheduleCommit();
   void completeWithoutCommit();
   void finishTransaction();
-  void schedule(uint32_t delayMs, std::function<void()> callback);
+  void schedule(uint32_t delayMs, TimerDispatch dispatch,
+                std::function<void()> callback);
   void clearPending();
 
   fcitx::EventLoop &eventLoop_;
   UinputDevice &device_;
+  EventLoopPostTask commitPost_;
   DebugProvider debugProvider_;
 
   std::unique_ptr<fcitx::EventSourceTime> timer_;
