@@ -72,7 +72,12 @@ areca: reliability first-probe
 areca: reliability first-probe force_forward=1 reason=program-compatibility-capability-mask-0x72
 areca: selected uinput-shift-select backend for browser
 areca: uinput-shift-select start tx=
-areca: uinput-select split commit (1ms)
+areca: uinput-shift-select left press tx=
+areca: uinput-shift-select left ack timeout tx=
+areca: uinput-select 2-step commit tx=
+areca: uinput-backspace start tx=
+areca: uinput-backspace press tx=
+areca: uinput-backspace ack timeout tx=
 areca: browser autocomplete or active selection strategy=
 areca: rewrite select backend=
 areca: forward-backspace start
@@ -105,6 +110,24 @@ Kiểm tra theo thứ tự:
 2. Số dòng `forward-backspace sent` có đủ không.
 3. `forward-backspace complete` có xuất hiện sau `after_wait_ms` không.
 4. Sau complete có `rewrite done` và post-commit barrier không.
+
+Khi log có `rewrite select backend=uinput-shift-select`, kiểm tra:
+
+1. `select_left=N` phải đi cùng `emit_left=N+1`.
+2. Các dòng `left press` từ `seen=1` tới `seen=N` phải có `action=forward`.
+3. Dòng `seen=N+1` phải có `action=filter`, sau đó backend mới Shift Up và
+   chờ mặc định 20 ms trước commit.
+4. Nếu có `left ack timeout`, tín hiệu N+1 không quay lại trong 20 ms; backend
+   đã hủy tracker và thả Shift bằng đường timeout.
+
+Khi log có `rewrite select backend=uinput-backspace`, kiểm tra tương tự:
+
+1. `backspaces=N` phải đi cùng `emit_backspaces=N+1`.
+2. N Backspace đầu phải có `action=forward`; Backspace N+1 phải là
+   `action=filter`.
+3. `ack timeout` nghĩa là tín hiệu xác nhận không quay lại trong 20 ms. Sau xác
+   nhận hoặc timeout, backend vẫn chạy settling wait theo frontend và
+   AdaptiveWait trước khi commit.
 
 ## Cấu hình cũ che default mới
 

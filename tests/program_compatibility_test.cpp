@@ -134,6 +134,11 @@ int main() {
   assert(plan.waylandSurroundingDeleteDelayMs == 0);
   assert(plan.afterSurroundingDeleteWaitMs == 1);
   assert(plan.dbusAfterBackspaceWaitMs == 10);
+  assert(plan.afterUinputShiftSelectWaitMs == 20);
+  assert(plan.waylandAfterUinputShiftSelectWaitMs == 20);
+  assert(plan.ximAfterUinputShiftSelectWaitMs == 20);
+  assert(plan.fcitx4AfterUinputShiftSelectWaitMs == 20);
+  assert(plan.dbusAfterUinputShiftSelectWaitMs == 20);
   plan.afterBackspaceWaitMs = 10;
   plan.waylandAfterBackspaceWaitMs = 3;
   plan.ximAfterBackspaceWaitMs = 10;

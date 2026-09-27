@@ -51,9 +51,10 @@ SurroundingTextBackend  UinputShiftSelectBackend    ForwardBackspaceBackend
 | `ReliabilityChecker` | Kiểm tra khả năng tương thích SurroundingText của ứng dụng ở lần gõ đầu tiên và quyết định chiến lược rewrite. |
 | `RewriteBackend` | Interface trừu tượng định nghĩa phương thức thực thi một `RewritePlan`. |
 | `SurroundingTextBackend` | Thực thi xóa văn bản qua API Fcitx `deleteSurroundingText()` và chèn chữ mới qua `commitString()`. |
-| `UinputShiftSelectBackend` | Phát phím phần sống kernel `Shift + Left` qua `/dev/uinput` để bôi đen đoạn chữ cũ, sau đó commit từng ký tự mới cho ứng dụng trình duyệt web. |
-| `UinputBackspaceBackend` | Phát phím phần sống kernel `KEY_BACKSPACE` qua `/dev/uinput` và dùng settling delay thích ứng theo timer drift cho terminal DBus và các ứng dụng không xác định. Terminal nhúng trong VS Code dùng `ForwardBackspaceBackend`. |
+| `UinputShiftSelectBackend` | Phát `Shift down` và `Left` × N+1 qua `/dev/uinput`; Fcitx forward N Left đầu, lọc lần xác nhận cuối, phát `Shift up`, chờ mặc định 20 ms rồi commit. Timeout xác nhận là 20 ms. |
+| `UinputBackspaceBackend` | Phát `KEY_BACKSPACE` × N+1 qua `/dev/uinput`; Fcitx forward N lần đầu, lọc lần xác nhận cuối rồi dùng settling delay thích ứng. Timeout xác nhận là 20 ms. Terminal nhúng trong VS Code dùng `ForwardBackspaceBackend`. |
 | `ForwardBackspaceBackend` | Phát phím Backspace tuần tự qua `InputContext::forwardKey()`, áp dụng settling delay thích ứng theo timer drift và commit chữ mới. |
+| `UinputKeyAckTracker` | Bộ đếm dùng chung cho Left và Backspace uinput; forward N cặp đầu, lọc cặp N+1 và chỉ báo hoàn tất một lần. |
 
 ---
 
@@ -151,21 +152,30 @@ sequenceDiagram
     B->>DEV: sendKeyEvent(KEY_LEFTSHIFT, 1) (Shift DOWN)
     B->>EL: addTimeEvent(UinputShiftSelectDelayMs = 1ms)
     
-    loop N = backspaceCount lần
+    loop N+1 lần
         EL-->>B: Timer callback
         B->>DEV: sendKeyEvent(KEY_LEFT, 1) -> (KEY_LEFT, 0)
         B->>EL: addTimeEvent(UinputShiftSelectDelayMs = 1ms)
     end
-    
-    EL-->>B: Timer callback (Bôi đen hoàn tất)
+
+    B->>EL: addTimeEvent(AckTimeout = 20ms)
+    alt Left thứ N+1 về trước timeout
+        DEV-->>IC: N Left đầu quay lại Fcitx
+        IC-->>B: forward N Left
+        DEV-->>IC: Left thứ N+1 quay lại Fcitx
+        IC-->>B: filter Left dư và hủy timeout
+    else Timeout về trước
+        EL-->>B: Ack timeout
+        B->>B: clear left tracker
+    end
     B->>DEV: sendKeyEvent(KEY_LEFTSHIFT, 0) (Shift UP)
-    B->>EL: addTimeEvent(AfterUinputShiftSelectWaitMs)
+    B->>EL: addTimeEvent(AfterUinputShiftSelectWaitMs = 20ms mặc định)
     
     EL-->>B: Timer callback (Settling wait hoàn tất)
     
     loop Lần lượt từng ký tự UTF-8 trong commitText
         B->>IC: commitString(utf8_char)
-        B->>EL: addTimeEvent(1ms)
+        B->>EL: addTimeEvent(5ms)
         EL-->>B: Timer callback
     end
     
@@ -188,12 +198,22 @@ sequenceDiagram
 
     S->>B: apply(inputContext, plan, onDone)
     
-    loop N = backspaceCount lần
+    loop N+1 lần
         B->>DEV: sendKeyEvent(KEY_BACKSPACE, 1) -> (KEY_BACKSPACE, 0)
         B->>EL: addTimeEvent(BackspaceDelayMs)
         EL-->>B: Timer callback
     end
-    
+
+    B->>EL: addTimeEvent(AckTimeout = 20ms)
+    alt Backspace thứ N+1 về trước timeout
+        DEV-->>IC: N Backspace đầu quay lại Fcitx
+        IC-->>B: forward N Backspace
+        DEV-->>IC: Backspace thứ N+1 quay lại Fcitx
+        IC-->>B: filter Backspace dư và hủy timeout
+    else Timeout về trước
+        EL-->>B: Ack timeout
+        B->>B: clear backspace tracker
+    end
     B->>EL: addTimeEvent(AfterBackspaceWaitMs)
     EL-->>B: Timer callback (Settling wait hoàn tất)
     B->>IC: commitString(commitText)
@@ -279,11 +299,11 @@ sequenceDiagram
 | `Fcitx4AfterBackspaceWaitMs` | Thời gian chờ sau phím Backspace cuối trên Fcitx4 (ms) | `10 ms` |
 | `DbusAfterBackspaceWaitMs` | Thời gian chờ sau phím Backspace cuối trên DBus (ms) | `10 ms` |
 | `UinputShiftSelectDelayMs` | Delay giữa các phím uinput Shift+Left (ms) | `1 ms` |
-| `AfterUinputShiftSelectWaitMs` | Thời gian chờ sau phím uinput Shift+Left cuối (ms) | `20 ms` |
-| `WaylandAfterUinputShiftSelectWaitMs` | Thời gian chờ sau phím uinput Shift+Left cuối Wayland (ms) | `10 ms` |
-| `XimAfterUinputShiftSelectWaitMs` | Thời gian chờ sau phím uinput Shift+Left cuối XIM (ms) | `20 ms` |
-| `Fcitx4AfterUinputShiftSelectWaitMs` | Thời gian chờ sau phím uinput Shift+Left cuối Fcitx4 (ms) | `20 ms` |
-| `DbusAfterUinputShiftSelectWaitMs` | Thời gian chờ sau phím uinput Shift+Left cuối DBus (ms) | `20 ms` |
+| `AfterUinputShiftSelectWaitMs` | Thời gian chờ sau khi thả Shift uinput (ms) | `20 ms` |
+| `WaylandAfterUinputShiftSelectWaitMs` | Thời gian chờ sau khi thả Shift uinput Wayland (ms) | `20 ms` |
+| `XimAfterUinputShiftSelectWaitMs` | Thời gian chờ sau khi thả Shift uinput XIM (ms) | `20 ms` |
+| `Fcitx4AfterUinputShiftSelectWaitMs` | Thời gian chờ sau khi thả Shift uinput Fcitx4 (ms) | `20 ms` |
+| `DbusAfterUinputShiftSelectWaitMs` | Thời gian chờ sau khi thả Shift uinput DBus (ms) | `20 ms` |
 | `SurroundingWaitMs` | Thời gian chờ sau xóa surrounding text | `3 ms` |
 | `PostCommitDelayMs` | Delay bảo vệ sau mỗi lượt commit (ms) | `20 ms` |
 | `PreciseTiming` | Sử dụng timer độ chính xác cao (1µs) | `True` |

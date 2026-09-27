@@ -6,6 +6,18 @@
 #include <fcitx-utils/log.h>
 
 namespace areca {
+namespace {
+
+// Backspace xác nhận và timer chạy đua trong cùng event loop. Timeout hủy bộ
+// đếm để Backspace đến muộn không thể bắt đầu commit lần thứ hai.
+constexpr uint32_t kBackspaceAckTimeoutMs = 20;
+
+bool isBackspaceKey(const fcitx::KeyEvent &event) {
+  return event.key().sym() == FcitxKey_BackSpace ||
+         event.rawKey().sym() == FcitxKey_BackSpace;
+}
+
+} // namespace
 
 UinputBackspaceBackend::UinputBackspaceBackend(fcitx::EventLoop &eventLoop,
                                                UinputDevice &device,
@@ -29,8 +41,14 @@ ApplyStatus UinputBackspaceBackend::apply(fcitx::InputContext &inputContext,
   transactionId_ = plan.transactionId;
   inputContext_ = inputContext.watch();
   onDone_ = std::move(onDone);
-  remainingBackspaces_ = plan.backspaceCount;
+  deletedCharacters_ = plan.backspaceCount;
+  // Backspace dư là mốc xác nhận. Nó quay lại Fcitx nhưng bị filter nên ứng
+  // dụng vẫn chỉ nhận đúng số Backspace cần xóa.
+  remainingBackspaces_ = deletedCharacters_ + 1;
   sentBackspaces_ = 0;
+  backspaceTracker_.reset(deletedCharacters_);
+  // Kế hoạch không xóa ký tự nào không mở cửa sổ nhận Backspace xác nhận.
+  backspaceAckTimedOut_ = deletedCharacters_ == 0;
   backspaceDelayMs_ = plan.backspaceDelayMs;
   const char *frontend = inputContext.frontend();
   afterBackspaceWaitMs_ = resolveAfterBackspaceWaitMs(frontend, plan);
@@ -39,7 +57,8 @@ ApplyStatus UinputBackspaceBackend::apply(fcitx::InputContext &inputContext,
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: uinput-backspace start tx=" << transactionId_
-                 << " backspaces=" << remainingBackspaces_
+                 << " backspaces=" << deletedCharacters_
+                 << " emit_backspaces=" << remainingBackspaces_
                  << " delay_ms=" << backspaceDelayMs_
                  << " after_wait_ms=" << afterBackspaceWaitMs_
                  << " adaptive_extra_ms="
@@ -48,7 +67,7 @@ ApplyStatus UinputBackspaceBackend::apply(fcitx::InputContext &inputContext,
                  << " accuracy_us=" << timerAccuracyUsec_;
   }
 
-  if (!remainingBackspaces_) {
+  if (!deletedCharacters_) {
     scheduleCommit();
   } else {
     sendNextBackspace();
@@ -78,8 +97,62 @@ void UinputBackspaceBackend::sendNextBackspace() {
   if (remainingBackspaces_) {
     scheduleNextBackspace();
   } else {
+    // Không commit theo timer ngay sau lần phát cuối. Chờ Backspace dư quay
+    // lại Fcitx; timer chỉ là đường thoát khi event xác nhận bị mất.
+    schedule(kBackspaceAckTimeoutMs, TimerDispatch::TimerCallback, [this]() {
+      if (debugProvider_()) {
+        FCITX_INFO() << "areca: uinput-backspace ack timeout tx="
+                     << transactionId_
+                     << " seen=" << backspaceTracker_.pressesSeen()
+                     << " expected=" << backspaceTracker_.expectedPresses();
+      }
+      backspaceAckTimedOut_ = true;
+      backspaceTracker_.clear();
+      scheduleCommit();
+    });
+  }
+}
+
+bool UinputBackspaceBackend::handleBackspace(fcitx::KeyEvent &event) {
+  if (!hasPending() || backspaceAckTimedOut_ ||
+      event.inputContext() != inputContext_.get() || !isBackspaceKey(event)) {
+    return false;
+  }
+
+  if (event.isRelease()) {
+    const bool filter = backspaceTracker_.shouldFilterRelease();
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: uinput-backspace release tx=" << transactionId_
+                   << " seen=" << backspaceTracker_.releasesSeen()
+                   << " expected=" << backspaceTracker_.expectedPresses()
+                   << " action=" << (filter ? "filter" : "forward");
+    }
+    if (filter) {
+      event.filterAndAccept();
+    } else {
+      event.forward();
+    }
+    return true;
+  }
+
+  const auto action = backspaceTracker_.observePress();
+  const bool forward = action == UinputKeyAckTracker::PressAction::Forward;
+  if (debugProvider_()) {
+    FCITX_INFO() << "areca: uinput-backspace press tx=" << transactionId_
+                 << " seen=" << backspaceTracker_.pressesSeen()
+                 << " expected=" << backspaceTracker_.expectedPresses()
+                 << " action=" << (forward ? "forward" : "filter");
+  }
+  if (forward) {
+    event.forward();
+  } else {
+    event.filterAndAccept();
+  }
+
+  if (action == UinputKeyAckTracker::PressAction::FilterAndAcknowledge) {
     scheduleCommit();
   }
+  return true;
 }
 
 void UinputBackspaceBackend::scheduleNextBackspace() {
@@ -228,11 +301,14 @@ void UinputBackspaceBackend::clearPending() {
   inputContext_.unwatch();
   onDone_ = {};
   transactionId_ = 0;
+  deletedCharacters_ = 0;
   remainingBackspaces_ = 0;
   sentBackspaces_ = 0;
+  backspaceTracker_.clear();
   backspaceDelayMs_ = 0;
   afterBackspaceWaitMs_ = 0;
   timerAccuracyUsec_ = 1;
+  backspaceAckTimedOut_ = false;
   commitText_.clear();
 }
 

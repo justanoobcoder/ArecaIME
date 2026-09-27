@@ -7,6 +7,18 @@
 #include <fcitx-utils/utf8.h>
 
 namespace areca {
+namespace {
+
+// Left xác nhận và timer này chạy đua trong cùng event loop. Bên nào tới trước
+// sẽ thả Shift; timeout đồng thời hủy bộ đếm để Left đến muộn không xử lý lại.
+constexpr uint32_t kSelectionAckTimeoutMs = 20;
+
+bool isLeftKey(const fcitx::KeyEvent &event) {
+  return event.key().sym() == FcitxKey_Left ||
+         event.rawKey().sym() == FcitxKey_Left;
+}
+
+} // namespace
 
 UinputShiftSelectBackend::UinputShiftSelectBackend(fcitx::EventLoop &eventLoop,
                                                    UinputDevice &device,
@@ -28,8 +40,12 @@ ApplyStatus UinputShiftSelectBackend::apply(fcitx::InputContext &inputContext,
   transactionId_ = plan.transactionId;
   inputContext_ = inputContext.watch();
   onDone_ = std::move(onDone);
-  selectionCount_ = plan.backspaceCount;
   selectedCharacters_ = plan.backspaceCount;
+  // Phát dư một Left làm mốc xác nhận. Left cuối sẽ quay lại Fcitx và bị lọc,
+  // nhờ vậy Shift chỉ được thả sau khi N Left chọn thật đã đi qua hàng đợi.
+  selectionCount_ = selectedCharacters_ + 1;
+  leftTracker_.reset(selectedCharacters_);
+  leftAckTimedOut_ = false;
   shiftSelectDelayMs_ = plan.uinputShiftSelectDelayMs;
   const char *frontend = inputContext.frontend();
   afterSelectWaitMs_ = resolveAfterUinputShiftSelectWaitMs(frontend, plan);
@@ -38,14 +54,15 @@ ApplyStatus UinputShiftSelectBackend::apply(fcitx::InputContext &inputContext,
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: uinput-shift-select start tx=" << transactionId_
-                 << " select_left=" << selectionCount_
+                 << " select_left=" << selectedCharacters_
+                 << " emit_left=" << selectionCount_
                  << " delay_ms=" << shiftSelectDelayMs_
                  << " after_wait_ms=" << afterSelectWaitMs_
                  << " frontend=" << (frontend ? frontend : "")
                  << " accuracy_us=" << timerAccuracyUsec_;
   }
 
-  if (!selectionCount_) {
+  if (!selectedCharacters_) {
     scheduleCommit();
   } else {
     beginSelection();
@@ -85,9 +102,64 @@ void UinputShiftSelectBackend::sendNextSelectionLeft() {
     return;
   }
 
-  // Last Left done — delay before Shift UP.
-  schedule(shiftSelectDelayMs_, TimerDispatch::TimerCallback,
-           [this]() { releaseShiftThenCommit(); });
+  // Không thả Shift theo timer nữa. Chờ Left dư quay lại Fcitx để biết N Left
+  // chọn thật đã được nhận; timer này chỉ là đường thoát an toàn khi mất event.
+  schedule(kSelectionAckTimeoutMs, TimerDispatch::TimerCallback, [this]() {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: uinput-shift-select left ack timeout tx="
+                   << transactionId_ << " seen=" << leftTracker_.pressesSeen()
+                   << " expected=" << leftTracker_.expectedPresses();
+    }
+    // Timeout thắng cuộc đua: hủy context đếm trước khi thả Shift. Left đến
+    // muộn sẽ đi theo pipeline phím thông thường và không thể hoàn tất lần hai.
+    leftAckTimedOut_ = true;
+    leftTracker_.clear();
+    releaseShiftThenCommit();
+  });
+}
+
+bool UinputShiftSelectBackend::handleSelectionLeft(fcitx::KeyEvent &event) {
+  if (!hasPending() || leftAckTimedOut_ ||
+      event.inputContext() != inputContext_.get() || !isLeftKey(event)) {
+    return false;
+  }
+
+  if (event.isRelease()) {
+    const bool filter = leftTracker_.shouldFilterRelease();
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: uinput-shift-select left release tx="
+                   << transactionId_ << " seen=" << leftTracker_.releasesSeen()
+                   << " expected=" << leftTracker_.expectedPresses()
+                   << " action=" << (filter ? "filter" : "forward");
+    }
+    if (filter) {
+      event.filterAndAccept();
+    } else {
+      event.forward();
+    }
+    return true;
+  }
+
+  const auto action = leftTracker_.observePress();
+  const bool forward = action == UinputKeyAckTracker::PressAction::Forward;
+  if (debugProvider_()) {
+    FCITX_INFO() << "areca: uinput-shift-select left press tx="
+                 << transactionId_ << " seen=" << leftTracker_.pressesSeen()
+                 << " expected=" << leftTracker_.expectedPresses()
+                 << " action=" << (forward ? "forward" : "filter");
+  }
+
+  if (forward) {
+    event.forward();
+  } else {
+    event.filterAndAccept();
+  }
+
+  if (action == UinputKeyAckTracker::PressAction::FilterAndAcknowledge) {
+    // Left dư đã tới Fcitx: lọc nó trước, sau đó mới phát Shift Up.
+    releaseShiftThenCommit();
+  }
+  return true;
 }
 
 void UinputShiftSelectBackend::releaseShiftThenCommit() {
@@ -218,10 +290,12 @@ void UinputShiftSelectBackend::clearPending() {
   transactionId_ = 0;
   selectionCount_ = 0;
   selectedCharacters_ = 0;
+  leftTracker_.clear();
   shiftSelectDelayMs_ = 0;
   afterSelectWaitMs_ = 0;
   timerAccuracyUsec_ = 1;
   shiftHeld_ = false;
+  leftAckTimedOut_ = false;
   commitText_.clear();
 }
 

@@ -111,7 +111,8 @@ Các invariant quan trọng:
 - Key đầu được xử lý ngay; key sau chỉ được pump khi commit/rewrite trước đã
   hoàn tất và qua `PostCommitDelayMs`.
 - Chỉ có một rewrite bất đồng bộ pending.
-- Không commit text mới trước khi phát đủ Backspace hoặc Shift+Left và hết settling wait.
+- Backend uinput chỉ commit sau khi nhận phím xác nhận `N+1` hoặc timeout 20 ms,
+  rồi đi hết settling wait tương ứng.
 - Phím mới vẫn được nhận vào queue khi backend đang chạy, nhưng chưa được xử lý.
 - Không `sleep()` trên main thread Fcitx5; mọi delay đều dùng event loop.
 
@@ -137,15 +138,21 @@ Khi tùy chọn `UseUinputShiftSelectForBrowser` được bật trên ứng dụ
 
 Backend này hoạt động theo cơ chế:
 1. Nhấn giữ phím `Shift` ảo qua thiết bị kernel `/dev/uinput`.
-2. Phát phím `Left` `N` lần để bôi đen chính xác số ký tự cũ cần sửa.
-3. Thả phím `Shift`, chờ khoảng settling delay (`AfterUinputShiftSelectWaitMs` / `WaylandAfterUinputShiftSelectWaitMs`).
-4. Commit chuỗi ký tự mới từng ký tự một (split commit với delay `1ms`).
+2. Muốn chọn `N` ký tự thì phát `Left` `N+1` lần. Fcitx đếm các sự kiện
+   quay lại, forward `N` lần đầu và filter lần cuối để không chọn dư.
+3. Chỉ thả `Shift` sau khi Fcitx nhận đủ `N+1` lần `Left`, rồi chờ settling
+   delay mặc định 20 ms trước khi commit. Người dùng có thể chỉnh riêng từng
+   frontend trong cấu hình nâng cao.
+4. Commit chuỗi ký tự mới theo hai bước với delay 5 ms giữa hai phần.
+
+Tín hiệu `Left` xác nhận chạy đua với watchdog 20 ms. Nếu watchdog tới trước,
+backend thả `Shift` và hủy context đếm để Left đến muộn không kích hoạt lại.
 
 Cơ chế bảo vệ: Nếu phát hiện trong ô nhập liệu đang có văn bản bôi đen sẵn (`cursor != anchor`) hoặc trình duyệt đang ở trạng thái Autocomplete gợi ý, hệ thống sẽ tự động chuyển sang `ForwardBackspaceBackend` (+1 phím Backspace phụ) để xóa an toàn vùng chọn cũ thay vì dùng phím `Shift+Left`.
 
 ### Uinput Backspace
 
-Khi `/dev/uinput` khả dụng và ứng dụng cần phát Backspace ở mức phần cứng kernel (như terminal DBus hoặc ứng dụng chưa xác định), Areca tự động dùng `UinputBackspaceBackend` gửi sự kiện `KEY_BACKSPACE` trực tiếp qua thiết bị uinput kernel rồi commit text mới. Terminal nhúng trong VS Code và các bản fork luôn dùng `ForwardBackspaceBackend`. Script cài đặt tự động tạo file rule `99-uinput-areca.rules` để phân quyền cho nhóm `uinput`.
+Khi `/dev/uinput` khả dụng và ứng dụng cần phát Backspace ở mức phần cứng kernel (như terminal DBus hoặc ứng dụng chưa xác định), Areca tự động dùng `UinputBackspaceBackend`. Muốn xóa `N` ký tự, backend phát `N+1` Backspace: Fcitx forward `N` lần đầu, filter lần xác nhận cuối rồi mới bắt đầu settling wait và commit. Tín hiệu xác nhận chạy đua với timeout 20 ms. Terminal nhúng trong VS Code và các bản fork luôn dùng `ForwardBackspaceBackend`. Script cài đặt tự động tạo file rule `99-uinput-areca.rules` để phân quyền cho nhóm `uinput`.
 
 ### Forward Backspace
 
@@ -347,6 +354,12 @@ WaylandAfterBackspaceWaitMs=3
 XimAfterBackspaceWaitMs=10
 Fcitx4AfterBackspaceWaitMs=10
 DbusAfterBackspaceWaitMs=10
+UinputShiftSelectDelayMs=1
+AfterUinputShiftSelectWaitMs=20
+WaylandAfterUinputShiftSelectWaitMs=20
+XimAfterUinputShiftSelectWaitMs=20
+Fcitx4AfterUinputShiftSelectWaitMs=20
+DbusAfterUinputShiftSelectWaitMs=20
 SurroundingWaitMs=3
 SurroundingDeleteDelayMs=10
 WaylandSurroundingDeleteDelayMs=0
@@ -377,6 +390,12 @@ UseSurroundingV2ForBrowser=False
 | Nâng cao | `XimAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend XIM, mặc định 10 ms. |
 | Nâng cao | `Fcitx4AfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend Fcitx4, mặc định 10 ms. |
 | Nâng cao | `DbusAfterBackspaceWaitMs` | Thời gian chờ riêng sau Backspace cuối cho frontend DBus, mặc định 10 ms. |
+| Nâng cao | `UinputShiftSelectDelayMs` | Delay giữa các phím uinput Shift+Left, mặc định 1 ms. |
+| Nâng cao | `AfterUinputShiftSelectWaitMs` | Chờ sau Shift Up cho frontend khác hoặc chưa xác định, mặc định 20 ms. |
+| Nâng cao | `WaylandAfterUinputShiftSelectWaitMs` | Chờ sau Shift Up trên Wayland, mặc định 20 ms. |
+| Nâng cao | `XimAfterUinputShiftSelectWaitMs` | Chờ sau Shift Up trên XIM, mặc định 20 ms. |
+| Nâng cao | `Fcitx4AfterUinputShiftSelectWaitMs` | Chờ sau Shift Up trên Fcitx4, mặc định 20 ms. |
+| Nâng cao | `DbusAfterUinputShiftSelectWaitMs` | Chờ sau Shift Up trên DBus, mặc định 20 ms. |
 | Nâng cao | `SurroundingWaitMs` | Thời gian chờ sau khi xóa surrounding text trước khi commit text mới, mặc định 3 ms. |
 | Nâng cao | `SurroundingDeleteDelayMs` | Delay giữa hai lệnh xóa surrounding liên tiếp của v2, mặc định 10 ms. |
 | Nâng cao | `WaylandSurroundingDeleteDelayMs` | Delay giữa hai lệnh xóa surrounding liên tiếp của v2 cho frontend Wayland, mặc định 0 ms. |

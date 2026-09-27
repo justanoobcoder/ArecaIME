@@ -24,10 +24,10 @@ struct RewritePlan {
   uint32_t dbusAfterBackspaceWaitMs = 10;
 
   uint32_t uinputShiftSelectDelayMs = 1;
-  uint32_t afterUinputShiftSelectWaitMs = 10;
-  uint32_t waylandAfterUinputShiftSelectWaitMs = 3;
-  uint32_t ximAfterUinputShiftSelectWaitMs = 10;
-  uint32_t fcitx4AfterUinputShiftSelectWaitMs = 10;
+  uint32_t afterUinputShiftSelectWaitMs = 20;
+  uint32_t waylandAfterUinputShiftSelectWaitMs = 20;
+  uint32_t ximAfterUinputShiftSelectWaitMs = 20;
+  uint32_t fcitx4AfterUinputShiftSelectWaitMs = 20;
   uint32_t dbusAfterUinputShiftSelectWaitMs = 20;
 
   uint32_t surroundingWaitMs = 3;

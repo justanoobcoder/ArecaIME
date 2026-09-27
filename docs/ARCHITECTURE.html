@@ -4139,15 +4139,19 @@ Wayland và Fcitx5.</p>
 </tr>
 <tr>
 <td><code>ForwardBackspaceBackend</code></td>
-<td>Phát tuần tự Backspace press/release bằng <code>forwardKey()</code>, chờ settling delay rồi commit text và hoàn tất transaction.</td>
+<td>Phát tuần tự Backspace press/release bằng <code>forwardKey()</code>, chờ settling delay thích ứng rồi commit text và hoàn tất transaction.</td>
 </tr>
 <tr>
 <td><code>UinputBackspaceBackend</code></td>
-<td>Gửi phím <code>KEY_BACKSPACE</code> qua <code>/dev/uinput</code> cho terminal DBus và ứng dụng không xác định.</td>
+<td>Gửi <code>KEY_BACKSPACE</code> × N+1 qua <code>/dev/uinput</code>; Fcitx forward N lần đầu, lọc lần xác nhận cuối rồi chờ settling delay thích ứng. Timeout xác nhận là 20 ms.</td>
 </tr>
 <tr>
 <td><code>UinputShiftSelectBackend</code></td>
-<td>Gửi <code>Shift down</code>, <code>Left</code> × N, <code>Shift up</code> qua <code>/dev/uinput</code> để bôi đen, sau đó commit từng ký tự mới cho các ứng dụng trình duyệt web.</td>
+<td>Gửi <code>Shift down</code> và <code>Left</code> × N+1 qua <code>/dev/uinput</code>; Fcitx forward N lần đầu, lọc lần xác nhận cuối, gửi <code>Shift up</code>, chờ mặc định 20 ms rồi commit.</td>
+</tr>
+<tr>
+<td><code>UinputKeyAckTracker</code></td>
+<td>Bộ đếm dùng chung cho Left và Backspace uinput; forward N cặp đầu, lọc cặp N+1 và chỉ báo hoàn tất một lần.</td>
 </tr>
 </tbody>
 </table>
@@ -4329,21 +4333,30 @@ frontend, vì không đủ dữ liệu để ép an toàn.</li>
     B-&gt;&gt;DEV: sendKeyEvent(KEY_LEFTSHIFT, 1) (Shift DOWN)
     B-&gt;&gt;EL: addTimeEvent(ShiftSelectDelayMs = 1ms)
     
-    loop N = backspaceCount lần
+    loop N+1 lần
         EL--&gt;&gt;B: Timer callback
         B-&gt;&gt;DEV: sendKeyEvent(KEY_LEFT, 1) -&gt; (KEY_LEFT, 0)
         B-&gt;&gt;EL: addTimeEvent(ShiftSelectDelayMs = 1ms)
     end
-    
-    EL--&gt;&gt;B: Timer callback (Bôi đen hoàn tất)
+
+    B-&gt;&gt;EL: addTimeEvent(AckTimeout = 20ms)
+    alt Left thứ N+1 về trước timeout
+        DEV--&gt;&gt;IC: N Left đầu quay lại Fcitx
+        IC--&gt;&gt;B: forward N Left
+        DEV--&gt;&gt;IC: Left thứ N+1 quay lại Fcitx
+        IC--&gt;&gt;B: filter Left dư và hủy timeout
+    else Timeout về trước
+        EL--&gt;&gt;B: Ack timeout
+        B-&gt;&gt;B: clear left tracker
+    end
     B-&gt;&gt;DEV: sendKeyEvent(KEY_LEFTSHIFT, 0) (Shift UP)
-    B-&gt;&gt;EL: addTimeEvent(AfterSelectWaitMs)
+    B-&gt;&gt;EL: addTimeEvent(AfterSelectWaitMs = 20ms mặc định)
     
     EL--&gt;&gt;B: Timer callback (Settling wait hoàn tất)
     
     loop Lần lượt từng ký tự UTF-8 trong commitText
         B-&gt;&gt;IC: commitString(utf8_char)
-        B-&gt;&gt;EL: addTimeEvent(1ms)
+        B-&gt;&gt;EL: addTimeEvent(5ms)
         EL--&gt;&gt;B: Timer callback
     end
     
@@ -4361,12 +4374,22 @@ frontend, vì không đủ dữ liệu để ép an toàn.</li>
 
     S-&gt;&gt;B: apply(inputContext, plan, onDone)
     
-    loop N = backspaceCount lần
+    loop N+1 lần
         B-&gt;&gt;DEV: sendKeyEvent(KEY_BACKSPACE, 1) -&gt; (KEY_BACKSPACE, 0)
         B-&gt;&gt;EL: addTimeEvent(BackspaceDelayMs)
         EL--&gt;&gt;B: Timer callback
     end
-    
+
+    B-&gt;&gt;EL: addTimeEvent(AckTimeout = 20ms)
+    alt Backspace thứ N+1 về trước timeout
+        DEV--&gt;&gt;IC: N Backspace đầu quay lại Fcitx
+        IC--&gt;&gt;B: forward N Backspace
+        DEV--&gt;&gt;IC: Backspace thứ N+1 quay lại Fcitx
+        IC--&gt;&gt;B: filter Backspace dư và hủy timeout
+    else Timeout về trước
+        EL--&gt;&gt;B: Ack timeout
+        B-&gt;&gt;B: clear backspace tracker
+    end
     B-&gt;&gt;EL: addTimeEvent(AfterBackspaceWaitMs)
     EL--&gt;&gt;B: Timer callback (Settling wait hoàn tất)
     B-&gt;&gt;IC: commitString(commitText)

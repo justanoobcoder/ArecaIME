@@ -12,6 +12,7 @@
 #include "event_loop_post.h"
 #include "rewrite_backend.h"
 #include "uinput_device.h"
+#include "uinput_key_ack_tracker.h"
 
 namespace areca {
 
@@ -30,6 +31,8 @@ public:
 
   bool isAvailable();
   bool hasPending() const { return transactionId_ != 0; }
+  // Xử lý Backspace uinput quay lại trong đúng transaction hiện tại.
+  bool handleBackspace(fcitx::KeyEvent &event);
 
 private:
   enum class TimerDispatch { TimerCallback, PostEvent };
@@ -59,11 +62,14 @@ private:
   fcitx::TrackableObjectReference<fcitx::InputContext> inputContext_;
   RewriteDone onDone_;
   uint64_t transactionId_ = 0;
+  uint32_t deletedCharacters_ = 0;
   uint32_t remainingBackspaces_ = 0;
   uint32_t sentBackspaces_ = 0;
+  UinputKeyAckTracker backspaceTracker_;
   uint32_t backspaceDelayMs_ = 0;
   uint32_t afterBackspaceWaitMs_ = 0;
   uint64_t timerAccuracyUsec_ = 1;
+  bool backspaceAckTimedOut_ = false;
   std::string commitText_;
 };
 

@@ -82,23 +82,23 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> afterUinputShiftSelectWaitMs{
         this, "AfterUinputShiftSelectWaitMs",
-        N_("Chờ sau phím uinput Shift+Left cuối (ms)"), 20,
+        N_("Chờ sau khi thả Shift uinput (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> waylandAfterUinputShiftSelectWaitMs{
         this, "WaylandAfterUinputShiftSelectWaitMs",
-        N_("Chờ sau phím uinput Shift+Left cuối Wayland (ms)"), 10,
+        N_("Chờ sau khi thả Shift uinput Wayland (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> ximAfterUinputShiftSelectWaitMs{
         this, "XimAfterUinputShiftSelectWaitMs",
-        N_("Chờ sau phím uinput Shift+Left cuối XIM (ms)"), 20,
+        N_("Chờ sau khi thả Shift uinput XIM (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterUinputShiftSelectWaitMs{
         this, "Fcitx4AfterUinputShiftSelectWaitMs",
-        N_("Chờ sau phím uinput Shift+Left cuối Fcitx4 (ms)"), 20,
+        N_("Chờ sau khi thả Shift uinput Fcitx4 (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> dbusAfterUinputShiftSelectWaitMs{
         this, "DbusAfterUinputShiftSelectWaitMs",
-        N_("Chờ sau phím uinput Shift+Left cuối DBus (ms)"), 20,
+        N_("Chờ sau khi thả Shift uinput DBus (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> surroundingWaitMs{
         this, "SurroundingWaitMs", N_("Chờ sau xóa surrounding text (ms)"), 3,

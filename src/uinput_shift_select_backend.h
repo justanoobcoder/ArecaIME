@@ -12,6 +12,7 @@
 #include "event_loop_post.h"
 #include "rewrite_backend.h"
 #include "uinput_device.h"
+#include "uinput_key_ack_tracker.h"
 
 namespace areca {
 
@@ -29,6 +30,9 @@ public:
 
   bool isAvailable();
   bool hasPending() const { return transactionId_ != 0; }
+  // Trả về true khi đây là Left do transaction hiện tại quản lý và event đã
+  // được forward hoặc filter ngay trong hàm này.
+  bool handleSelectionLeft(fcitx::KeyEvent &event);
 
 private:
   enum class TimerDispatch { TimerCallback, PostEvent };
@@ -56,10 +60,12 @@ private:
   uint64_t transactionId_ = 0;
   uint32_t selectionCount_ = 0;
   uint32_t selectedCharacters_ = 0;
+  UinputKeyAckTracker leftTracker_;
   uint32_t shiftSelectDelayMs_ = 0;
   uint32_t afterSelectWaitMs_ = 0;
   uint64_t timerAccuracyUsec_ = 1;
   bool shiftHeld_ = false;
+  bool leftAckTimedOut_ = false;
   std::string commitText_;
 };
 

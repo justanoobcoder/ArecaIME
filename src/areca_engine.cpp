@@ -601,6 +601,16 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
   if (!inputContext) {
     return;
   }
+  // Uinput-backspace dùng Backspace dư làm tín hiệu xác nhận. Backend phải
+  // nhận event trước RewriteMode để filter đúng phím dư và giữ nguyên state.
+  if (uinputBackspaceBackend_.handleBackspace(event)) {
+    return;
+  }
+  // Shift-select tự đếm Left uinput quay lại. N Left đầu được forward, Left dư
+  // thứ N+1 bị filter và là tín hiệu an toàn để backend thả Shift.
+  if (uinputShiftSelectBackend_.handleSelectionLeft(event)) {
+    return;
+  }
   if (!event.isRelease()) {
     // Resolve program một lần để nhận diện address bar dùng cùng verdict trong
     // toàn bộ lượt xử lý phím.
