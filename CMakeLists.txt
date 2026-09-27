@@ -155,6 +155,15 @@ foreach(ARECA_ICON_NAME
             RENAME "${ARECA_ICON_NAME}.svg")
 endforeach()
 
+# Icon riêng cho areca-settings — DE dùng tên này theo desktop file.
+set(ARECA_SETTINGS_ICON
+    "${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor/scalable/apps/areca-settings.svg")
+install(FILES "${ARECA_SETTINGS_ICON}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
+# /usr/share/pixmaps: fallback cuối cùng, mọi DE (GTK, Qt, XFCE, LXDE...) đều kiểm tra.
+install(FILES "${ARECA_SETTINGS_ICON}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/pixmaps")
+
 set(ARECA_SYMBOLIC_ICON
     "${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor/symbolic/apps/fcitx-areca-symbolic.svg")
 foreach(ARECA_ICON_NAME
