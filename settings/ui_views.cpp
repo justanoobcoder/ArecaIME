@@ -545,7 +545,9 @@ namespace areca::settings {
                 | ImGuiWindowFlags_NoTitleBar
         );
 
-        const float footerHeight = ImGui::GetFrameHeightWithSpacing() * (status.empty() ? 2.7F : 3.5F);
+        const float footerHeight = ImGui::GetFrameHeightWithSpacing() * 2.7F;
+        static double toastShownAt = -100.0;
+        static std::string prevStatus;
         static bool confirmReset = false;
         static int activeTab = 0;
         static int prevTab = 0;
@@ -812,16 +814,58 @@ namespace areca::settings {
             running = false;
         }
         ImGui::PopStyleColor(2);
-        if (!status.empty()) {
-            const bool warning =
-                status.find("nhưng") != std::string::npos || status.find("Khởi động lại") != std::string::npos;
-            const ImVec4* tc = ImGui::GetStyle().Colors;
-            ImGui::TextColored(warning ? tc[ImGuiCol_UnsavedMarker] : tc[ImGuiCol_SliderGrab], "%s", status.c_str());
+        if (!status.empty() && status != prevStatus) {
+            toastShownAt = ImGui::GetTime();
         }
+        prevStatus = status;
         ImGui::EndChild();
         ImGui::PopStyleVar(3);
         ImGui::PopStyleColor(2);
         ImGui::End();
+
+        // ── Toast overlay (góc trên-phải, nền accent, chữ trắng) ─────────────
+        constexpr double kToastDuration = 3.0;
+        const double elapsed = ImGui::GetTime() - toastShownAt;
+        if (elapsed < kToastDuration && !status.empty()) {
+            const float alpha = static_cast<float>(
+                elapsed < kToastDuration - 0.4 ? 1.0 : (kToastDuration - elapsed) / 0.4
+            );
+            const bool warning =
+                status.find("nhưng") != std::string::npos || status.find("Khởi động lại") != std::string::npos;
+
+            const ImGuiStyle& st = ImGui::GetStyle();
+            const ImVec4 accentRaw = warning ? st.Colors[ImGuiCol_UnsavedMarker] : st.Colors[ImGuiCol_SliderGrab];
+
+            constexpr float kPadX = 16.0F, kPadY = 10.0F, kRound = 10.0F, kMargin = 20.0F;
+            const ImVec2 textSize = ImGui::CalcTextSize(status.c_str());
+            const ImVec2 workPos  = ImGui::GetMainViewport()->WorkPos;
+            const ImVec2 workEnd  = ImVec2(
+                workPos.x + ImGui::GetMainViewport()->WorkSize.x,
+                workPos.y + ImGui::GetMainViewport()->WorkSize.y
+            );
+            // Góc trên-phải
+            const ImVec2 boxMin = ImVec2(workEnd.x - kMargin - textSize.x - kPadX * 2.0F,
+                                          workPos.y + kMargin);
+            const ImVec2 boxMax = ImVec2(workEnd.x - kMargin,
+                                          workPos.y + kMargin + textSize.y + kPadY * 2.0F);
+
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            // Nền accent
+            dl->AddRectFilled(
+                boxMin, boxMax,
+                IM_COL32(static_cast<int>(accentRaw.x * 255), static_cast<int>(accentRaw.y * 255),
+                          static_cast<int>(accentRaw.z * 255), static_cast<int>(alpha * 255)),
+                kRound
+            );
+            // Text trắng
+            dl->AddText(
+                ImVec2(boxMin.x + kPadX, boxMin.y + kPadY),
+                IM_COL32(255, 255, 255, static_cast<int>(alpha * 255)),
+                status.c_str()
+            );
+        } else if (elapsed >= kToastDuration) {
+            status.clear();
+        }
     }
 
 } // namespace areca::settings

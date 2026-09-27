@@ -4,6 +4,6 @@
 
 namespace areca::settings {
 
-bool reloadArecaAddon(std::string &errorMessage);
+bool reloadArecaAddon(std::string& errorMessage);
 
 } // namespace areca::settings
