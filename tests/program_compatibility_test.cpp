@@ -64,6 +64,16 @@ int main() {
   assert(!isVSCodeFamilyProgram("firefox"));
   assert(!isVSCodeFamilyProgram(""));
 
+  using areca::requiresForwardBackspaceBackend;
+  assert(requiresForwardBackspaceBackend("soffice.bin"));
+  assert(requiresForwardBackspaceBackend(
+      "/usr/lib/libreoffice/program/soffice.bin"));
+  assert(requiresForwardBackspaceBackend("libreoffice"));
+  assert(requiresForwardBackspaceBackend("LibreOffice.desktop"));
+  assert(!requiresForwardBackspaceBackend("soffice"));
+  assert(!requiresForwardBackspaceBackend("openoffice"));
+  assert(!requiresForwardBackspaceBackend(""));
+
   using areca::isTerminalProgram;
   assert(isTerminalProgram("ghostty"));
   assert(isTerminalProgram("com.mitchellh.ghostty"));

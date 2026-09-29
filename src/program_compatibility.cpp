@@ -287,6 +287,13 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
          isTerminalProgram(program);
 }
 
+bool requiresForwardBackspaceBackend(const std::string &rawProgram) {
+  const std::string program = normalizedProgramName(rawProgram);
+  static constexpr auto programs =
+      std::to_array<std::string_view>({"soffice.bin", "libreoffice"});
+  return std::find(programs.begin(), programs.end(), program) != programs.end();
+}
+
 bool isChromiumBrowser(const std::string &rawProgram) {
   const std::string program = normalizedProgramName(rawProgram);
   if (program.empty()) {

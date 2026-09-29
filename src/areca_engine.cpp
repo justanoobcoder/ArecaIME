@@ -281,6 +281,17 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
 
   const char *frontend = inputContext.frontend();
   const std::string program = resolveProgram(inputContext, state);
+
+  if (requiresForwardBackspaceBackend(program)) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: program compatibility selected "
+                      "forward-backspace backend"
+                   << " program=" << program
+                   << " backend=" << forwardBackspaceBackend_.name();
+    }
+    return {&forwardBackspaceBackend_};
+  }
+
   const bool isTerminal = inputTypeDetector_.isTerminal(program, frontend);
 
   if (isTerminal) {
