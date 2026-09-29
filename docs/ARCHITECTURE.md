@@ -242,8 +242,12 @@ Với kết quả đi qua `applyResult()` (phím đã được accept), khi `del
 
 Khi `deleteCount > 0`:
 
-1. `ReliabilityChecker` đánh giá input context.
-2. Checker lọc program trước. Chỉ khi program thuộc họ VS Code, là IDE/code
+1. `soffice.bin` và `libreoffice` dùng `UinputShiftSelectBackend` nếu
+   `UseUinputShiftSelectForLibreOffice` bật và `/dev/uinput` khả dụng. Các
+   trường hợp còn lại dùng `ForwardBackspaceBackend` và không đọc surrounding
+   text.
+2. `ReliabilityChecker` đánh giá input context.
+3. Checker lọc program trước. Chỉ khi program thuộc họ VS Code, là IDE/code
    editor/developer tool, hoặc là terminal Linux đã biết thì checker mới đọc và
    so sánh capability mask. Nếu mask chính xác là `0x72`, checker cache
    `forceForwardBackspace` rồi chọn `ForwardBackspaceBackend`. Các ứng dụng
@@ -251,9 +255,9 @@ Khi `deleteCount > 0`:
    chọn forward backend theo policy mặc định.
    Program name rỗng cũng nằm ngoài allowlist và không được fallback theo
    frontend, vì không đủ dữ liệu để ép an toàn.
-3. Nếu `UseUinputShiftSelectForBrowser` bật, ứng dụng là trình duyệt web và `/dev/uinput` khả dụng: chọn `UinputShiftSelectBackend`. Tuy nhiên nếu phát hiện đang có bôi đen sẵn (`cursor != anchor`) hoặc có `browserAutocomplete`, hệ thống hủy chọn uinput-shift-select và fallback về `ForwardBackspaceBackend` (+1 phím Backspace phụ) để đảm bảo an toàn.
-4. Verdict reliable còn lại chọn `SurroundingTextBackend`.
-5. Verdict unreliable chọn `ForwardBackspaceBackend`.
+4. Nếu `UseUinputShiftSelectForBrowser` bật, ứng dụng là trình duyệt web và `/dev/uinput` khả dụng: chọn `UinputShiftSelectBackend`. Tuy nhiên nếu phát hiện đang có bôi đen sẵn (`cursor != anchor`) hoặc có `browserAutocomplete`, hệ thống hủy chọn uinput-shift-select và fallback về `ForwardBackspaceBackend` (+1 phím Backspace phụ) để đảm bảo an toàn.
+5. Verdict reliable còn lại chọn `SurroundingTextBackend`.
+6. Verdict unreliable chọn `ForwardBackspaceBackend`.
 
 ## Sơ đồ Sequence chi tiết các Backend và Selection Logic
 

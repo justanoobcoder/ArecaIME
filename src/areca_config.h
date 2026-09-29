@@ -126,6 +126,9 @@ FCITX_CONFIGURATION(
     fcitx::Option<bool> useUinputShiftSelectForBrowser{
         this, "UseUinputShiftSelectForBrowser",
         N_("Ép uinput Shift+Left cho trình duyệt"), false};
+    fcitx::Option<bool> useUinputShiftSelectForLibreOffice{
+        this, "UseUinputShiftSelectForLibreOffice",
+        N_("Bật mode Shift Left cho LibreOffice"), true};
     fcitx::Option<bool> useSurroundingV2ForBrowser{
         this, "UseSurroundingV2ForBrowser",
         N_("Ép surrounding text v2 cho trình duyệt"), false};

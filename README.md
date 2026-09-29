@@ -404,6 +404,7 @@ UseSurroundingV2ForBrowser=False
 | Nâng cao | `BackspaceRecovery` | Bật khôi phục lỗi chính tả khi nhấn Backspace trong lúc Bamboo còn composition ở cả `Rewrite` và `Preedit`, ví dụ `nhanhsh` + Backspace có thể khôi phục về `nhánh`. Mặc định `True`. |
 | Nâng cao | `PreciseTiming` | Dùng accuracy `1µs` cho timer Backspace và post-commit; nếu tắt sẽ dùng timer coalescing mặc định của event loop. |
 | Nâng cao | `ForceUinput` | Ép dùng uinput thay cho forward Backspace khi khả dụng, mặc định `False`. |
+| Nâng cao | `UseUinputShiftSelectForLibreOffice` | Ép `soffice.bin` và `libreoffice` dùng uinput Shift+Left khi khả dụng, mặc định `True`; nếu tắt hoặc uinput không khả dụng thì dùng forward Backspace. |
 | Nâng cao | `UseSurroundingV2ForBrowser` | Ép dùng surrounding text v2 xóa từng ký tự khi ứng dụng là trình duyệt, mặc định `False`. |
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.

@@ -283,10 +283,22 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const std::string program = resolveProgram(inputContext, state);
 
   if (requiresForwardBackspaceBackend(program)) {
+    if (advancedConfig_.useUinputShiftSelectForLibreOffice.value() &&
+        uinputShiftSelectBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO()
+            << "areca: LibreOffice selected uinput-shift-select backend"
+            << " program=" << program
+            << " backend=" << uinputShiftSelectBackend_.name();
+      }
+      return {&uinputShiftSelectBackend_};
+    }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: program compatibility selected "
                       "forward-backspace backend"
                    << " program=" << program
+                   << " libreoffice_shift_select="
+                   << advancedConfig_.useUinputShiftSelectForLibreOffice.value()
                    << " backend=" << forwardBackspaceBackend_.name();
     }
     return {&forwardBackspaceBackend_};
