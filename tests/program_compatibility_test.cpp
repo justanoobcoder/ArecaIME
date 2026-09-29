@@ -70,6 +70,10 @@ int main() {
       "/usr/lib/libreoffice/program/soffice.bin"));
   assert(requiresForwardBackspaceBackend("libreoffice"));
   assert(requiresForwardBackspaceBackend("LibreOffice.desktop"));
+  assert(requiresForwardBackspaceBackend("DesktopEditors"));
+  assert(requiresForwardBackspaceBackend("/usr/bin/DesktopEditors"));
+  assert(requiresForwardBackspaceBackend("onlyoffice"));
+  assert(requiresForwardBackspaceBackend("ONLYOFFICE.desktop"));
   assert(!requiresForwardBackspaceBackend("soffice"));
   assert(!requiresForwardBackspaceBackend("openoffice"));
   assert(!requiresForwardBackspaceBackend(""));

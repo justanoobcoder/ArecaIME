@@ -242,10 +242,10 @@ Với kết quả đi qua `applyResult()` (phím đã được accept), khi `del
 
 Khi `deleteCount > 0`:
 
-1. `soffice.bin` và `libreoffice` dùng `UinputShiftSelectBackend` nếu
-   `UseUinputShiftSelectForLibreOffice` bật và `/dev/uinput` khả dụng. Các
-   trường hợp còn lại dùng `ForwardBackspaceBackend` và không đọc surrounding
-   text.
+1. `soffice.bin`, `libreoffice`, `DesktopEditors` và `onlyoffice` dùng
+   `UinputShiftSelectBackend` nếu `UseUinputShiftSelectForLibreOffice` bật và
+   `/dev/uinput` khả dụng. Các trường hợp còn lại dùng
+   `ForwardBackspaceBackend` và không đọc surrounding text.
 2. `ReliabilityChecker` đánh giá input context.
 3. Checker lọc program trước. Chỉ khi program thuộc họ VS Code, là IDE/code
    editor/developer tool, hoặc là terminal Linux đã biết thì checker mới đọc và

@@ -290,7 +290,8 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
 bool requiresForwardBackspaceBackend(const std::string &rawProgram) {
   const std::string program = normalizedProgramName(rawProgram);
   static constexpr auto programs =
-      std::to_array<std::string_view>({"soffice.bin", "libreoffice"});
+      std::to_array<std::string_view>(
+          {"soffice.bin", "libreoffice", "desktopeditors", "onlyoffice"});
   return std::find(programs.begin(), programs.end(), program) != programs.end();
 }
 

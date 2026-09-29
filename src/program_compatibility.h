@@ -11,8 +11,8 @@ bool isVSCodeBasedProgram(const std::string &program);
 // expose the otherwise reliable 0x72 capability mask.
 bool isVSCodeFamilyProgram(const std::string &program);
 
-// Programs whose surrounding text is unreliable and must use the
-// forward-Backspace backend.
+// Office programs whose surrounding text is unreliable and must use the
+// forward-Backspace compatibility path.
 bool requiresForwardBackspaceBackend(const std::string &program);
 
 // Known Linux terminal applications, excluding KDE terminals.

@@ -477,7 +477,7 @@ namespace areca::settings {
         checkbox("Dùng timer độ chính xác cao", config.advanced.preciseTiming);
         checkbox("Ép dùng uinput thay cho forward Backspace", config.advanced.forceUinput);
         checkbox("Ép uinput Shift+Left cho trình duyệt", config.advanced.useUinputShiftSelectForBrowser);
-        checkbox("Bật mode Shift Left cho LibreOffice", config.advanced.useUinputShiftSelectForLibreOffice);
+        checkbox("Bật mode Shift Left cho LibreOffice/ONLYOFFICE", config.advanced.useUinputShiftSelectForLibreOffice);
         checkbox("Ép surrounding text v2 cho trình duyệt", config.advanced.useSurroundingV2ForBrowser);
         checkbox("Tự reset bộ gõ sau khi click chuột", config.advanced.enableMouseTracking);
         checkbox("Chuyển tiếp phím đầu để tương thích trình duyệt", config.advanced.forwardFirstCharacter);
