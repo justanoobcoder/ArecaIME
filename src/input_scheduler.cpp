@@ -226,6 +226,14 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   plan.surroundingDeleteDelayMs = timing.surroundingDeleteDelayMs;
   plan.waylandSurroundingDeleteDelayMs = timing.waylandSurroundingDeleteDelayMs;
   plan.afterSurroundingDeleteWaitMs = timing.afterSurroundingDeleteWaitMs;
+  plan.xtestBackspaceDelayMs = timing.xtestBackspaceDelayMs;
+  plan.afterXTestBackspaceWaitMs = timing.afterXTestBackspaceWaitMs;
+  plan.waylandAfterXTestBackspaceWaitMs =
+      timing.waylandAfterXTestBackspaceWaitMs;
+  plan.ximAfterXTestBackspaceWaitMs = timing.ximAfterXTestBackspaceWaitMs;
+  plan.fcitx4AfterXTestBackspaceWaitMs =
+      timing.fcitx4AfterXTestBackspaceWaitMs;
+  plan.dbusAfterXTestBackspaceWaitMs = timing.dbusAfterXTestBackspaceWaitMs;
   plan.timerAccuracyUsec = timing.timerAccuracyUsec;
   plan.commitText = result.commitText;
 

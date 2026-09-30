@@ -22,6 +22,8 @@
 #include "uinput_backspace_backend.h"
 #include "uinput_device.h"
 #include "uinput_shift_select_backend.h"
+#include "xtest_backspace_backend.h"
+#include "xtest_device.h"
 
 namespace areca {
 
@@ -125,6 +127,8 @@ private:
   UinputDevice uinputDevice_;
   UinputBackspaceBackend uinputBackspaceBackend_;
   UinputShiftSelectBackend uinputShiftSelectBackend_;
+  XTestDevice xtestDevice_;
+  XTestBackspaceBackend xtestBackspaceBackend_;
   std::unique_ptr<fcitx::EventSourceTime> uinputWarmupTimer_;
   InputScheduler scheduler_;
   RewriteModeHandler rewriteHandler_;

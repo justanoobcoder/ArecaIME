@@ -13,6 +13,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
+find_package(X11 REQUIRED)
 
 add_executable(areca-mouse-monitor tools/mouse_monitor.cpp)
 target_compile_features(areca-mouse-monitor PRIVATE cxx_std_20)
@@ -70,7 +71,9 @@ add_library(areca MODULE
     src/uinput_shift_select_backend.cpp
     src/window_focus_tracker.cpp
     src/mouse_click_tracker.cpp
-    src/word_segment.cpp)
+    src/word_segment.cpp
+    src/xtest_backspace_backend.cpp
+    src/xtest_device.cpp)
 target_compile_definitions(areca PRIVATE
     ARECA_MOUSE_HELPER_PATH="${CMAKE_INSTALL_FULL_LIBEXECDIR}/areca-mouse-monitor"
     ARECA_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/areca-settings")
@@ -85,6 +88,8 @@ target_link_libraries(areca PRIVATE
     Fcitx5::Config
     Fcitx5::Utils
     ${DBUS_LIBRARIES}
+    X11::X11
+    X11::Xtst
     pthread dl m)
 
 if(ARECA_BUILD_SETTINGS)
@@ -288,6 +293,19 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-uinput-shift-select-test PRIVATE Fcitx5::Core Fcitx5::Utils)
     add_test(NAME uinput-shift-select COMMAND areca-uinput-shift-select-test)
+
+    add_executable(areca-xtest-backspace-test
+        tests/xtest_backspace_backend_test.cpp
+        src/xtest_backspace_backend.cpp
+        src/xtest_device.cpp)
+    target_compile_features(areca-xtest-backspace-test PRIVATE cxx_std_20)
+    target_compile_options(areca-xtest-backspace-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-xtest-backspace-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-xtest-backspace-test PRIVATE
+        Fcitx5::Core Fcitx5::Utils X11::X11 X11::Xtst)
+    add_test(NAME xtest-backspace COMMAND areca-xtest-backspace-test)
 
     add_executable(areca-surrounding-text-v2-test
         tests/surrounding_text_v2_backend_test.cpp

@@ -31,6 +31,12 @@ struct SchedulerTiming {
   uint32_t surroundingDeleteDelayMs = 10;
   uint32_t waylandSurroundingDeleteDelayMs = 0;
   uint32_t afterSurroundingDeleteWaitMs = 1;
+  uint32_t xtestBackspaceDelayMs = 1;
+  uint32_t afterXTestBackspaceWaitMs = 10;
+  uint32_t waylandAfterXTestBackspaceWaitMs = 3;
+  uint32_t ximAfterXTestBackspaceWaitMs = 10;
+  uint32_t fcitx4AfterXTestBackspaceWaitMs = 10;
+  uint32_t dbusAfterXTestBackspaceWaitMs = 10;
   uint32_t postCommitDelayMs = 20;
   uint64_t timerAccuracyUsec = 1;
 };

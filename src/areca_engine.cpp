@@ -25,8 +25,8 @@
 #include "browser_autocomplete.h"
 #include "program_compatibility.h"
 
-#include "window_focus_tracker.h"
 #include "mouse_click_tracker.h"
+#include "window_focus_tracker.h"
 
 namespace areca {
 namespace {
@@ -90,6 +90,10 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
                               [this]() { return debugEnabled(); }),
       uinputShiftSelectBackend_(instance_->eventLoop(), uinputDevice_,
                                 [this]() { return debugEnabled(); }),
+      xtestDevice_([this]() { return debugEnabled(); }),
+      xtestBackspaceBackend_(instance_->eventLoop(), xtestDevice_,
+                             adaptiveWait_,
+                             [this]() { return debugEnabled(); }),
       scheduler_(
           instance_->eventLoop(),
           [this](fcitx::InputContext &inputContext) -> VietnameseEngine * {
@@ -165,9 +169,10 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
   settingsAction_ = std::make_unique<fcitx::SimpleAction>();
   settingsAction_->setShortText("Areca Settings");
   settingsAction_->setIcon("configure");
-  settingsAction_->connect<fcitx::SimpleAction::Activated>([](fcitx::InputContext *) {
-    fcitx::startProcess({ARECA_SETTINGS_PATH});
-  });
+  settingsAction_->connect<fcitx::SimpleAction::Activated>(
+      [](fcitx::InputContext *) {
+        fcitx::startProcess({ARECA_SETTINGS_PATH});
+      });
   settingsAction_->registerAction("areca-settings",
                                   &instance_->userInterfaceManager());
 }
@@ -264,6 +269,10 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
   if (!state) {
+    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      return {&xtestBackspaceBackend_};
+    }
     return {&forwardBackspaceBackend_};
   }
 
@@ -294,11 +303,20 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       }
       return {&uinputShiftSelectBackend_};
     }
+    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO()
+            << "areca: office compatibility selected xtest backend (replacing uinput)"
+            << " program=" << program
+            << " backend=" << xtestBackspaceBackend_.name();
+      }
+      return {&xtestBackspaceBackend_};
+    }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: program compatibility selected "
                       "forward-backspace backend"
-                   << " program=" << program
-                   << " office_shift_select="
+                   << " program=" << program << " office_shift_select="
                    << advancedConfig_.useUinputShiftSelectForLibreOffice.value()
                    << " backend=" << forwardBackspaceBackend_.name();
     }
@@ -308,6 +326,15 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const bool isTerminal = inputTypeDetector_.isTerminal(program, frontend);
 
   if (isTerminal) {
+    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO() << "areca: terminal selected xtest backend (replacing uinput)"
+                     << " program=" << program
+                     << " backend=" << xtestBackspaceBackend_.name();
+      }
+      return {&xtestBackspaceBackend_};
+    }
     if (uinputBackspaceBackend_.isAvailable()) {
       if (debugEnabled()) {
         FCITX_INFO() << "areca: terminal selected uinput backend"
@@ -330,10 +357,12 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const bool hasSurrounding =
       capabilities.test(fcitx::CapabilityFlag::SurroundingText) &&
       surrounding.isValid();
-  // Bắt đầu: Nhận diện thanh địa chỉ Chromium khi SurroundingText không khả dụng hoặc không hợp lệ
+  // Bắt đầu: Nhận diện thanh địa chỉ Chromium khi SurroundingText không khả
+  // dụng hoặc không hợp lệ
   const bool inAddressBar =
       !hasSurrounding && inChromiumAddressBar(inputContext, program, state);
-  // Kết thúc: Nhận diện thanh địa chỉ Chromium khi SurroundingText không khả dụng hoặc không hợp lệ
+  // Kết thúc: Nhận diện thanh địa chỉ Chromium khi SurroundingText không khả
+  // dụng hoặc không hợp lệ
   const bool isUrl =
       capabilities.test(fcitx::CapabilityFlag::Url) || inAddressBar;
   const auto decision =
@@ -341,14 +370,15 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const bool hasActiveSelection =
       surrounding.isValid() && surrounding.cursor() != surrounding.anchor();
   const bool selectionMatchesCurrentText =
-      hasActiveSelection && isSelectionImmediatelyAfterText(
-                                surrounding.text(), surrounding.cursor(),
-                                surrounding.anchor(), result.currentText);
+      hasActiveSelection &&
+      isSelectionImmediatelyAfterText(surrounding.text(), surrounding.cursor(),
+                                      surrounding.anchor(), result.currentText);
 
   if (decision.browserAutocomplete || hasActiveSelection || inAddressBar) {
     uint32_t additional = 0;
     bool fullReplace = false;
-    // Bắt đầu: FullReplace và 1 Backspace phụ cho từ đầu tiên trong thanh địa chỉ
+    // Bắt đầu: FullReplace và 1 Backspace phụ cho từ đầu tiên trong thanh địa
+    // chỉ
     if (inAddressBar && state && state->addrBarIsFirstWord &&
         !state->addrBarHadSpace) {
       additional = 1;
@@ -356,7 +386,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     } else if (selectionMatchesCurrentText || decision.browserAutocomplete) {
       additional = 1;
     }
-    // Kết thúc: FullReplace và 1 Backspace phụ cho từ đầu tiên trong thanh địa chỉ
     if (debugEnabled()) {
       FCITX_INFO() << "areca: browser autocomplete or address bar strategy="
                    << forwardBackspaceBackend_.name() << " is_url=" << isUrl
@@ -423,6 +452,16 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
           << " backend=" << uinputShiftSelectBackend_.name();
     }
     return {&uinputShiftSelectBackend_};
+  }
+
+  if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+      xtestBackspaceBackend_.isAvailable()) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: selected xtest backend (replacing uinput)"
+                   << " program=" << program
+                   << " backend=" << xtestBackspaceBackend_.name();
+    }
+    return {&xtestBackspaceBackend_};
   }
 
   if (advancedConfig_.forceUinput.value() &&
@@ -503,10 +542,12 @@ void ArecaEngine::scheduleUinputWarmup() {
   uinputWarmupTimer_ = instance_->eventLoop().addTimeEvent(
       CLOCK_MONOTONIC, deadline, 0, [this](fcitx::EventSourceTime *, uint64_t) {
         auto timer = std::move(uinputWarmupTimer_);
-        const bool available = uinputDevice_.ensureDevice();
+        const bool uinputAvailable = uinputDevice_.ensureDevice();
+        const bool xtestAvailable = xtestDevice_.ensureDevice();
         if (debugEnabled()) {
-          FCITX_INFO() << "areca: uinput warmup completed"
-                       << " uinput-available=" << available;
+          FCITX_INFO() << "areca: device warmup completed"
+                       << " uinput-available=" << uinputAvailable
+                       << " xtest-available=" << xtestAvailable;
         }
         return false;
       });
@@ -657,9 +698,11 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
         mouseTracker_->clearPendingClick();
       }
     }
-    // Bắt đầu: Làm nóng trạng thái nhận diện thanh địa chỉ và cửa sổ trễ ngay từ ký tự đầu tiên
+    // Bắt đầu: Làm nóng trạng thái nhận diện thanh địa chỉ và cửa sổ trễ ngay
+    // từ ký tự đầu tiên
     inChromiumAddressBar(*inputContext, program, state);
-    // Kết thúc: Làm nóng trạng thái nhận diện thanh địa chỉ và cửa sổ trễ ngay từ ký tự đầu tiên
+    // Kết thúc: Làm nóng trạng thái nhận diện thanh địa chỉ và cửa sổ trễ ngay
+    // từ ký tự đầu tiên
 
     const auto key = event.key().normalize();
     if (key.sym() != FcitxKey_None &&
@@ -805,13 +848,23 @@ SchedulerTiming ArecaEngine::timing() const {
           advancedConfig_.waylandSurroundingDeleteDelayMs.value()),
       static_cast<uint32_t>(
           advancedConfig_.afterSurroundingDeleteWaitMs.value()),
+      static_cast<uint32_t>(advancedConfig_.xtestBackspaceDelayMs.value()),
+      static_cast<uint32_t>(advancedConfig_.afterXTestBackspaceWaitMs.value()),
+      static_cast<uint32_t>(
+          advancedConfig_.waylandAfterXTestBackspaceWaitMs.value()),
+      static_cast<uint32_t>(
+          advancedConfig_.ximAfterXTestBackspaceWaitMs.value()),
+      static_cast<uint32_t>(
+          advancedConfig_.fcitx4AfterXTestBackspaceWaitMs.value()),
+      static_cast<uint32_t>(
+          advancedConfig_.dbusAfterXTestBackspaceWaitMs.value()),
       static_cast<uint32_t>(advancedConfig_.postCommitDelayMs.value()),
       advancedConfig_.preciseTiming.value() ? 1U : 0U};
 }
 
 void ArecaEngine::applyConfig() {
-  // Tắt là hủy cả watcher, pipe, cờ click và process con; không chỉ bỏ qua reset.
-  // Khi bật lại, tạo tracker mới để không xử lý click tồn đọng từ trước.
+  // Tắt là hủy cả watcher, pipe, cờ click và process con; không chỉ bỏ qua
+  // reset. Khi bật lại, tạo tracker mới để không xử lý click tồn đọng từ trước.
   if (advancedConfig_.enableMouseTracking.value()) {
     if (!mouseTracker_) {
       mouseTracker_ = std::make_unique<MouseClickTracker>(
@@ -825,7 +878,8 @@ void ArecaEngine::applyConfig() {
   if (debugEnabled())
     FCITX_INFO() << "areca: input options mouse_tracking="
                  << advancedConfig_.enableMouseTracking.value()
-                 << " forward_first_character=" << advancedConfig_.forwardFirstCharacter.value();
+                 << " forward_first_character="
+                 << advancedConfig_.forwardFirstCharacter.value();
 
   if (scheduler_.rewritePending()) {
     return;

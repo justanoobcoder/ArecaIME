@@ -141,8 +141,15 @@ int main() {
 
   using areca::resolveAfterBackspaceWaitMs;
   using areca::resolveAfterUinputShiftSelectWaitMs;
+  using areca::resolveAfterXTestBackspaceWaitMs;
   using areca::resolveSurroundingDeleteDelayMs;
   areca::RewritePlan plan;
+  assert(plan.xtestBackspaceDelayMs == 1);
+  assert(plan.afterXTestBackspaceWaitMs == 10);
+  assert(plan.waylandAfterXTestBackspaceWaitMs == 3);
+  assert(plan.ximAfterXTestBackspaceWaitMs == 10);
+  assert(plan.fcitx4AfterXTestBackspaceWaitMs == 10);
+  assert(plan.dbusAfterXTestBackspaceWaitMs == 10);
   assert(plan.surroundingWaitMs == 3);
   assert(plan.surroundingDeleteDelayMs == 10);
   assert(plan.waylandSurroundingDeleteDelayMs == 0);
@@ -195,4 +202,19 @@ int main() {
   assert(resolveSurroundingDeleteDelayMs("fcitx4", plan) == 10);
   assert(resolveSurroundingDeleteDelayMs("unknown", plan) == 10);
   assert(resolveSurroundingDeleteDelayMs(nullptr, plan) == 10);
+
+  plan.afterXTestBackspaceWaitMs = 12;
+  plan.waylandAfterXTestBackspaceWaitMs = 4;
+  plan.ximAfterXTestBackspaceWaitMs = 14;
+  plan.fcitx4AfterXTestBackspaceWaitMs = 11;
+  plan.dbusAfterXTestBackspaceWaitMs = 6;
+
+  assert(resolveAfterXTestBackspaceWaitMs("wayland", plan) == 4);
+  assert(resolveAfterXTestBackspaceWaitMs("wayland_v2", plan) == 4);
+  assert(resolveAfterXTestBackspaceWaitMs("waylandim", plan) == 4);
+  assert(resolveAfterXTestBackspaceWaitMs("xim", plan) == 14);
+  assert(resolveAfterXTestBackspaceWaitMs("fcitx4", plan) == 11);
+  assert(resolveAfterXTestBackspaceWaitMs("dbus", plan) == 6);
+  assert(resolveAfterXTestBackspaceWaitMs("unknown", plan) == 12);
+  assert(resolveAfterXTestBackspaceWaitMs(nullptr, plan) == 12);
 }

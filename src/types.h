@@ -34,9 +34,37 @@ struct RewritePlan {
   uint32_t surroundingDeleteDelayMs = 10;
   uint32_t waylandSurroundingDeleteDelayMs = 0;
   uint32_t afterSurroundingDeleteWaitMs = 1;
+  uint32_t xtestBackspaceDelayMs = 1;
+  uint32_t afterXTestBackspaceWaitMs = 10;
+  uint32_t waylandAfterXTestBackspaceWaitMs = 3;
+  uint32_t ximAfterXTestBackspaceWaitMs = 10;
+  uint32_t fcitx4AfterXTestBackspaceWaitMs = 10;
+  uint32_t dbusAfterXTestBackspaceWaitMs = 10;
+
   uint64_t timerAccuracyUsec = 1;
   std::string commitText;
 };
+
+inline uint32_t resolveAfterXTestBackspaceWaitMs(const char *frontendName,
+                                                 const RewritePlan &plan) {
+  if (!frontendName) {
+    return plan.afterXTestBackspaceWaitMs;
+  }
+  const std::string_view fe(frontendName);
+  if (fe.starts_with("wayland")) {
+    return plan.waylandAfterXTestBackspaceWaitMs;
+  }
+  if (fe.starts_with("xim")) {
+    return plan.ximAfterXTestBackspaceWaitMs;
+  }
+  if (fe.starts_with("fcitx4")) {
+    return plan.fcitx4AfterXTestBackspaceWaitMs;
+  }
+  if (fe.starts_with("dbus")) {
+    return plan.dbusAfterXTestBackspaceWaitMs;
+  }
+  return plan.afterXTestBackspaceWaitMs;
+}
 
 inline uint32_t resolveAfterBackspaceWaitMs(const char *frontendName,
                                             const RewritePlan &plan) {

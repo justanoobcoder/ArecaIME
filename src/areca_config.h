@@ -115,14 +115,41 @@ FCITX_CONFIGURATION(
         this, "AfterSurroundingDeleteWaitMs",
         N_("Chờ sau lệnh xóa surrounding v2 cuối (ms)"), 1,
         fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> xtestBackspaceDelayMs{
+        this, "XTestBackspaceDelayMs",
+        N_("Delay giữa các Backspace XTest (ms)"), 1,
+        fcitx::IntConstrain(0, 1000)};
+    fcitx::Option<int, fcitx::IntConstrain> afterXTestBackspaceWaitMs{
+        this, "AfterXTestBackspaceWaitMs",
+        N_("Chờ sau Backspace cuối XTest (ms)"), 10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> waylandAfterXTestBackspaceWaitMs{
+        this, "WaylandAfterXTestBackspaceWaitMs",
+        N_("Chờ sau Backspace cuối XTest Wayland (ms)"), 3,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> ximAfterXTestBackspaceWaitMs{
+        this, "XimAfterXTestBackspaceWaitMs",
+        N_("Chờ sau Backspace cuối XTest XIM (ms)"), 10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterXTestBackspaceWaitMs{
+        this, "Fcitx4AfterXTestBackspaceWaitMs",
+        N_("Chờ sau Backspace cuối XTest Fcitx4 (ms)"), 10,
+        fcitx::IntConstrain(0, 5000)};
+    fcitx::Option<int, fcitx::IntConstrain> dbusAfterXTestBackspaceWaitMs{
+        this, "DbusAfterXTestBackspaceWaitMs",
+        N_("Chờ sau Backspace cuối XTest DBus (ms)"), 10,
+        fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<bool> preciseTiming{this, "PreciseTiming",
-                                      N_("Dùng timer độ chính xác cao"), true};
+        N_("Dùng timer độ chính xác cao"), true};
     fcitx::Option<bool> forceUinput{
         this, "ForceUinput", N_("Ép dùng uinput thay cho forward Backspace"),
         false};
+    fcitx::Option<bool> useXTestInsteadOfUinput{
+        this, "UseXTestInsteadOfUinput",
+        N_("Dùng XTest thay thế uinput"), false};
     fcitx::Option<bool> useUinputShiftSelectForBrowser{
         this, "UseUinputShiftSelectForBrowser",
         N_("Ép uinput Shift+Left cho trình duyệt"), false};
