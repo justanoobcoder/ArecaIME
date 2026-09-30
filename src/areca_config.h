@@ -150,6 +150,9 @@ FCITX_CONFIGURATION(
     fcitx::Option<bool> useXTestInsteadOfUinput{
         this, "UseXTestInsteadOfUinput",
         N_("Dùng XTest thay thế uinput"), false};
+    fcitx::Option<bool> useXTestInsteadOfForwardKey{
+        this, "UseXTestInsteadOfForwardKey",
+        N_("Dùng XTest thay thế ForwardKey"), false};
     fcitx::Option<bool> useUinputShiftSelectForBrowser{
         this, "UseUinputShiftSelectForBrowser",
         N_("Ép uinput Shift+Left cho trình duyệt"), false};

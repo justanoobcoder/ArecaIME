@@ -343,6 +343,16 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       }
       return {&uinputBackspaceBackend_};
     }
+    if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO()
+            << "areca: terminal selected xtest backend (replacing forwardKey)"
+            << " program=" << program
+            << " backend=" << xtestBackspaceBackend_.name();
+      }
+      return {&xtestBackspaceBackend_};
+    }
     if (debugEnabled()) {
       FCITX_INFO()
           << "areca: terminal fallback selected forward-backspace backend"
@@ -386,9 +396,14 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     } else if (selectionMatchesCurrentText || decision.browserAutocomplete) {
       additional = 1;
     }
+    RewriteBackend *backend = &forwardBackspaceBackend_;
+    if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      backend = &xtestBackspaceBackend_;
+    }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: browser autocomplete or address bar strategy="
-                   << forwardBackspaceBackend_.name() << " is_url=" << isUrl
+                   << backend->name() << " is_url=" << isUrl
                    << " in_address_bar=" << inAddressBar
                    << " active_selection=" << hasActiveSelection
                    << " selection_matches_current="
@@ -397,7 +412,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                    << " additional_backspaces=" << additional
                    << " bamboo_delete=" << result.deleteCount;
     }
-    return {&forwardBackspaceBackend_, additional, fullReplace};
+    return {backend, additional, fullReplace};
   }
 
   const bool isBrowserForShiftSelect =
@@ -454,25 +469,35 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     return {&uinputShiftSelectBackend_};
   }
 
-  if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+  if (advancedConfig_.forceUinput.value()) {
+    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO() << "areca: selected xtest backend (replacing uinput)"
+                     << " program=" << program
+                     << " backend=" << xtestBackspaceBackend_.name();
+      }
+      return {&xtestBackspaceBackend_};
+    }
+    if (uinputBackspaceBackend_.isAvailable()) {
+      if (debugEnabled()) {
+        FCITX_INFO()
+            << "areca: forced uinput backend for forward backspace fallback"
+            << " program=" << program
+            << " backend=" << uinputBackspaceBackend_.name();
+      }
+      return {&uinputBackspaceBackend_};
+    }
+  }
+
+  if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
       xtestBackspaceBackend_.isAvailable()) {
     if (debugEnabled()) {
-      FCITX_INFO() << "areca: selected xtest backend (replacing uinput)"
+      FCITX_INFO() << "areca: selected xtest backend (replacing forwardKey)"
                    << " program=" << program
                    << " backend=" << xtestBackspaceBackend_.name();
     }
     return {&xtestBackspaceBackend_};
-  }
-
-  if (advancedConfig_.forceUinput.value() &&
-      uinputBackspaceBackend_.isAvailable()) {
-    if (debugEnabled()) {
-      FCITX_INFO()
-          << "areca: forced uinput backend for forward backspace fallback"
-          << " program=" << program
-          << " backend=" << uinputBackspaceBackend_.name();
-    }
-    return {&uinputBackspaceBackend_};
   }
 
   return {&forwardBackspaceBackend_};

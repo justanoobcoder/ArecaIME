@@ -488,6 +488,7 @@ namespace areca::settings {
         checkbox("Dùng timer độ chính xác cao", config.advanced.preciseTiming);
         checkbox("Ép dùng uinput thay cho forward Backspace", config.advanced.forceUinput);
         checkbox("Dùng XTest thay thế uinput", config.advanced.useXTestInsteadOfUinput);
+        checkbox("Dùng XTest thay thế ForwardKey", config.advanced.useXTestInsteadOfForwardKey);
         checkbox("Ép uinput Shift+Left cho trình duyệt", config.advanced.useUinputShiftSelectForBrowser);
         checkbox("Bật mode Shift Left cho LibreOffice/ONLYOFFICE", config.advanced.useUinputShiftSelectForLibreOffice);
         checkbox("Ép surrounding text v2 cho trình duyệt", config.advanced.useSurroundingV2ForBrowser);
