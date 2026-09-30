@@ -267,9 +267,10 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
 
   activeTransactionId_ = plan.transactionId;
   const auto status =
-      backend.apply(inputContext, plan, [this](uint64_t transactionId) {
-        rewriteDone(transactionId);
-      });
+      backend.apply(inputContext, plan,
+                    [this](uint64_t transactionId, RewriteOutcome outcome) {
+                      rewriteDone(transactionId, outcome);
+                    });
   if (debugProvider_()) {
     FCITX_INFO() << "areca: rewrite apply backend=" << backend.name()
                  << " tx=" << plan.transactionId
@@ -287,12 +288,20 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
   }
 }
 
-void InputScheduler::rewriteDone(uint64_t transactionId) {
+void InputScheduler::rewriteDone(uint64_t transactionId,
+                                 RewriteOutcome outcome) {
   if (debugProvider_()) {
     FCITX_INFO() << "areca: rewrite done tx=" << transactionId
-                 << " active=" << activeTransactionId_;
+                 << " active=" << activeTransactionId_
+                 << " success=" << (outcome == RewriteOutcome::Succeeded);
   }
   if (!processing_ || transactionId != activeTransactionId_) {
+    return;
+  }
+  if (outcome == RewriteOutcome::Failed) {
+    FCITX_ERROR() << "areca: asynchronous rewrite backend failure tx="
+                  << transactionId;
+    stalled_ = true;
     return;
   }
   activeTransactionId_ = 0;

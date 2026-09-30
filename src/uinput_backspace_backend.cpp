@@ -223,7 +223,7 @@ void UinputBackspaceBackend::commitAndComplete() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 
@@ -237,7 +237,7 @@ void UinputBackspaceBackend::completeWithoutCommit() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 

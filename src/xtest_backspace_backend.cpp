@@ -7,7 +7,7 @@
 namespace areca {
 
 XTestBackspaceBackend::XTestBackspaceBackend(fcitx::EventLoop &eventLoop,
-                                             XTestDevice &device,
+                                             XTestBackspaceDevice &device,
                                              AdaptiveWait &adaptiveWait,
                                              DebugProvider debugProvider)
     : eventLoop_(eventLoop), device_(device), commitPost_(eventLoop),
@@ -49,20 +49,23 @@ ApplyStatus XTestBackspaceBackend::apply(fcitx::InputContext &inputContext,
 
   if (!remainingBackspaces_) {
     scheduleCommit();
-  } else {
-    sendNextBackspace();
+  } else if (!sendNextBackspace(false)) {
+    return ApplyStatus::Failed;
   }
   return ApplyStatus::Pending;
 }
 
-void XTestBackspaceBackend::sendNextBackspace() {
+bool XTestBackspaceBackend::sendNextBackspace(bool notifyFailure) {
   auto *inputContext = inputContext_.get();
   if (!inputContext) {
     completeWithoutCommit();
-    return;
+    return true;
   }
 
-  device_.sendBackspace();
+  if (!device_.sendBackspace()) {
+    failTransaction(notifyFailure);
+    return false;
+  }
   --remainingBackspaces_;
   ++sentBackspaces_;
 
@@ -76,6 +79,20 @@ void XTestBackspaceBackend::sendNextBackspace() {
     scheduleNextBackspace();
   } else {
     scheduleCommit();
+  }
+  return true;
+}
+
+void XTestBackspaceBackend::failTransaction(bool notifyFailure) {
+  const uint64_t transactionId = transactionId_;
+  auto onDone = std::move(onDone_);
+  adaptiveWait_.cancelTransaction();
+  FCITX_ERROR() << "areca: xtest-backspace send failed tx=" << transactionId
+                << " sent=" << sentBackspaces_
+                << " remaining=" << remainingBackspaces_;
+  clearPending();
+  if (notifyFailure && onDone) {
+    onDone(transactionId, RewriteOutcome::Failed);
   }
 }
 
@@ -145,7 +162,7 @@ void XTestBackspaceBackend::commitAndComplete() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 
@@ -159,7 +176,7 @@ void XTestBackspaceBackend::completeWithoutCommit() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 

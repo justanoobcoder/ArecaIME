@@ -29,7 +29,7 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
       updateSurroundingCacheAfterCommitV2(inputContext, plan.commitText);
     }
     if (onDone) {
-      onDone(plan.transactionId);
+      onDone(plan.transactionId, RewriteOutcome::Succeeded);
     }
     return ApplyStatus::Completed;
   }
@@ -111,7 +111,7 @@ void SurroundingTextV2Backend::commitAndComplete() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 
@@ -124,7 +124,7 @@ void SurroundingTextV2Backend::completeWithoutCommit() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 

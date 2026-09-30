@@ -14,7 +14,13 @@ enum class ApplyStatus {
   Failed,
 };
 
-using RewriteDone = std::function<void(uint64_t transactionId)>;
+enum class RewriteOutcome {
+  Succeeded,
+  Failed,
+};
+
+using RewriteDone =
+    std::function<void(uint64_t transactionId, RewriteOutcome outcome)>;
 
 class RewriteBackend {
 public:

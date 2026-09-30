@@ -52,8 +52,16 @@ bool XTestDevice::ensureDevice(const char *displayName) {
     return false;
   }
 
-  xtestSupported_ = true;
   backspaceKeycode_ = XKeysymToKeycode(display_, XK_BackSpace);
+  if (!backspaceKeycode_) {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: xtest BackSpace keycode unavailable on display "
+                   << (openTarget ? openTarget : "default");
+    }
+    closeDevice();
+    return false;
+  }
+  xtestSupported_ = true;
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: xtest device initialized successfully display="
@@ -80,10 +88,12 @@ bool XTestDevice::sendBackspace() {
     return false;
   }
 
-  XTestFakeKeyEvent(display_, backspaceKeycode_, True, CurrentTime);
-  XTestFakeKeyEvent(display_, backspaceKeycode_, False, CurrentTime);
+  const bool pressed =
+      XTestFakeKeyEvent(display_, backspaceKeycode_, True, CurrentTime);
+  const bool released =
+      XTestFakeKeyEvent(display_, backspaceKeycode_, False, CurrentTime);
   XFlush(display_);
-  return true;
+  return pressed && released;
 }
 
 bool XTestDevice::sendKey(uint32_t keysym, bool press) {
@@ -96,9 +106,10 @@ bool XTestDevice::sendKey(uint32_t keysym, bool press) {
     return false;
   }
 
-  XTestFakeKeyEvent(display_, code, press ? True : False, CurrentTime);
+  const bool sent =
+      XTestFakeKeyEvent(display_, code, press ? True : False, CurrentTime);
   XFlush(display_);
-  return true;
+  return sent;
 }
 
 } // namespace areca

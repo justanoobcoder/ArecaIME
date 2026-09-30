@@ -148,7 +148,7 @@ void ForwardBackspaceBackend::commitAndComplete() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 
@@ -162,7 +162,7 @@ void ForwardBackspaceBackend::completeWithoutCommit() {
   }
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 

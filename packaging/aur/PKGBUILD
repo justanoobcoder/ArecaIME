@@ -5,7 +5,15 @@ pkgdesc='Areca Vietnamese input method for Fcitx5 using the Bamboo engine'
 arch=('x86_64')
 url='https://github.com/xhkzeroone/ArecaIME'
 license=('MIT')
-depends=('fcitx5' 'libinput' 'systemd-libs' 'sdl3' 'fontconfig')
+depends=(
+  'fcitx5'
+  'libinput'
+  'systemd-libs'
+  'sdl3'
+  'fontconfig'
+  'libx11'
+  'libxtst'
+)
 makedepends=(
   'cmake'
   'extra-cmake-modules'
@@ -16,6 +24,8 @@ makedepends=(
   'dbus'
   'sdl3'
   'fontconfig'
+  'libx11'
+  'libxtst'
 )
 optdepends=('fcitx5-configtool: graphical configuration tool')
 _bamboo_commit='b2e49a2b48c7d3772a3673142a7747eccd9d5f79'

@@ -99,6 +99,8 @@ jobs:
             libfcitx5config-dev \
             libfcitx5utils-dev \
             libfontconfig-dev \
+            libx11-dev \
+            libxtst-dev \
             patchelf
           sudo gem install --no-document fpm
 
@@ -113,14 +115,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get install -y \
-            libx11-dev \
             libxext-dev \
             libxrandr-dev \
             libxcursor-dev \
             libxfixes-dev \
             libxi-dev \
             libxss-dev \
-            libxtst-dev \
             libxkbcommon-dev \
             libwayland-dev \
             wayland-protocols \
@@ -198,6 +198,8 @@ jobs:
             --depends fcitx5-frontend-gtk3 \
             --depends fcitx5-frontend-qt5 \
             --depends libfontconfig1 \
+            --depends libx11-6 \
+            --depends libxtst6 \
             "${sdl3_depend_args[@]}" \
             -C pkgroot \
             -p "dist/fcitx5-areca_${VERSION}_${{ matrix.package_suffix }}_amd64.deb" \
@@ -253,6 +255,8 @@ jobs:
                 ninja \
                 pkgconf \
                 fontconfig \
+                libx11 \
+                libxtst \
                 systemd-libs \
                 dbus \
                 sdl3
@@ -309,6 +313,8 @@ jobs:
                 SDL3-devel \
                 fontconfig \
                 fontconfig-devel \
+                libX11-devel \
+                libXtst-devel \
                 fcitx5 \
                 fcitx5-devel \
                 fcitx5-configtool
@@ -336,6 +342,8 @@ jobs:
                 --depends systemd-libs \
                 --depends SDL3 \
                 --depends fontconfig \
+                --depends libX11 \
+                --depends libXtst \
                 -C pkgroot-fedora \
                 -p "dist/fcitx5-areca-${VERSION}.fedora-latest.x86_64.rpm" \
                 .

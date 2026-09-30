@@ -19,7 +19,8 @@ class XTestBackspaceBackend final : public RewriteBackend {
 public:
   using DebugProvider = std::function<bool()>;
 
-  XTestBackspaceBackend(fcitx::EventLoop &eventLoop, XTestDevice &device,
+  XTestBackspaceBackend(fcitx::EventLoop &eventLoop,
+                        XTestBackspaceDevice &device,
                         AdaptiveWait &adaptiveWait,
                         DebugProvider debugProvider);
   ~XTestBackspaceBackend() override;
@@ -34,7 +35,8 @@ public:
 private:
   enum class TimerDispatch { TimerCallback, PostEvent };
 
-  void sendNextBackspace();
+  bool sendNextBackspace(bool notifyFailure = true);
+  void failTransaction(bool notifyFailure);
   void scheduleNextBackspace();
   void scheduleCommit();
   void commitAfterAdaptiveWait(uint32_t appliedExtraWaitMs);
@@ -49,7 +51,7 @@ private:
   void clearPending();
 
   fcitx::EventLoop &eventLoop_;
-  XTestDevice &device_;
+  XTestBackspaceDevice &device_;
   EventLoopPostTask commitPost_;
   AdaptiveWait &adaptiveWait_;
   DebugProvider debugProvider_;

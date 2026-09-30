@@ -8,18 +8,30 @@ typedef struct _XDisplay Display;
 
 namespace areca {
 
-class XTestDevice {
+class XTestBackspaceDevice {
+public:
+  virtual ~XTestBackspaceDevice() = default;
+  virtual bool isAvailable() = 0;
+  virtual bool sendBackspace() = 0;
+};
+
+class XTestDevice final : public XTestBackspaceDevice {
 public:
   using DebugProvider = std::function<bool()>;
 
   explicit XTestDevice(DebugProvider debugProvider);
-  ~XTestDevice();
+  ~XTestDevice() override;
 
-  bool isAvailable();
+  XTestDevice(const XTestDevice &) = delete;
+  XTestDevice &operator=(const XTestDevice &) = delete;
+  XTestDevice(XTestDevice &&) = delete;
+  XTestDevice &operator=(XTestDevice &&) = delete;
+
+  bool isAvailable() override;
   bool ensureDevice(const char *displayName = nullptr);
   void closeDevice();
   bool sendKey(uint32_t keysym, bool press);
-  bool sendBackspace();
+  bool sendBackspace() override;
 
 private:
   DebugProvider debugProvider_;

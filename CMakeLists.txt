@@ -13,7 +13,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
-find_package(X11 REQUIRED)
+pkg_check_modules(X11_CLIENT REQUIRED IMPORTED_TARGET x11)
+pkg_check_modules(XTEST REQUIRED IMPORTED_TARGET xtst)
 
 add_executable(areca-mouse-monitor tools/mouse_monitor.cpp)
 target_compile_features(areca-mouse-monitor PRIVATE cxx_std_20)
@@ -88,8 +89,8 @@ target_link_libraries(areca PRIVATE
     Fcitx5::Config
     Fcitx5::Utils
     ${DBUS_LIBRARIES}
-    X11::X11
-    X11::Xtst
+    PkgConfig::X11_CLIENT
+    PkgConfig::XTEST
     pthread dl m)
 
 if(ARECA_BUILD_SETTINGS)
@@ -296,15 +297,14 @@ if(BUILD_TESTING)
 
     add_executable(areca-xtest-backspace-test
         tests/xtest_backspace_backend_test.cpp
-        src/xtest_backspace_backend.cpp
-        src/xtest_device.cpp)
+        src/xtest_backspace_backend.cpp)
     target_compile_features(areca-xtest-backspace-test PRIVATE cxx_std_20)
     target_compile_options(areca-xtest-backspace-test PRIVATE
         -Wall -Wextra -Wpedantic -UNDEBUG)
     target_include_directories(areca-xtest-backspace-test PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(areca-xtest-backspace-test PRIVATE
-        Fcitx5::Core Fcitx5::Utils X11::X11 X11::Xtst)
+        Fcitx5::Core Fcitx5::Utils)
     add_test(NAME xtest-backspace COMMAND areca-xtest-backspace-test)
 
     add_executable(areca-surrounding-text-v2-test

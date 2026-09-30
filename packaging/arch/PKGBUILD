@@ -5,7 +5,15 @@ pkgdesc='Areca Vietnamese input method for Fcitx5'
 arch=('x86_64')
 url='https://github.com/xhkzeroone/ArecaIME'
 license=('MIT')
-depends=('fcitx5' 'libinput' 'systemd-libs' 'sdl3' 'fontconfig')
+depends=(
+  'fcitx5'
+  'libinput'
+  'systemd-libs'
+  'sdl3'
+  'fontconfig'
+  'libx11'
+  'libxtst'
+)
 makedepends=(
   'cmake'
   'extra-cmake-modules'
@@ -15,6 +23,8 @@ makedepends=(
   'dbus'
   'sdl3'
   'fontconfig'
+  'libx11'
+  'libxtst'
 )
 source=("${pkgname}-${pkgver}.tar.gz")
 sha256sums=('SKIP')

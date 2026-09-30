@@ -77,7 +77,13 @@ public:
   void complete() {
     assert(onDone_);
     auto onDone = std::move(onDone_);
-    onDone(transactionId_);
+    onDone(transactionId_, areca::RewriteOutcome::Succeeded);
+  }
+
+  void fail() {
+    assert(onDone_);
+    auto onDone = std::move(onDone_);
+    onDone(transactionId_, areca::RewriteOutcome::Failed);
   }
 
 private:
@@ -185,4 +191,27 @@ int main() {
   assert(barrierInputContext.commitTimesUsec.size() == 1);
   assert(barrierInputContext.commitTimesUsec.front() - forwardStartUsec >=
          20000);
+
+  // Lỗi bất đồng bộ không được mở khóa queue vì trạng thái editor đã không còn
+  // xác định. Scheduler phải giữ fail-closed giống lỗi apply đồng bộ.
+  fcitx::EventLoop failureEventLoop;
+  TestInputContext failureInputContext(manager);
+  TestEngine failureEngine;
+  PendingBackend failureBackend;
+  areca::InputScheduler failureScheduler(
+      failureEventLoop,
+      [&](fcitx::InputContext &) -> areca::VietnameseEngine * {
+        return &failureEngine;
+      },
+      [] { return areca::SchedulerTiming{}; }, [] { return false; },
+      [&](fcitx::InputContext &, const areca::BambooResult &result) {
+        return areca::RewriteBackendSelection{
+            result.deleteCount ? &failureBackend : nullptr};
+      });
+
+  failureScheduler.enqueue(failureInputContext, 'r', "r");
+  assert(failureScheduler.rewritePending());
+  failureBackend.fail();
+  assert(failureScheduler.stalled());
+  assert(failureScheduler.rewritePending());
 }

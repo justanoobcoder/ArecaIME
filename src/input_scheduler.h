@@ -86,7 +86,7 @@ private:
   void finishKey();
   void finishKeyAfterDelay();
   void finishKeyAfterCommit();
-  void rewriteDone(uint64_t transactionId);
+  void rewriteDone(uint64_t transactionId, RewriteOutcome outcome);
 
   fcitx::EventLoop &eventLoop_;
   EngineResolver engineResolver_;

@@ -248,7 +248,7 @@ void UinputShiftSelectBackend::finishTransaction() {
   auto onDone = std::move(onDone_);
   clearPending();
   if (onDone) {
-    onDone(transactionId);
+    onDone(transactionId, RewriteOutcome::Succeeded);
   }
 }
 
