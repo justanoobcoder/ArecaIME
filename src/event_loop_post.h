@@ -18,9 +18,11 @@ public:
 
   void schedule(std::function<void()> callback) {
     source_.reset();
+    wakeup_.reset();
     source_ = eventLoop_.addPostEvent(
         [this, callback](fcitx::EventSource *) mutable {
           auto completedSource = std::move(source_);
+          wakeup_.reset();
           callback();
           return false;
         });
@@ -29,13 +31,24 @@ public:
       return;
     }
     source_->setOneShot();
+
+    wakeup_ = eventLoop_.addDeferEvent([](fcitx::EventSource *) {
+      return false;
+    });
+    if (wakeup_) {
+      wakeup_->setOneShot();
+    }
   }
 
-  void cancel() { source_.reset(); }
+  void cancel() {
+    source_.reset();
+    wakeup_.reset();
+  }
 
 private:
   fcitx::EventLoop &eventLoop_;
   std::unique_ptr<fcitx::EventSource> source_;
+  std::unique_ptr<fcitx::EventSource> wakeup_;
 };
 
 } // namespace areca
