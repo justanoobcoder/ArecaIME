@@ -25,7 +25,7 @@ public:
                         DebugProvider debugProvider);
   ~XTestBackspaceBackend() override;
 
-  const char *name() const override { return "xtest-backspace"; }
+  const char *name() const override { return "native-backspace"; }
   ApplyStatus apply(fcitx::InputContext &inputContext, const RewritePlan &plan,
                     RewriteDone onDone) override;
 

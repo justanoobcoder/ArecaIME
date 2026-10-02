@@ -72,6 +72,24 @@ bool XTestDevice::ensureDevice(const char *displayName) {
   return true;
 }
 
+bool XTestDevice::warmUp() {
+  if (!ensureDevice()) {
+    return false;
+  }
+
+  // Modern Xwayland starts its RemoteDesktop portal session on the first
+  // synthetic input request, not when a client merely queries XTEST. A zero
+  // relative motion triggers that permission flow without moving the pointer
+  // or generating a keyboard event.
+  const bool requested =
+      XTestFakeRelativeMotionEvent(display_, 0, 0, CurrentTime);
+  XFlush(display_);
+  if (debugProvider_()) {
+    FCITX_INFO() << "areca: xtest permission warmup requested=" << requested;
+  }
+  return requested;
+}
+
 void XTestDevice::closeDevice() {
   if (display_) {
     XCloseDisplay(display_);

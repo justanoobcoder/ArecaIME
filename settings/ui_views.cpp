@@ -468,14 +468,14 @@ namespace areca::settings {
         endSettingsCard();
 
         beginSettingsCard(
-            "XTestTimingCard", "XTest Backspace", "Độ trễ khi mô phỏng Backspace qua XTest."
+            "XTestTimingCard", "Native Backspace", "Độ trễ khi mô phỏng Backspace qua Libei hoặc XTest fallback."
         );
-        inputInt("Delay giữa Backspace XTest (ms)", config.advanced.xtestBackspaceDelayMs);
-        inputInt("Chờ sau Backspace XTest (ms)", config.advanced.afterXTestBackspaceWaitMs);
-        inputInt("Chờ sau Backspace XTest Wayland (ms)", config.advanced.waylandAfterXTestBackspaceWaitMs);
-        inputInt("Chờ sau Backspace XTest XIM (ms)", config.advanced.ximAfterXTestBackspaceWaitMs);
-        inputInt("Chờ sau Backspace XTest Fcitx4 (ms)", config.advanced.fcitx4AfterXTestBackspaceWaitMs);
-        inputInt("Chờ sau Backspace XTest DBus (ms)", config.advanced.dbusAfterXTestBackspaceWaitMs);
+        inputInt("Delay giữa Backspace Native (ms)", config.advanced.xtestBackspaceDelayMs);
+        inputInt("Chờ sau Backspace Native (ms)", config.advanced.afterXTestBackspaceWaitMs);
+        inputInt("Chờ sau Backspace Native Wayland (ms)", config.advanced.waylandAfterXTestBackspaceWaitMs);
+        inputInt("Chờ sau Backspace Native XIM (ms)", config.advanced.ximAfterXTestBackspaceWaitMs);
+        inputInt("Chờ sau Backspace Native Fcitx4 (ms)", config.advanced.fcitx4AfterXTestBackspaceWaitMs);
+        inputInt("Chờ sau Backspace Native DBus (ms)", config.advanced.dbusAfterXTestBackspaceWaitMs);
         endSettingsCard();
 
         beginSettingsCard("GeneralTimingCard", "Timing chung");
@@ -487,8 +487,8 @@ namespace areca::settings {
         );
         checkbox("Dùng timer độ chính xác cao", config.advanced.preciseTiming);
         checkbox("Ép dùng uinput thay cho forward Backspace", config.advanced.forceUinput);
-        checkbox("Dùng XTest thay thế uinput", config.advanced.useXTestInsteadOfUinput);
-        checkbox("Dùng XTest thay thế ForwardKey", config.advanced.useXTestInsteadOfForwardKey);
+        checkbox("Dùng Native (Libei, fallback XTest) thay thế uinput", config.advanced.useXTestInsteadOfUinput);
+        checkbox("Dùng Native (Libei, fallback XTest) thay thế ForwardKey", config.advanced.useXTestInsteadOfForwardKey);
         checkbox("Ép uinput Shift+Left cho trình duyệt", config.advanced.useUinputShiftSelectForBrowser);
         checkbox("Bật mode Shift Left cho LibreOffice/ONLYOFFICE", config.advanced.useUinputShiftSelectForLibreOffice);
         checkbox("Ép surrounding text v2 cho trình duyệt", config.advanced.useSurroundingV2ForBrowser);

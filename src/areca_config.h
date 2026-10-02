@@ -117,27 +117,27 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> xtestBackspaceDelayMs{
         this, "XTestBackspaceDelayMs",
-        N_("Delay giữa các Backspace XTest (ms)"), 1,
+        N_("Delay giữa các Backspace Native (ms)"), 1,
         fcitx::IntConstrain(0, 1000)};
     fcitx::Option<int, fcitx::IntConstrain> afterXTestBackspaceWaitMs{
         this, "AfterXTestBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối XTest (ms)"), 10,
+        N_("Chờ sau Backspace cuối Native (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> waylandAfterXTestBackspaceWaitMs{
         this, "WaylandAfterXTestBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối XTest Wayland (ms)"), 3,
+        N_("Chờ sau Backspace cuối Native Wayland (ms)"), 3,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> ximAfterXTestBackspaceWaitMs{
         this, "XimAfterXTestBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối XTest XIM (ms)"), 10,
+        N_("Chờ sau Backspace cuối Native XIM (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> fcitx4AfterXTestBackspaceWaitMs{
         this, "Fcitx4AfterXTestBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối XTest Fcitx4 (ms)"), 10,
+        N_("Chờ sau Backspace cuối Native Fcitx4 (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> dbusAfterXTestBackspaceWaitMs{
         this, "DbusAfterXTestBackspaceWaitMs",
-        N_("Chờ sau Backspace cuối XTest DBus (ms)"), 10,
+        N_("Chờ sau Backspace cuối Native DBus (ms)"), 10,
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<int, fcitx::IntConstrain> postCommitDelayMs{
         this, "PostCommitDelayMs", N_("Delay sau mỗi commit (ms)"), 20,
@@ -149,10 +149,10 @@ FCITX_CONFIGURATION(
         false};
     fcitx::Option<bool> useXTestInsteadOfUinput{
         this, "UseXTestInsteadOfUinput",
-        N_("Dùng XTest thay thế uinput"), false};
+        N_("Dùng Native (Libei/XTest) thay thế uinput"), false};
     fcitx::Option<bool> useXTestInsteadOfForwardKey{
         this, "UseXTestInsteadOfForwardKey",
-        N_("Dùng XTest thay thế ForwardKey"), false};
+        N_("Dùng Native (Libei/XTest) thay thế ForwardKey"), false};
     fcitx::Option<bool> useUinputShiftSelectForBrowser{
         this, "UseUinputShiftSelectForBrowser",
         N_("Ép uinput Shift+Left cho trình duyệt"), false};

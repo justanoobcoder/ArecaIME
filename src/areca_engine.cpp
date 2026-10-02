@@ -90,8 +90,9 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
                               [this]() { return debugEnabled(); }),
       uinputShiftSelectBackend_(instance_->eventLoop(), uinputDevice_,
                                 [this]() { return debugEnabled(); }),
-      xtestDevice_([this]() { return debugEnabled(); }),
-      xtestBackspaceBackend_(instance_->eventLoop(), xtestDevice_,
+      nativeDevice_(instance_->eventLoop(),
+                    [this]() { return debugEnabled(); }),
+      xtestBackspaceBackend_(instance_->eventLoop(), nativeDevice_,
                              adaptiveWait_,
                              [this]() { return debugEnabled(); }),
       scheduler_(
@@ -155,7 +156,6 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
   config_.outputCharset.annotation().setList(
       BambooEngineAdapter::charsetNames());
   reloadConfig();
-  scheduleUinputWarmup();
   focusTracker_ = std::make_unique<WindowFocusTracker>();
   if (!focusTracker_->start() || !focusTracker_->isValid()) {
     if (debugEnabled()) {
@@ -307,7 +307,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
         xtestBackspaceBackend_.isAvailable()) {
       if (debugEnabled()) {
         FCITX_INFO()
-            << "areca: office compatibility selected xtest backend (replacing uinput)"
+            << "areca: office compatibility selected native backend (replacing uinput)"
             << " program=" << program
             << " backend=" << xtestBackspaceBackend_.name();
       }
@@ -329,7 +329,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     if (advancedConfig_.useXTestInsteadOfUinput.value() &&
         xtestBackspaceBackend_.isAvailable()) {
       if (debugEnabled()) {
-        FCITX_INFO() << "areca: terminal selected xtest backend (replacing uinput)"
+        FCITX_INFO() << "areca: terminal selected native backend (replacing uinput)"
                      << " program=" << program
                      << " backend=" << xtestBackspaceBackend_.name();
       }
@@ -347,7 +347,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
         xtestBackspaceBackend_.isAvailable()) {
       if (debugEnabled()) {
         FCITX_INFO()
-            << "areca: terminal selected xtest backend (replacing forwardKey)"
+            << "areca: terminal selected native backend (replacing forwardKey)"
             << " program=" << program
             << " backend=" << xtestBackspaceBackend_.name();
       }
@@ -473,7 +473,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     if (advancedConfig_.useXTestInsteadOfUinput.value() &&
         xtestBackspaceBackend_.isAvailable()) {
       if (debugEnabled()) {
-        FCITX_INFO() << "areca: selected xtest backend (replacing uinput)"
+        FCITX_INFO() << "areca: selected native backend (replacing uinput)"
                      << " program=" << program
                      << " backend=" << xtestBackspaceBackend_.name();
       }
@@ -493,7 +493,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
       xtestBackspaceBackend_.isAvailable()) {
     if (debugEnabled()) {
-      FCITX_INFO() << "areca: selected xtest backend (replacing forwardKey)"
+      FCITX_INFO() << "areca: selected native backend (replacing forwardKey)"
                    << " program=" << program
                    << " backend=" << xtestBackspaceBackend_.name();
     }
@@ -561,23 +561,28 @@ bool ArecaEngine::backspaceRecoveryEnabled() const {
   return config_.backspaceRecovery.value();
 }
 
-void ArecaEngine::scheduleUinputWarmup() {
-  uinputWarmupTimer_.reset();
+void ArecaEngine::scheduleDeviceWarmup() {
+  deviceWarmupTimer_.reset();
+  const bool warmUpNative =
+      advancedConfig_.useXTestInsteadOfUinput.value() ||
+      advancedConfig_.useXTestInsteadOfForwardKey.value();
   const uint64_t deadline = fcitx::now(CLOCK_MONOTONIC);
-  uinputWarmupTimer_ = instance_->eventLoop().addTimeEvent(
-      CLOCK_MONOTONIC, deadline, 0, [this](fcitx::EventSourceTime *, uint64_t) {
-        auto timer = std::move(uinputWarmupTimer_);
+  deviceWarmupTimer_ = instance_->eventLoop().addTimeEvent(
+      CLOCK_MONOTONIC, deadline, 0,
+      [this, warmUpNative](fcitx::EventSourceTime *, uint64_t) {
+        auto timer = std::move(deviceWarmupTimer_);
         const bool uinputAvailable = uinputDevice_.ensureDevice();
-        const bool xtestAvailable = xtestDevice_.ensureDevice();
+        const bool nativeStarted = warmUpNative && nativeDevice_.warmUp();
         if (debugEnabled()) {
           FCITX_INFO() << "areca: device warmup completed"
                        << " uinput-available=" << uinputAvailable
-                       << " xtest-available=" << xtestAvailable;
+                       << " native-requested=" << warmUpNative
+                       << " native-started=" << nativeStarted;
         }
         return false;
       });
-  if (uinputWarmupTimer_) {
-    uinputWarmupTimer_->setOneShot();
+  if (deviceWarmupTimer_) {
+    deviceWarmupTimer_->setOneShot();
   }
 }
 
@@ -888,6 +893,11 @@ SchedulerTiming ArecaEngine::timing() const {
 }
 
 void ArecaEngine::applyConfig() {
+  // Start the Native transport before the first rewrite whenever either
+  // legacy XTest policy key is enabled. Wayland requests Libei permission;
+  // XTest stays closed unless Libei fails. On X11, Native uses XTest directly.
+  scheduleDeviceWarmup();
+
   // Tắt là hủy cả watcher, pipe, cờ click và process con; không chỉ bỏ qua
   // reset. Khi bật lại, tạo tracker mới để không xử lý click tồn đọng từ trước.
   if (advancedConfig_.enableMouseTracking.value()) {

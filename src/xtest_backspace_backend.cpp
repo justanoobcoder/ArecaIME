@@ -37,7 +37,7 @@ ApplyStatus XTestBackspaceBackend::apply(fcitx::InputContext &inputContext,
   commitText_ = plan.commitText;
 
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: xtest-backspace start tx=" << transactionId_
+    FCITX_INFO() << "areca: native-backspace start tx=" << transactionId_
                  << " backspaces=" << remainingBackspaces_
                  << " delay_ms=" << backspaceDelayMs_
                  << " after_wait_ms=" << afterBackspaceWaitMs_
@@ -70,7 +70,7 @@ bool XTestBackspaceBackend::sendNextBackspace(bool notifyFailure) {
   ++sentBackspaces_;
 
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: xtest-backspace sent tx=" << transactionId_
+    FCITX_INFO() << "areca: native-backspace sent tx=" << transactionId_
                  << " sent=" << sentBackspaces_
                  << " remaining=" << remainingBackspaces_;
   }
@@ -87,7 +87,7 @@ void XTestBackspaceBackend::failTransaction(bool notifyFailure) {
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
   adaptiveWait_.cancelTransaction();
-  FCITX_ERROR() << "areca: xtest-backspace send failed tx=" << transactionId
+  FCITX_ERROR() << "areca: native-backspace send failed tx=" << transactionId
                 << " sent=" << sentBackspaces_
                 << " remaining=" << remainingBackspaces_;
   clearPending();
@@ -107,7 +107,7 @@ void XTestBackspaceBackend::scheduleCommit() {
   const uint32_t effectiveWaitMs =
       adaptiveWait_.effectiveWaitMs(afterBackspaceWaitMs_);
   if (debugProvider_() && extraWaitMs > 0) {
-    FCITX_INFO() << "areca: xtest-backspace adaptive commit wait tx="
+    FCITX_INFO() << "areca: native-backspace adaptive commit wait tx="
                  << transactionId_ << " base_ms=" << afterBackspaceWaitMs_
                  << " extra_ms=" << extraWaitMs
                  << " effective_ms=" << effectiveWaitMs;
@@ -124,7 +124,7 @@ void XTestBackspaceBackend::commitAfterAdaptiveWait(
     const uint32_t additionalWaitMs =
         currentExtraWaitMs - appliedExtraWaitMs;
     if (debugProvider_()) {
-      FCITX_INFO() << "areca: xtest-backspace lag before commit tx="
+      FCITX_INFO() << "areca: native-backspace lag before commit tx="
                    << transactionId_ << " additional_wait_ms="
                    << additionalWaitMs;
     }
@@ -152,10 +152,10 @@ void XTestBackspaceBackend::commitAndComplete() {
   auto onDone = std::move(onDone_);
   const auto adjustment = adaptiveWait_.completeTransaction();
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: xtest-backspace complete tx=" << transactionId
+    FCITX_INFO() << "areca: native-backspace complete tx=" << transactionId
                  << " sent=" << sentBackspaces_ << " commit=" << commitText_;
     if (adjustment == AdaptiveWait::Adjustment::Decreased) {
-      FCITX_INFO() << "areca: xtest-backspace adaptive wait decayed tx="
+      FCITX_INFO() << "areca: native-backspace adaptive wait decayed tx="
                    << transactionId << " extra_ms="
                    << adaptiveWait_.effectiveExtraWaitMs(afterBackspaceWaitMs_);
     }
@@ -171,7 +171,7 @@ void XTestBackspaceBackend::completeWithoutCommit() {
   auto onDone = std::move(onDone_);
   adaptiveWait_.cancelTransaction();
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: xtest-backspace context lost tx="
+    FCITX_INFO() << "areca: native-backspace context lost tx="
                  << transactionId;
   }
   clearPending();
@@ -224,7 +224,7 @@ void XTestBackspaceBackend::observeAndRun(
   const auto adjustment =
       adaptiveWait_.observeTimer(deadlineUsec, firedAtUsec);
   if (debugProvider_() && adjustment != AdaptiveWait::Adjustment::None) {
-    FCITX_INFO() << "areca: xtest-backspace adaptive wait changed tx="
+    FCITX_INFO() << "areca: native-backspace adaptive wait changed tx="
                  << transactionId_ << " lateness_us="
                  << (firedAtUsec > deadlineUsec ? firedAtUsec - deadlineUsec
                                                 : 0)

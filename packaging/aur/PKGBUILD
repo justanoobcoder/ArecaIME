@@ -8,6 +8,8 @@ license=('MIT')
 depends=(
   'fcitx5'
   'libinput'
+  'libei'
+  'libportal'
   'systemd-libs'
   'sdl3'
   'fontconfig'

@@ -12,6 +12,8 @@ pkgbase = fcitx5-areca
 	makedepends = ninja
 	makedepends = pkgconf
 	depends = fcitx5
+	depends = libei
+	depends = libportal
 	optdepends = fcitx5-configtool: graphical configuration tool
 	source = fcitx5-areca::git+https://github.com/xhkzeroone/ArecaIME.git#tag=v1.0.1
 	source = bamboo-core::git+https://github.com/BambooEngine/bamboo-core.git#commit=b2e49a2b48c7d3772a3673142a7747eccd9d5f79

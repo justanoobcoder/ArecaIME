@@ -29,6 +29,7 @@ public:
 
   bool isAvailable() override;
   bool ensureDevice(const char *displayName = nullptr);
+  bool warmUp();
   void closeDevice();
   bool sendKey(uint32_t keysym, bool press);
   bool sendBackspace() override;

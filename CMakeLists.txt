@@ -15,6 +15,8 @@ pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(X11_CLIENT REQUIRED IMPORTED_TARGET x11)
 pkg_check_modules(XTEST REQUIRED IMPORTED_TARGET xtst)
+pkg_check_modules(LIBEI QUIET IMPORTED_TARGET libei-1.0>=1.0)
+pkg_check_modules(LIBPORTAL QUIET IMPORTED_TARGET libportal>=0.7.1)
 
 add_executable(areca-mouse-monitor tools/mouse_monitor.cpp)
 target_compile_features(areca-mouse-monitor PRIVATE cxx_std_20)
@@ -72,12 +74,25 @@ add_library(areca MODULE
     src/uinput_shift_select_backend.cpp
     src/window_focus_tracker.cpp
     src/mouse_click_tracker.cpp
+    src/native_device.cpp
     src/word_segment.cpp
     src/xtest_backspace_backend.cpp
     src/xtest_device.cpp)
 target_compile_definitions(areca PRIVATE
     ARECA_MOUSE_HELPER_PATH="${CMAKE_INSTALL_FULL_LIBEXECDIR}/areca-mouse-monitor"
     ARECA_SETTINGS_PATH="${CMAKE_INSTALL_FULL_BINDIR}/areca-settings")
+if(LIBEI_FOUND AND LIBPORTAL_FOUND)
+    message(STATUS "Native Wayland backend enabled (libei ${LIBEI_VERSION}, libportal ${LIBPORTAL_VERSION})")
+    target_compile_definitions(areca PRIVATE ARECA_HAVE_LIBEI=1)
+    if(LIBPORTAL_VERSION VERSION_GREATER_EQUAL 0.8)
+        target_compile_definitions(areca PRIVATE ARECA_LIBPORTAL_PERSIST=1)
+    else()
+        message(WARNING "libportal < 0.8: Native Wayland permission cannot be restored across sessions")
+    endif()
+    target_link_libraries(areca PRIVATE PkgConfig::LIBEI PkgConfig::LIBPORTAL)
+else()
+    message(WARNING "Native Wayland backend disabled; XTest fallback will be used")
+endif()
 add_dependencies(areca areca-mouse-monitor)
 set_target_properties(areca PROPERTIES PREFIX "" OUTPUT_NAME "areca")
 target_compile_features(areca PRIVATE cxx_std_20)

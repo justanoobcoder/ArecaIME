@@ -93,7 +93,9 @@ jobs:
             fcitx5-frontend-gtk3 \
             fcitx5-frontend-qt5 \
             libdbus-1-dev \
+            libei-dev \
             libinput-dev \
+            libportal-dev \
             libudev-dev \
             libfcitx5core-dev \
             libfcitx5config-dev \
@@ -198,6 +200,8 @@ jobs:
             --depends fcitx5-frontend-gtk3 \
             --depends fcitx5-frontend-qt5 \
             --depends libfontconfig1 \
+            --depends libei1 \
+            --depends libportal1 \
             --depends libx11-6 \
             --depends libxtst6 \
             "${sdl3_depend_args[@]}" \
@@ -251,7 +255,9 @@ jobs:
                 extra-cmake-modules \
                 fcitx5 \
                 go \
+                libei \
                 libinput \
+                libportal \
                 ninja \
                 pkgconf \
                 fontconfig \

@@ -15,6 +15,7 @@
 #include "input_scheduler.h"
 #include "preedit_mode.h"
 #include "input_type_detector.h"
+#include "native_device.h"
 #include "redirect_mode.h"
 #include "rewrite_mode.h"
 #include "surrounding_text_backend.h"
@@ -23,7 +24,6 @@
 #include "uinput_device.h"
 #include "uinput_shift_select_backend.h"
 #include "xtest_backspace_backend.h"
-#include "xtest_device.h"
 
 namespace areca {
 
@@ -100,7 +100,7 @@ private:
                                        const char *eventName);
   bool backendVerdictProtected(fcitx::InputContext &inputContext) const;
   bool backspaceRecoveryEnabled() const;
-  void scheduleUinputWarmup();
+  void scheduleDeviceWarmup();
   void applyConfig();
   std::vector<MacroDefinition> macroDefinitions() const;
 
@@ -127,9 +127,9 @@ private:
   UinputDevice uinputDevice_;
   UinputBackspaceBackend uinputBackspaceBackend_;
   UinputShiftSelectBackend uinputShiftSelectBackend_;
-  XTestDevice xtestDevice_;
+  NativeDevice nativeDevice_;
   XTestBackspaceBackend xtestBackspaceBackend_;
-  std::unique_ptr<fcitx::EventSourceTime> uinputWarmupTimer_;
+  std::unique_ptr<fcitx::EventSourceTime> deviceWarmupTimer_;
   InputScheduler scheduler_;
   RewriteModeHandler rewriteHandler_;
   PreeditModeHandler preeditHandler_;
