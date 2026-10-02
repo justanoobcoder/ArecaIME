@@ -309,4 +309,9 @@ bool isChromiumBrowser(const std::string &rawProgram) {
                      });
 }
 
+bool isPlasmashellProgram(const std::string &rawProgram) {
+  const std::string program = normalizedProgramName(rawProgram);
+  return program == "plasmashell" || program == "org.kde.plasmashell";
+}
+
 } // namespace areca

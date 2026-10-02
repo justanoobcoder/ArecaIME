@@ -139,6 +139,17 @@ int main() {
   assert(!isChromiumBrowser("ghostty"));
   assert(!isChromiumBrowser(""));
 
+  using areca::isPlasmashellProgram;
+  assert(isPlasmashellProgram("plasmashell"));
+  assert(isPlasmashellProgram("/usr/bin/plasmashell"));
+  assert(isPlasmashellProgram("org.kde.plasmashell"));
+  assert(isPlasmashellProgram("org.kde.plasmashell.desktop"));
+  assert(isPlasmashellProgram("PlasmaShell"));
+  assert(!isPlasmashellProgram("kwin_wayland"));
+  assert(!isPlasmashellProgram("dolphin"));
+  assert(!isPlasmashellProgram("firefox"));
+  assert(!isPlasmashellProgram(""));
+
   using areca::resolveAfterBackspaceWaitMs;
   using areca::resolveAfterUinputShiftSelectWaitMs;
   using areca::resolveAfterXTestBackspaceWaitMs;

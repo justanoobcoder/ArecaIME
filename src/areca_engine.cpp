@@ -268,6 +268,17 @@ RewriteBackendSelection
 ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
+  const std::string program = resolveProgram(inputContext, state);
+
+  if (isPlasmashellProgram(program)) {
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: plasmashell forced forward-backspace backend"
+                   << " program=" << program
+                   << " backend=" << forwardBackspaceBackend_.name();
+    }
+    return {&forwardBackspaceBackend_};
+  }
+
   if (!state) {
     if (advancedConfig_.useXTestInsteadOfUinput.value() &&
         xtestBackspaceBackend_.isAvailable()) {
@@ -289,7 +300,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   const char *frontend = inputContext.frontend();
-  const std::string program = resolveProgram(inputContext, state);
 
   if (requiresForwardBackspaceBackend(program)) {
     if (advancedConfig_.useUinputShiftSelectForLibreOffice.value() &&

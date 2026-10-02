@@ -21,4 +21,7 @@ bool isTerminalProgram(const std::string &program);
 // Chromium-family browser applications.
 bool isChromiumBrowser(const std::string &program);
 
+// KDE Plasma desktop shell components that must always use forward-Backspace.
+bool isPlasmashellProgram(const std::string &program);
+
 } // namespace areca
