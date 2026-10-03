@@ -82,19 +82,43 @@ install_deps_debian() {
   echo "[areca] Installing build dependencies with apt"
   sudo apt-get update
   local common=(build-essential cmake ninja-build pkg-config extra-cmake-modules
-                golang-go libinput-dev libudev-dev)
+                golang-go libinput-dev libudev-dev libdbus-1-dev libx11-dev
+                libxtst-dev libfontconfig-dev)
   local fcitx=(fcitx5 fcitx5-config-qt libfcitx5core-dev
                libfcitx5config-dev libfcitx5utils-dev)
   if ! sudo apt-get install -y "${common[@]}" "${fcitx[@]}"; then
     echo "[areca] Individual Fcitx development packages unavailable; trying fcitx5-dev"
     sudo apt-get install -y "${common[@]}" fcitx5 fcitx5-config-qt fcitx5-dev
   fi
+
+  # SDL3 is not available in the repositories of several supported Ubuntu
+  # bases (including Linux Mint 22). Build it when the distro package is absent.
+  if ! sudo apt-get install -y libsdl3-dev; then
+    echo "[areca] libsdl3-dev is unavailable; building SDL3 from source"
+    sudo apt-get install -y git libxext-dev libxrandr-dev libxcursor-dev \
+      libxfixes-dev libxi-dev libxss-dev libxkbcommon-dev libwayland-dev \
+      wayland-protocols libdecor-0-dev libdrm-dev libgbm-dev \
+      libgl1-mesa-dev libegl1-mesa-dev libibus-1.0-dev libpulse-dev \
+      libasound2-dev
+    local sdl_src sdl_build
+    sdl_src="$(mktemp -d)"
+    sdl_build="$(mktemp -d)"
+    git clone --depth 1 --branch release-3.2.x \
+      https://github.com/libsdl-org/SDL.git "$sdl_src"
+    cmake -S "$sdl_src" -B "$sdl_build" -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DSDL_SHARED=ON -DSDL_STATIC=OFF
+    cmake --build "$sdl_build" --parallel
+    sudo cmake --install "$sdl_build"
+    sudo ldconfig
+    rm -rf -- "$sdl_src" "$sdl_build"
+  fi
 }
 
 install_deps_arch() {
   local packages=(base-devel cmake ninja pkgconf extra-cmake-modules go
-                  libinput systemd-libs fcitx5 fcitx5-configtool sdl3
-                  fontconfig)
+                  libinput systemd-libs dbus libx11 libxtst fcitx5
+                  fcitx5-configtool sdl3 fontconfig)
   if [[ "$ARECA_UPDATE_SYSTEM" == 1 ]]; then
     echo "[areca] Updating Arch system and installing build dependencies"
     sudo pacman -Syu --needed --noconfirm "${packages[@]}"
@@ -118,7 +142,24 @@ install_deps_fedora() {
   echo "[areca] Installing build dependencies with dnf"
   sudo dnf install -y \
     gcc-c++ cmake ninja-build pkgconf-pkg-config extra-cmake-modules go \
-    libinput-devel systemd-devel fcitx5 fcitx5-devel fcitx5-configtool
+    libinput-devel systemd-devel dbus-devel SDL3-devel fontconfig-devel \
+    libX11-devel libXtst-devel fcitx5 fcitx5-devel fcitx5-configtool
+}
+
+install_deps_opensuse() {
+  echo "[areca] Installing build dependencies with zypper"
+  sudo zypper --non-interactive install --no-recommends \
+    gcc-c++ cmake ninja pkg-config extra-cmake-modules go \
+    libinput-devel systemd-devel fcitx5 fcitx5-devel SDL3-devel \
+    fontconfig-devel libX11-devel libXtst-devel dbus-1-devel libudev-devel
+}
+
+distro_matches() {
+  local needle="$1" token
+  for token in ${ID:-} ${ID_LIKE:-}; do
+    [[ "$token" == "$needle" ]] && return 0
+  done
+  return 1
 }
 
 install_build_deps() {
@@ -129,20 +170,35 @@ install_build_deps() {
 
   # shellcheck disable=SC1091
   . /etc/os-release
+  if distro_matches nixos; then
+    if [[ -z "${IN_NIX_SHELL:-}" ]]; then
+      echo "[areca] NixOS dependencies are declared in shell.nix; run inside nix-shell" >&2
+      echo "[areca] Example: nix-shell --run './scripts/install.sh --skip-deps --user'" >&2
+      return 1
+    fi
+    echo "[areca] Using build dependencies from nix-shell"
+    return
+  fi
   if command -v apt-get >/dev/null 2>&1; then
-    case " ${ID:-} ${ID_LIKE:-} " in
-      *" ubuntu "*|*" debian "*) install_deps_debian; return ;;
-    esac
+    if distro_matches ubuntu || distro_matches debian; then
+      install_deps_debian
+      return
+    fi
   fi
   if command -v pacman >/dev/null 2>&1; then
-    case " ${ID:-} ${ID_LIKE:-} " in
-      *" arch "*|*" cachyos "*) install_deps_arch; return ;;
-    esac
+    if distro_matches arch; then install_deps_arch; return; fi
   fi
   if command -v dnf >/dev/null 2>&1; then
-    case " ${ID:-} ${ID_LIKE:-} " in
-      *" fedora "*|*" rhel "*) install_deps_fedora; return ;;
-    esac
+    if distro_matches fedora || distro_matches rhel || distro_matches centos; then
+      install_deps_fedora
+      return
+    fi
+  fi
+  if command -v zypper >/dev/null 2>&1; then
+    if distro_matches opensuse || distro_matches suse; then
+      install_deps_opensuse
+      return
+    fi
   fi
   echo "[areca] Skipping dependency installation for ${PRETTY_NAME:-unknown distro}"
 }

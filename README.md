@@ -212,7 +212,7 @@ forward thẳng để không đưa nội dung nhạy cảm vào state của addo
 
 ## Cài đặt nhanh
 
-Installer hỗ trợ Arch/CachyOS, Debian/Ubuntu và Fedora. Script sẽ cài dependency,
+Installer hỗ trợ Arch/CachyOS, Debian/Ubuntu (bao gồm Linux Mint, Pop!_OS và Zorin OS), Fedora/RHEL và openSUSE Tumbleweed. Script sẽ cài dependency,
 khởi tạo submodule Bamboo, build, chạy test và cài addon:
 
 ```bash
@@ -248,7 +248,13 @@ Một số lựa chọn khác:
 ./scripts/install.sh --no-restart
 ```
 
-Đối với NixOS thì chỉ cần thêm `fcitx5-areca` vào danh sách addon của fcitx5, sau đó rebuild lại system:
+Khi build từ source trên NixOS, `shell.nix` khai báo dependency cho môi trường build. Chạy installer trong môi trường đó để cài vào user prefix:
+
+```bash
+nix-shell --run './scripts/install.sh --skip-deps --user'
+```
+
+Để cài toàn hệ thống theo cấu hình NixOS, thêm derivation `fcitx5-areca` vào danh sách addon của fcitx5, sau đó rebuild lại system:
 
 ```nix
 i18n = {
