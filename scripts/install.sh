@@ -92,25 +92,32 @@ install_deps_debian() {
   fi
 
   # SDL3 is not available in the repositories of several supported Ubuntu
-  # bases (including Linux Mint 22). Build it when the distro package is absent.
+  # bases (including Linux Mint 21 and 22). Build it when the distro package is absent.
   if ! sudo apt-get install -y libsdl3-dev; then
     echo "[areca] libsdl3-dev is unavailable; building SDL3 from source"
     sudo apt-get install -y git libxext-dev libxrandr-dev libxcursor-dev \
       libxfixes-dev libxi-dev libxss-dev libxkbcommon-dev libwayland-dev \
       wayland-protocols libdecor-0-dev libdrm-dev libgbm-dev \
       libgl1-mesa-dev libegl1-mesa-dev libibus-1.0-dev libpulse-dev \
-      libasound2-dev
+      libasound2-dev || true
     local sdl_src sdl_build
     sdl_src="$(mktemp -d)"
     sdl_build="$(mktemp -d)"
-    git clone --depth 1 --branch release-3.2.x \
-      https://github.com/libsdl-org/SDL.git "$sdl_src"
-    cmake -S "$sdl_src" -B "$sdl_build" -G Ninja \
-      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
-      -DSDL_SHARED=ON -DSDL_STATIC=OFF
-    cmake --build "$sdl_build" --parallel
-    sudo cmake --install "$sdl_build"
-    sudo ldconfig
+    if git clone --depth 1 --branch release-3.2.x \
+      https://github.com/libsdl-org/SDL.git "$sdl_src"; then
+      local sdl_gen=()
+      if command -v ninja >/dev/null 2>&1; then
+        sdl_gen=(-G Ninja)
+      fi
+      cmake -S "$sdl_src" -B "$sdl_build" "${sdl_gen[@]}" \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DSDL_SHARED=ON -DSDL_STATIC=OFF
+      cmake --build "$sdl_build" --parallel
+      sudo cmake --install "$sdl_build"
+      sudo ldconfig
+    else
+      echo "[areca] Warning: git clone SDL3 failed; CMake will attempt FetchContent during build" >&2
+    fi
     rm -rf -- "$sdl_src" "$sdl_build"
   fi
 }
@@ -180,7 +187,7 @@ install_build_deps() {
     return
   fi
   if command -v apt-get >/dev/null 2>&1; then
-    if distro_matches ubuntu || distro_matches debian; then
+    if distro_matches ubuntu || distro_matches debian || distro_matches linuxmint || distro_matches mint; then
       install_deps_debian
       return
     fi
@@ -325,6 +332,9 @@ if ! command -v c++ >/dev/null 2>&1 && \
   echo "[areca] No C++ compiler found; install g++ or clang++" >&2
   exit 1
 fi
+
+export CMAKE_PREFIX_PATH="/usr/local:${CMAKE_PREFIX_PATH:-}"
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}"
 
 cmake -S "$ARECA_ROOT_DIR" -B "$ARECA_BUILD_DIR" \
   "${ARECA_GENERATOR_ARGS[@]}" \

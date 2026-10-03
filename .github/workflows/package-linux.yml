@@ -46,14 +46,15 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
   ubuntu:
-    name: Ubuntu ${{ matrix.version }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     needs: version
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: "24.04"
+          - name: Ubuntu 24.04
+            version: "24.04"
             runner: ubuntu-24.04
             package_suffix: ubuntu24
             artifact_name: fcitx5-areca-ubuntu24-deb
@@ -61,11 +62,18 @@ jobs:
             # (SDL3 only landed from 24.10 onward), so we build it from
             # source and bundle the resulting .so with the package.
             bundle_sdl3: true
-          - version: "26.04"
+          - name: Ubuntu 26.04
+            version: "26.04"
             runner: ubuntu-26.04
             package_suffix: ubuntu26
             artifact_name: fcitx5-areca-ubuntu26-deb
             bundle_sdl3: false
+          - name: Linux Mint 22
+            version: "24.04"
+            runner: ubuntu-24.04
+            package_suffix: mint22
+            artifact_name: fcitx5-areca-mint22-deb
+            bundle_sdl3: true
     env:
       VERSION: ${{ needs.version.outputs.value }}
       DEBIAN_FRONTEND: noninteractive
@@ -392,7 +400,7 @@ jobs:
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" \
               --title "$tag" \
-              --notes "Areca packages for Ubuntu 24.04, Ubuntu 26.04, Arch Linux and Fedora."
+              --notes "Areca packages for Ubuntu 24.04, Ubuntu 26.04, Linux Mint 22, Arch Linux and Fedora."
           fi
           find artifacts -type f -print0 | \
             xargs -0 gh release upload "$tag" --clobber
