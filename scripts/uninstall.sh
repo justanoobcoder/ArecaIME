@@ -189,6 +189,81 @@ remove_user_data() {
   done
 }
 
+remove_distro_package() {
+  if [[ "$ARECA_USER_ONLY" == 1 ]]; then
+    return
+  fi
+
+  if command -v pacman >/dev/null 2>&1; then
+    local arch_pkgs=()
+    mapfile -t arch_pkgs < <(pacman -Qqs '^fcitx5-areca' 2>/dev/null || true)
+    local prov
+    prov="$(pacman -Qq fcitx5-areca 2>/dev/null || true)"
+    if [[ -n "$prov" ]]; then
+      arch_pkgs+=("$prov")
+    fi
+
+    local -A seen_arch=()
+    for pkg in "${arch_pkgs[@]}"; do
+      if [[ -n "$pkg" && -z "${seen_arch[$pkg]:-}" ]]; then
+        seen_arch["$pkg"]=1
+        echo "[areca] Phát hiện package $pkg đã cài đặt"
+        if command -v paru >/dev/null 2>&1 && [[ "$(id -u)" != 0 ]]; then
+          echo "[areca] Gỡ $pkg bằng paru"
+          paru -R --noconfirm "$pkg" || run_as_root pacman -R --noconfirm "$pkg" || true
+        elif command -v yay >/dev/null 2>&1 && [[ "$(id -u)" != 0 ]]; then
+          echo "[areca] Gỡ $pkg bằng yay"
+          yay -R --noconfirm "$pkg" || run_as_root pacman -R --noconfirm "$pkg" || true
+        else
+          echo "[areca] Gỡ $pkg bằng pacman"
+          run_as_root pacman -R --noconfirm "$pkg" || true
+        fi
+      fi
+    done
+  fi
+
+  if command -v dpkg >/dev/null 2>&1; then
+    local deb_pkgs=()
+    mapfile -t deb_pkgs < <(dpkg -l 'fcitx5-areca*' 2>/dev/null | awk '/^ii/ {print $2}' | cut -d: -f1 || true)
+    local -A seen_deb=()
+    for pkg in "${deb_pkgs[@]}"; do
+      if [[ -n "$pkg" && -z "${seen_deb[$pkg]:-}" ]]; then
+        seen_deb["$pkg"]=1
+        echo "[areca] Phát hiện package $pkg đã cài đặt"
+        if command -v apt-get >/dev/null 2>&1; then
+          echo "[areca] Gỡ $pkg bằng apt-get"
+          run_as_root apt-get remove --purge -y "$pkg" || true
+        else
+          echo "[areca] Gỡ $pkg bằng dpkg"
+          run_as_root dpkg -P "$pkg" || true
+        fi
+      fi
+    done
+  fi
+
+  if command -v rpm >/dev/null 2>&1; then
+    local rpm_pkgs=()
+    mapfile -t rpm_pkgs < <(rpm -qa --qf "%{NAME}\n" 'fcitx5-areca*' 2>/dev/null || true)
+    local -A seen_rpm=()
+    for pkg in "${rpm_pkgs[@]}"; do
+      if [[ -n "$pkg" && -z "${seen_rpm[$pkg]:-}" ]]; then
+        seen_rpm["$pkg"]=1
+        echo "[areca] Phát hiện package $pkg đã cài đặt"
+        if command -v dnf >/dev/null 2>&1; then
+          echo "[areca] Gỡ $pkg bằng dnf"
+          run_as_root dnf remove -y "$pkg" || true
+        elif command -v zypper >/dev/null 2>&1; then
+          echo "[areca] Gỡ $pkg bằng zypper"
+          run_as_root zypper --non-interactive remove "$pkg" || true
+        else
+          echo "[areca] Gỡ $pkg bằng rpm"
+          run_as_root rpm -e "$pkg" || true
+        fi
+      fi
+    done
+  fi
+}
+
 restart_fcitx() {
   if [[ "$ARECA_RESTART_FCITX" == 1 ]] && command -v fcitx5 >/dev/null 2>&1; then
     echo "[areca] Restarting Fcitx5"
@@ -242,6 +317,8 @@ done
 echo "[areca] Starting ArecaIME uninstallation"
 
 stop_systemd_service
+
+remove_distro_package
 
 remove_manifest_files "$ARECA_BUILD_DIR/install_manifest.txt"
 remove_manifest_files "$ARECA_ROOT_DIR/build/install_manifest.txt"
