@@ -248,6 +248,19 @@ Một số lựa chọn khác:
 ./scripts/install.sh --no-restart
 ```
 
+Gỡ cài đặt Areca và xóa dữ liệu cấu hình:
+
+```bash
+./scripts/uninstall.sh
+```
+
+Nếu chỉ muốn gỡ bản cài đặt user:
+
+```bash
+./scripts/uninstall.sh --user
+```
+
+
 Khi build từ source trên NixOS, `shell.nix` khai báo dependency cho môi trường build. Chạy installer trong môi trường đó để cài vào user prefix:
 
 ```bash
