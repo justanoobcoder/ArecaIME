@@ -458,13 +458,41 @@
             <div class="package-instruction">
               <span class="step-number">1</span>
               <p>
-                Tải file <code>.pkg.tar.zst</code> từ
-                <a href="https://github.com/xhkzeroone/ArecaIME/releases/latest">release mới nhất</a>.
+                Cài đặt bản dựng sẵn từ AUR qua <code>paru</code> hoặc <code>yay</code>:
               </p>
             </div>
+            <div class="command-row">
+              <pre id="arch-aur-bin-command"><code>paru -S fcitx5-areca-bin
+# hoặc
+yay -S fcitx5-areca-bin</code></pre>
+              <button class="copy-button" type="button" data-copy-target="arch-aur-bin-command">
+                <span class="copy-icon" aria-hidden="true">▣</span>
+                <span class="copy-label">Sao chép</span>
+              </button>
+            </div>
+
             <div class="package-instruction">
               <span class="step-number">2</span>
-              <p>Mở terminal tại thư mục chứa gói rồi chạy:</p>
+              <p>
+                Hoặc cài đặt bản git build từ mã nguồn mới nhất:
+              </p>
+            </div>
+            <div class="command-row">
+              <pre id="arch-aur-git-command"><code>paru -S fcitx5-areca-git
+# hoặc
+yay -S fcitx5-areca-git</code></pre>
+              <button class="copy-button" type="button" data-copy-target="arch-aur-git-command">
+                <span class="copy-icon" aria-hidden="true">▣</span>
+                <span class="copy-label">Sao chép</span>
+              </button>
+            </div>
+
+            <div class="package-instruction">
+              <span class="step-number">3</span>
+              <p>
+                Hoặc tải thủ công gói <code>.pkg.tar.zst</code> từ
+                <a href="https://github.com/xhkzeroone/ArecaIME/releases/latest" target="_blank" rel="noreferrer">release mới nhất</a> rồi cài bằng pacman:
+              </p>
             </div>
             <div class="command-row">
               <pre id="arch-command"><code>sudo pacman -U ./fcitx5-areca-*.pkg.tar.zst</code></pre>

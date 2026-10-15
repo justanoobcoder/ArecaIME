@@ -1078,6 +1078,10 @@ kbd {
   margin-bottom: 15px;
 }
 
+.command-row + .package-instruction {
+  margin-top: 24px;
+}
+
 .package-instruction p,
 .source-intro {
   margin: 2px 0 0;

@@ -212,6 +212,26 @@ forward thẳng để không đưa nội dung nhạy cảm vào state của addo
 
 ## Cài đặt nhanh
 
+### Cài đặt qua AUR trên Arch Linux
+
+Cài đặt bản binary dựng sẵn:
+
+```bash
+paru -S fcitx5-areca-bin
+# hoặc
+yay -S fcitx5-areca-bin
+```
+
+Cài đặt bản git build từ mã nguồn mới nhất:
+
+```bash
+paru -S fcitx5-areca-git
+# hoặc
+yay -S fcitx5-areca-git
+```
+
+### Cài đặt bằng installer script
+
 Installer hỗ trợ Arch/CachyOS, Debian/Ubuntu (bao gồm Linux Mint, Pop!_OS và Zorin OS), Fedora/RHEL và openSUSE Tumbleweed. Script sẽ cài dependency,
 khởi tạo submodule Bamboo, build, chạy test và cài addon:
 
