@@ -62,9 +62,49 @@ bool InputTypeDetector::isTerminal(const std::string &program,
          std::string_view(frontend).starts_with("dbus");
 }
 
+bool InputTypeDetector::canForwardBackspaces(
+    const fcitx::InputContext &inputContext, const std::string &program) const {
+  const char *frontendCStr = inputContext.frontend();
+  const std::string_view frontend = frontendCStr ? frontendCStr : "";
+
+  if (frontend == "wayland" || frontend == "wayland_v2" || frontend == "xim") {
+    return true;
+  }
+
+  std::string prog = !program.empty() ? program : inputContext.program();
+  if (prog.empty() && tracker_ && tracker_->isValid()) {
+    prog = tracker_->focusProgram();
+  }
+
+  if (prog.starts_with("SDL")) {
+    return false;
+  }
+
+  if (frontend == "ibus") {
+    return true;
+  }
+
+  const auto capabilities = inputContext.capabilityFlags();
+  const bool hasKeyEventOrderFix =
+      capabilities.test(fcitx::CapabilityFlag::KeyEventOrderFix);
+  const bool hasSurrounding =
+      capabilities.test(fcitx::CapabilityFlag::SurroundingText);
+
+  if (frontend == "dbus") {
+    return hasKeyEventOrderFix || hasSurrounding;
+  }
+
+  if (frontend == "fcitx4") {
+    const bool hasFormattedPreedit =
+        capabilities.test(fcitx::CapabilityFlag::FormattedPreedit);
+    return hasFormattedPreedit || hasSurrounding;
+  }
+
+  return false;
+}
+
 bool InputTypeDetector::inChromiumAddressBar(
-    const fcitx::InputContext &inputContext,
-    const std::string &program,
+    const fcitx::InputContext &inputContext, const std::string &program,
     uint64_t *addrBarUiVerdictAtUsec) const {
   if (inputContext.capabilityFlags().test(fcitx::CapabilityFlag::Url)) {
     return true;

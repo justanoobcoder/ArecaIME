@@ -300,5 +300,52 @@ int main() {
     assert(tracker.isValid());
   }
 
+  // Case 5: canForwardBackspaces tests
+  {
+    fcitx::InputContextManager manager;
+    InputTypeDetector detector(nullptr);
+
+    // Wayland and XIM always forward
+    {
+      TestInputContext ic(manager, "app", "wayland");
+      assert(detector.canForwardBackspaces(ic));
+    }
+    {
+      TestInputContext ic(manager, "app", "wayland_v2");
+      assert(detector.canForwardBackspaces(ic));
+    }
+    {
+      TestInputContext ic(manager, "app", "xim");
+      assert(detector.canForwardBackspaces(ic));
+    }
+
+    // SDL clients never forward backspaces
+    {
+      TestInputContext ic(manager, "SDL_Game", "dbus");
+      ic.setCapabilityFlags(fcitx::CapabilityFlag::KeyEventOrderFix);
+      assert(!detector.canForwardBackspaces(ic));
+    }
+
+    // D-Bus without KeyEventOrderFix and without SurroundingText -> false
+    {
+      TestInputContext ic(manager, "game", "dbus");
+      assert(!detector.canForwardBackspaces(ic));
+    }
+
+    // D-Bus with KeyEventOrderFix -> true
+    {
+      TestInputContext ic(manager, "app", "dbus");
+      ic.setCapabilityFlags(fcitx::CapabilityFlag::KeyEventOrderFix);
+      assert(detector.canForwardBackspaces(ic));
+    }
+
+    // D-Bus with SurroundingText -> true
+    {
+      TestInputContext ic(manager, "app", "dbus");
+      ic.setCapabilityFlags(fcitx::CapabilityFlag::SurroundingText);
+      assert(detector.canForwardBackspaces(ic));
+    }
+  }
+
   return 0;
 }

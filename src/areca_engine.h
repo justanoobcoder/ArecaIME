@@ -92,11 +92,11 @@ private:
                        const BambooResult &result);
   RewriteBackend *resolvePreferredSurroundingBackend();
   RewriteBackend *resolvePreferredShiftSelectBackend();
-  RewriteBackend *resolvePreferredBackspaceBackend(bool isTerminal = false);
+  RewriteBackend *resolvePreferredBackspaceBackend(bool preferHardware = false);
   std::string describeAutoBackend(const std::string &appName);
   std::string describeSurroundingBackend();
   std::string describeShiftSelectBackend();
-  std::string describeBackspaceBackend(bool isTerminal = false);
+  std::string describeBackspaceBackend(bool preferHardware = false);
   ReliabilityDecision
   evaluateReliability(fcitx::InputContext &inputContext,
                       const std::string &shownText,
