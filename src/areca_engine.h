@@ -15,6 +15,7 @@
 #include "areca_config.h"
 #include "adaptive_wait_monitor.h"
 #include "bamboo_engine_adapter.h"
+#include "event_loop_post.h"
 #include "forward_backspace_backend.h"
 #include "input_scheduler.h"
 #include "preedit_mode.h"
@@ -120,7 +121,7 @@ private:
 
   void showBackendSelectionMenu(fcitx::InputContext &inputContext);
   void selectBackendForApp(fcitx::InputContext &inputContext,
-                           const std::string &appName, AppBackendMode mode);
+                           std::string appName, AppBackendMode mode);
   bool isBackendSelecting(fcitx::InputContext &inputContext) const;
   bool handleBackendSelectionKey(fcitx::InputContext &inputContext,
                                  fcitx::KeyEvent &event);
@@ -166,6 +167,7 @@ private:
   XTestBackspaceBackend xtestBackspaceBackend_;
   XTestShiftSelectBackend xtestShiftSelectBackend_;
   std::unique_ptr<fcitx::EventSourceTime> deviceWarmupTimer_;
+  EventLoopPostTask backendSelectionPost_;
   InputScheduler scheduler_;
   RewriteModeHandler rewriteHandler_;
   PreeditModeHandler preeditHandler_;

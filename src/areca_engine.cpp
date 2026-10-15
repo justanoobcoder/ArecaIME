@@ -182,6 +182,7 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       xtestShiftSelectBackend_(instance_->eventLoop(), nativeDevice_,
                                adaptiveWait_,
                                [this]() { return debugEnabled(); }),
+      backendSelectionPost_(instance_->eventLoop()),
       scheduler_(
           instance_->eventLoop(),
           [this](fcitx::InputContext &inputContext) -> VietnameseEngine * {
@@ -809,9 +810,10 @@ void ArecaEngine::switchPresentationMode(fcitx::InputContext &inputContext) {
 
 bool ArecaEngine::isBackendSelecting(fcitx::InputContext &inputContext) const {
   auto *candList = inputContext.inputPanel().candidateList().get();
-  return candList &&
-         dynamic_cast<fcitx::CommonCandidateList *>(candList) != nullptr &&
-         !inputContext.inputPanel().auxUp().toString().empty();
+  auto *commonList = dynamic_cast<fcitx::CommonCandidateList *>(candList);
+  return commonList && commonList->size() > 0 &&
+         dynamic_cast<const BackendCandidateWord *>(
+             &commonList->candidate(0)) != nullptr;
 }
 
 void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
@@ -869,7 +871,13 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
     candList->append(std::make_unique<BackendCandidateWord>(
         fcitx::Text(label), options[i].mode,
         [this, &inputContext, appName](AppBackendMode mode) {
-          selectBackendForApp(inputContext, appName, mode);
+          auto inputContextWatch = inputContext.watch();
+          backendSelectionPost_.schedule(
+              [this, inputContextWatch, appName, mode]() mutable {
+                if (auto *ic = inputContextWatch.get()) {
+                  selectBackendForApp(*ic, appName, mode);
+                }
+              });
         }));
   }
 
@@ -884,7 +892,7 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
 }
 
 void ArecaEngine::selectBackendForApp(fcitx::InputContext &inputContext,
-                                      const std::string &appName,
+                                      std::string appName,
                                       AppBackendMode mode) {
   auto &overrides = *appProfiles_.appOverrides.mutableValue();
   auto it = std::find_if(overrides.begin(), overrides.end(),
@@ -1156,6 +1164,12 @@ void ArecaEngine::deactivate(const fcitx::InputMethodEntry &,
   auto *inputContext = event.inputContext();
   if (!inputContext) {
     return;
+  }
+  backendSelectionPost_.cancel();
+  if (isBackendSelecting(*inputContext)) {
+    inputContext->inputPanel().reset();
+    inputContext->updateUserInterface(
+        fcitx::UserInterfaceComponent::InputPanel, true);
   }
   if (activePresentationMode_ == PresentationMode::Rewrite) {
     clearBackendVerdictForLifecycle(*inputContext, "deactivate");
