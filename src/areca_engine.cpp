@@ -297,6 +297,13 @@ bool ArecaEngine::inChromiumAddressBar(fcitx::InputContext &inputContext,
                                                  verdictUsec);
 }
 
+RewriteBackend *ArecaEngine::resolvePreferredSurroundingBackend() {
+  if (advancedConfig_.useSurroundingV2InsteadOfSurroundingV1.value()) {
+    return &surroundingV2Backend_;
+  }
+  return &surroundingBackend_;
+}
+
 RewriteBackend *ArecaEngine::resolvePreferredShiftSelectBackend() {
   if (advancedConfig_.useXTestInsteadOfUinput.value() &&
       xtestShiftSelectBackend_.isAvailable()) {
@@ -311,6 +318,71 @@ RewriteBackend *ArecaEngine::resolvePreferredShiftSelectBackend() {
   return nullptr;
 }
 
+RewriteBackend *ArecaEngine::resolvePreferredBackspaceBackend(bool isTerminal) {
+  if (isTerminal || advancedConfig_.useUinputInsteadOfForwardKey.value()) {
+    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
+        xtestBackspaceBackend_.isAvailable()) {
+      return &xtestBackspaceBackend_;
+    }
+    if (uinputBackspaceBackend_.isAvailable()) {
+      return &uinputBackspaceBackend_;
+    }
+    if (xtestBackspaceBackend_.isAvailable()) {
+      return &xtestBackspaceBackend_;
+    }
+  }
+  return &forwardBackspaceBackend_;
+}
+
+std::string ArecaEngine::describeAutoBackend(const std::string &appName) {
+  auto it = lastAutoBackendByApp_.find(appName);
+  if (it != lastAutoBackendByApp_.end()) {
+    switch (it->second) {
+    case AppBackendMode::SurroundingText:
+      return "Tự động (Surrounding)";
+    case AppBackendMode::ShiftSelect:
+      return "Tự động (Shift select)";
+    case AppBackendMode::Backspace:
+      return "Tự động (Backspace)";
+    default:
+      break;
+    }
+  }
+  return "Tự động";
+}
+
+std::string ArecaEngine::describeSurroundingBackend() {
+  if (advancedConfig_.useSurroundingV2InsteadOfSurroundingV1.value()) {
+    return "V2";
+  }
+  return "V1";
+}
+
+std::string ArecaEngine::describeShiftSelectBackend() {
+  if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
+    if (std::string_view(shiftBackend->name()).starts_with("native")) {
+      return "Native";
+    }
+    if (std::string_view(shiftBackend->name()).starts_with("uinput")) {
+      return "Uinput";
+    }
+  }
+  return advancedConfig_.useXTestInsteadOfUinput.value() ? "Native" : "Uinput";
+}
+
+std::string ArecaEngine::describeBackspaceBackend(bool isTerminal) {
+  if (auto *bsBackend = resolvePreferredBackspaceBackend(isTerminal)) {
+    const std::string_view name = bsBackend->name();
+    if (name.starts_with("native")) {
+      return "Native";
+    }
+    if (name.starts_with("uinput")) {
+      return "Uinput";
+    }
+  }
+  return "ForwardKey";
+}
+
 RewriteBackendSelection
 ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
@@ -318,11 +390,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const std::string program = resolveProgram(inputContext, state);
 
   if (!state) {
-    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
-        xtestBackspaceBackend_.isAvailable()) {
-      return {&xtestBackspaceBackend_};
-    }
-    return {&forwardBackspaceBackend_};
+    return {resolvePreferredBackspaceBackend(false)};
   }
 
   if (!backendVerdictContextKnown_ ||
@@ -338,54 +406,31 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   const char *frontend = inputContext.frontend();
-
   const bool isTerminal = inputTypeDetector_.isTerminal(program, frontend);
 
   if (isTerminal) {
-    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
-        xtestBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO()
-            << "areca: terminal selected native backend (replacing uinput)"
-            << " program=" << program
-            << " backend=" << xtestBackspaceBackend_.name();
-      }
-      return {&xtestBackspaceBackend_};
-    }
-    if (uinputBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO() << "areca: terminal selected uinput backend"
-                     << " program=" << program
-                     << " backend=" << uinputBackspaceBackend_.name();
-      }
-      return {&uinputBackspaceBackend_};
-    }
-    if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
-        xtestBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO()
-            << "areca: terminal selected native backend (replacing forwardKey)"
-            << " program=" << program
-            << " backend=" << xtestBackspaceBackend_.name();
-      }
-      return {&xtestBackspaceBackend_};
+    RewriteBackend *backend = resolvePreferredBackspaceBackend(isTerminal);
+    if (!program.empty()) {
+      lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
     }
     if (debugEnabled()) {
       FCITX_INFO()
-          << "areca: terminal fallback selected forward-backspace backend"
-          << " program=" << program
-          << " backend=" << forwardBackspaceBackend_.name();
+          << "areca: terminal selected backend="
+          << backend->name() << " program=" << program;
     }
-    return {&forwardBackspaceBackend_};
+    return {backend};
   }
 
   if (isPlasmashellProgram(program)) {
-    if (debugEnabled()) {
-      FCITX_INFO() << "areca: plasmashell forced forward-backspace backend"
-                   << " program=" << program
-                   << " backend=" << forwardBackspaceBackend_.name();
+    RewriteBackend *backend = resolvePreferredBackspaceBackend(isTerminal);
+    if (!program.empty()) {
+      lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
     }
-    return {&forwardBackspaceBackend_};
+    if (debugEnabled()) {
+      FCITX_INFO() << "areca: plasmashell selected backend="
+                   << backend->name() << " program=" << program;
+    }
+    return {backend};
   }
 
   const auto capabilities = inputContext.capabilityFlags();
@@ -422,10 +467,9 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     } else if (selectionMatchesCurrentText || decision.browserAutocomplete) {
       additional = 1;
     }
-    RewriteBackend *backend = &forwardBackspaceBackend_;
-    if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
-        xtestBackspaceBackend_.isAvailable()) {
-      backend = &xtestBackspaceBackend_;
+    RewriteBackend *backend = resolvePreferredBackspaceBackend(isTerminal);
+    if (!program.empty()) {
+      lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
     }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: browser autocomplete or address bar strategy="
@@ -448,201 +492,61 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       switch (it->second) {
       case AppBackendMode::SurroundingText:
         if (decision.useSurrounding) {
-          if (advancedConfig_.useUinputShiftSelectForSurrounding.value() &&
-              !isTerminal && uinputShiftSelectBackend_.isAvailable()) {
+          auto *surBackend = resolvePreferredSurroundingBackend();
+          if (debugEnabled()) {
+            FCITX_INFO() << "areca: app-override selected surrounding backend="
+                         << surBackend->name() << " program=" << program;
+          }
+          return {surBackend};
+        }
+        if (!isTerminal) {
+          if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
             if (debugEnabled()) {
               FCITX_INFO()
-                  << "areca: forced uinput-shift-select backend instead of "
-                     "surrounding"
-                  << " program=" << program
-                  << " frontend=" << (frontend ? frontend : "")
-                  << " backend=" << uinputShiftSelectBackend_.name();
+                  << "areca: app-override surrounding unsupported, fallback to "
+                     "shift-select backend"
+                  << " program=" << program;
             }
-            return {&uinputShiftSelectBackend_};
+            return {shiftBackend};
           }
-          if (advancedConfig_.useUinputShiftSelectForLibreOffice.value() &&
-              requiresForwardBackspaceBackend(program) && !isTerminal &&
-              uinputShiftSelectBackend_.isAvailable()) {
+        }
+        return {resolvePreferredBackspaceBackend(isTerminal)};
+      case AppBackendMode::ShiftSelect:
+        if (!isTerminal) {
+          if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
             if (debugEnabled()) {
               FCITX_INFO()
-                  << "areca: office compatibility selected uinput-shift-select "
-                     "backend"
-                  << " program=" << program
-                  << " backend=" << uinputShiftSelectBackend_.name();
+                  << "areca: app-override selected shift-select backend="
+                  << shiftBackend->name() << " program=" << program;
             }
-            return {&uinputShiftSelectBackend_};
+            return {shiftBackend};
           }
-          if (advancedConfig_.useUinputShiftSelectForDiscordAndSignal.value() &&
-              requiresShiftSelectBackend(program) && !isTerminal &&
-              uinputShiftSelectBackend_.isAvailable()) {
-            if (debugEnabled()) {
-              FCITX_INFO() << "areca: chat compatibility forced "
-                              "uinput-shift-select backend"
-                           << " program=" << program
-                           << " backend=" << uinputShiftSelectBackend_.name();
-            }
-            return {&uinputShiftSelectBackend_};
-          }
-          if (advancedConfig_.useUinputShiftSelectForBrowser.value() &&
-              !isTerminal && uinputShiftSelectBackend_.isAvailable()) {
-            if (debugEnabled()) {
-              FCITX_INFO()
-                  << "areca: selected uinput-shift-select backend for browser"
-                  << " program=" << program
-                  << " frontend=" << (frontend ? frontend : "")
-                  << " backend=" << uinputShiftSelectBackend_.name();
-            }
-            return {&uinputShiftSelectBackend_};
-          }
-          if (debugEnabled()) {
-            FCITX_INFO() << "areca: app-override selected surrounding backend"
-                         << " program=" << program;
-          }
-          return {&surroundingBackend_};
         }
-        if (uinputShiftSelectBackend_.isAvailable() && !isTerminal) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override surrounding unsupported, fallback to "
-                   "shift-select backend"
-                << " program=" << program;
-          }
-          return {&uinputShiftSelectBackend_};
-        }
-        break;
-      case AppBackendMode::UinputShiftSelect:
-        if (uinputShiftSelectBackend_.isAvailable() && !isTerminal) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override selected uinput-shift-select backend"
-                << " program=" << program;
-          }
-          return {&uinputShiftSelectBackend_};
-        }
-        if (xtestShiftSelectBackend_.isAvailable() && !isTerminal) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override uinput-shift-select unavailable, fallback "
-                   "to native-shift-select"
-                << " program=" << program;
-          }
-          return {&xtestShiftSelectBackend_};
-        }
-        break;
-      case AppBackendMode::NativeXTest:
-        if (xtestBackspaceBackend_.isAvailable()) {
-          if (debugEnabled()) {
-            FCITX_INFO() << "areca: app-override selected native/xtest backend"
-                         << " program=" << program;
-          }
-          return {&xtestBackspaceBackend_};
-        }
-        if (uinputBackspaceBackend_.isAvailable()) {
-          if (debugEnabled()) {
-            FCITX_INFO() << "areca: app-override native/xtest unavailable, "
-                            "fallback to uinput backend"
-                         << " program=" << program;
-          }
-          return {&uinputBackspaceBackend_};
-        }
-        return {&forwardBackspaceBackend_};
-      case AppBackendMode::UinputBackspace:
-        if (uinputBackspaceBackend_.isAvailable()) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override selected uinput-backspace backend"
-                << " program=" << program;
-          }
-          return {&uinputBackspaceBackend_};
-        }
-        if (xtestBackspaceBackend_.isAvailable()) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override uinput-backspace unavailable, fallback "
-                   "to xtest backend"
-                << " program=" << program;
-          }
-          return {&xtestBackspaceBackend_};
-        }
-        return {&forwardBackspaceBackend_};
-      case AppBackendMode::ForwardKey:
+        return {resolvePreferredBackspaceBackend(isTerminal)};
+      case AppBackendMode::Backspace: {
+        auto *bsBackend = resolvePreferredBackspaceBackend(isTerminal);
         if (debugEnabled()) {
-          FCITX_INFO() << "areca: app-override selected forward-key backend"
-                       << " program=" << program;
+          FCITX_INFO() << "areca: app-override selected backspace backend="
+                       << bsBackend->name() << " program=" << program;
         }
-        return {&forwardBackspaceBackend_};
-      case AppBackendMode::NativeShiftSelect:
-        if (xtestShiftSelectBackend_.isAvailable() && !isTerminal) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override selected native-shift-select backend"
-                << " program=" << program;
-          }
-          return {&xtestShiftSelectBackend_};
-        }
-        if (uinputShiftSelectBackend_.isAvailable() && !isTerminal) {
-          if (debugEnabled()) {
-            FCITX_INFO()
-                << "areca: app-override native-shift-select unavailable, fallback "
-                   "to uinput-shift-select"
-                << " program=" << program;
-          }
-          return {&uinputShiftSelectBackend_};
-        }
-        if (xtestBackspaceBackend_.isAvailable()) {
-          return {&xtestBackspaceBackend_};
-        }
-        return {&forwardBackspaceBackend_};
+        return {bsBackend};
+      }
       case AppBackendMode::Auto:
         break;
       }
     }
   }
 
-  if (advancedConfig_.useUinputShiftSelectForDiscordAndSignal.value() &&
-      requiresShiftSelectBackend(program)) {
-    if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
-      if (debugEnabled()) {
-        FCITX_INFO()
-            << "areca: chat compatibility forced shift-select backend"
-            << " program=" << program
-            << " backend=" << shiftBackend->name();
-      }
-      return {shiftBackend};
-    }
-  }
-
   if (requiresForwardBackspaceBackend(program)) {
-    if (advancedConfig_.useUinputShiftSelectForLibreOffice.value()) {
-      if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
-        if (debugEnabled()) {
-          FCITX_INFO()
-              << "areca: office compatibility selected shift-select "
-                 "backend"
-              << " program=" << program
-              << " backend=" << shiftBackend->name();
-        }
-        return {shiftBackend};
-      }
-    }
-    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
-        xtestBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO() << "areca: office compatibility selected native backend "
-                        "(replacing uinput)"
-                     << " program=" << program
-                     << " backend=" << xtestBackspaceBackend_.name();
-      }
-      return {&xtestBackspaceBackend_};
+    auto *bsBackend = resolvePreferredBackspaceBackend(isTerminal);
+    if (!program.empty()) {
+      lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
     }
     if (debugEnabled()) {
-      FCITX_INFO() << "areca: program compatibility selected "
-                      "forward-backspace backend"
-                   << " program=" << program << " office_shift_select="
-                   << advancedConfig_.useUinputShiftSelectForLibreOffice.value()
-                   << " backend=" << forwardBackspaceBackend_.name();
+      FCITX_INFO() << "areca: office compatibility selected backspace backend="
+                   << bsBackend->name() << " program=" << program;
     }
-    return {&forwardBackspaceBackend_};
+    return {bsBackend};
   }
 
   const bool isBrowserForShiftSelect =
@@ -652,58 +556,24 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       isBrowserForShiftSelect ? resolvePreferredShiftSelectBackend() : nullptr;
 
   if (decision.useSurrounding) {
-    if (advancedConfig_.useUinputShiftSelectForSurrounding.value()) {
-      if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
-        if (debugEnabled()) {
-          FCITX_INFO() << "areca: forced shift-select backend instead of "
-                          "surrounding"
-                       << " program=" << program
-                       << " frontend=" << (frontend ? frontend : "")
-                       << " backend=" << shiftBackend->name();
-        }
-        return {shiftBackend};
-      }
+    auto *surBackend = resolvePreferredSurroundingBackend();
+    if (!program.empty()) {
+      lastAutoBackendByApp_[program] = AppBackendMode::SurroundingText;
     }
-    if (advancedConfig_.useUinputShiftSelectForBrowser.value() &&
-        preferredShiftBackend) {
-      if (debugEnabled()) {
-        FCITX_INFO()
-            << "areca: selected shift-select backend for browser"
-            << " program=" << program
-            << " frontend=" << (frontend ? frontend : "")
-            << " backend=" << preferredShiftBackend->name();
-      }
-      return {preferredShiftBackend};
-    }
-    if (advancedConfig_.useSurroundingV2ForBrowser.value() &&
-        isBrowserForShiftSelect) {
-      if (debugEnabled()) {
-        FCITX_INFO() << "areca: selected surrounding-text-v2 backend"
-                     << " program=" << program
-                     << " frontend=" << (frontend ? frontend : "")
-                     << " backend=" << surroundingV2Backend_.name();
-      }
-      return {&surroundingV2Backend_};
-    }
-    return {&surroundingBackend_};
-  }
-
-  if (advancedConfig_.useUinputShiftSelectForBrowser.value() &&
-      preferredShiftBackend) {
     if (debugEnabled()) {
-      FCITX_INFO() << "areca: selected shift-select backend for browser"
-                   << " program=" << program
-                   << " frontend=" << (frontend ? frontend : "")
-                   << " backend=" << preferredShiftBackend->name();
+      FCITX_INFO() << "areca: auto selected surrounding backend="
+                   << surBackend->name() << " program=" << program;
     }
-    return {preferredShiftBackend};
+    return {surBackend};
   }
 
   // Fallback: nếu browser không hỗ trợ surrounding text thì dùng shift-select
-  // thay vì forward-backspace. Khác với useUinputShiftSelectForBrowser vốn
-  // override cả nhánh useSurrounding bên trên.
+  // thay vì backspace.
   if (config_.shiftSelectFallbackForBrowser.value() &&
       preferredShiftBackend) {
+    if (!program.empty()) {
+      lastAutoBackendByApp_[program] = AppBackendMode::ShiftSelect;
+    }
     if (debugEnabled()) {
       FCITX_INFO()
           << "areca: browser no surrounding text, fallback to shift-select"
@@ -714,38 +584,10 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     return {preferredShiftBackend};
   }
 
-  if (advancedConfig_.forceUinput.value()) {
-    if (advancedConfig_.useXTestInsteadOfUinput.value() &&
-        xtestBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO() << "areca: selected native backend (replacing uinput)"
-                     << " program=" << program
-                     << " backend=" << xtestBackspaceBackend_.name();
-      }
-      return {&xtestBackspaceBackend_};
-    }
-    if (uinputBackspaceBackend_.isAvailable()) {
-      if (debugEnabled()) {
-        FCITX_INFO()
-            << "areca: forced uinput backend for forward backspace fallback"
-            << " program=" << program
-            << " backend=" << uinputBackspaceBackend_.name();
-      }
-      return {&uinputBackspaceBackend_};
-    }
+  if (!program.empty()) {
+    lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
   }
-
-  if (advancedConfig_.useXTestInsteadOfForwardKey.value() &&
-      xtestBackspaceBackend_.isAvailable()) {
-    if (debugEnabled()) {
-      FCITX_INFO() << "areca: selected native backend (replacing forwardKey)"
-                   << " program=" << program
-                   << " backend=" << xtestBackspaceBackend_.name();
-    }
-    return {&xtestBackspaceBackend_};
-  }
-
-  return {&forwardBackspaceBackend_};
+  return {resolvePreferredBackspaceBackend(isTerminal)};
 }
 
 ReliabilityDecision
@@ -808,12 +650,12 @@ bool ArecaEngine::backspaceRecoveryEnabled() const {
 
 void ArecaEngine::scheduleDeviceWarmup() {
   deviceWarmupTimer_.reset();
-  bool warmUpNative = advancedConfig_.useXTestInsteadOfUinput.value() ||
-                      advancedConfig_.useXTestInsteadOfForwardKey.value();
+  bool warmUpNative = advancedConfig_.useXTestInsteadOfUinput.value();
   if (!warmUpNative) {
     for (const auto &pair : appBackendOverridesMap_) {
-      if (pair.second == AppBackendMode::NativeXTest ||
-          pair.second == AppBackendMode::NativeShiftSelect) {
+      if ((pair.second == AppBackendMode::ShiftSelect ||
+           pair.second == AppBackendMode::Backspace) &&
+          advancedConfig_.useXTestInsteadOfUinput.value()) {
         warmUpNative = true;
         break;
       }
@@ -941,21 +783,29 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
 
   auto candList = std::make_unique<fcitx::CommonCandidateList>();
   candList->setLayoutHint(fcitx::CandidateLayoutHint::Vertical);
-  candList->setLabels({"1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. "});
-  candList->setPageSize(7);
+  candList->setLabels({"1. ", "2. ", "3. ", "4. "});
+  candList->setPageSize(4);
+
+  const char *frontend = inputContext.frontend();
+  const bool isTerminal = inputTypeDetector_.isTerminal(appName, frontend);
+
+  const std::string autoTitle = describeAutoBackend(appName);
+  const std::string surroundingTitle =
+      "Surrounding (" + describeSurroundingBackend() + ")";
+  const std::string shiftTitle =
+      "Shift select (" + describeShiftSelectBackend() + ")";
+  const std::string backspaceTitle =
+      "Backspace (" + describeBackspaceBackend(isTerminal) + ")";
 
   struct BackendOption {
     AppBackendMode mode;
     std::string title;
   };
-  const std::array<BackendOption, 7> options = {{
-      {AppBackendMode::Auto, "Tự động"},
-      {AppBackendMode::SurroundingText, "Surrounding Text"},
-      {AppBackendMode::NativeShiftSelect, "Shift+Left (Libei/XTest)"},
-      {AppBackendMode::UinputShiftSelect, "Shift+Left (uinput)"},
-      {AppBackendMode::NativeXTest, "Native (Libei/XTest)"},
-      {AppBackendMode::UinputBackspace, "Uinput Backspace"},
-      {AppBackendMode::ForwardKey, "ForwardKey"},
+  const std::array<BackendOption, 4> options = {{
+      {AppBackendMode::Auto, autoTitle},
+      {AppBackendMode::SurroundingText, surroundingTitle},
+      {AppBackendMode::ShiftSelect, shiftTitle},
+      {AppBackendMode::Backspace, backspaceTitle},
   }};
 
   int initialCursor = 0;
@@ -1007,28 +857,22 @@ void ArecaEngine::selectBackendForApp(fcitx::InputContext &inputContext,
   inputContext.updateUserInterface(fcitx::UserInterfaceComponent::InputPanel,
                                    true);
 
+  const char *frontend = inputContext.frontend();
+  const bool isTerminal = inputTypeDetector_.isTerminal(appName, frontend);
+
   std::string modeDesc;
   switch (mode) {
   case AppBackendMode::Auto:
-    modeDesc = "Tự động";
+    modeDesc = describeAutoBackend(appName);
     break;
   case AppBackendMode::SurroundingText:
-    modeDesc = "Surrounding Text";
+    modeDesc = "Surrounding (" + describeSurroundingBackend() + ")";
     break;
-  case AppBackendMode::NativeShiftSelect:
-    modeDesc = "Shift+Left (Libei/XTest)";
+  case AppBackendMode::ShiftSelect:
+    modeDesc = "Shift select (" + describeShiftSelectBackend() + ")";
     break;
-  case AppBackendMode::UinputShiftSelect:
-    modeDesc = "Shift+Left (uinput)";
-    break;
-  case AppBackendMode::NativeXTest:
-    modeDesc = "Native (Libei/XTest)";
-    break;
-  case AppBackendMode::UinputBackspace:
-    modeDesc = "Uinput Backspace";
-    break;
-  case AppBackendMode::ForwardKey:
-    modeDesc = "ForwardKey";
+  case AppBackendMode::Backspace:
+    modeDesc = "Backspace (" + describeBackspaceBackend(isTerminal) + ")";
     break;
   }
 

@@ -90,7 +90,13 @@ private:
   RewriteBackendSelection
   selectRewriteBackend(fcitx::InputContext &inputContext,
                        const BambooResult &result);
+  RewriteBackend *resolvePreferredSurroundingBackend();
   RewriteBackend *resolvePreferredShiftSelectBackend();
+  RewriteBackend *resolvePreferredBackspaceBackend(bool isTerminal = false);
+  std::string describeAutoBackend(const std::string &appName);
+  std::string describeSurroundingBackend();
+  std::string describeShiftSelectBackend();
+  std::string describeBackspaceBackend(bool isTerminal = false);
   ReliabilityDecision
   evaluateReliability(fcitx::InputContext &inputContext,
                       const std::string &shownText,
@@ -134,6 +140,7 @@ private:
   AppProfilesConfig appProfiles_;
   uint64_t macroRevision_ = 1;
   std::unordered_map<std::string, AppBackendMode> appBackendOverridesMap_;
+  std::unordered_map<std::string, AppBackendMode> lastAutoBackendByApp_;
   void rebuildAppBackendOverridesMap();
   PresentationMode activePresentationMode_ = PresentationMode::Rewrite;
   fcitx::FactoryFor<RewriteInputState> rewriteStateFactory_;

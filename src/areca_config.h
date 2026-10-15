@@ -38,18 +38,18 @@ private:
 enum class AppBackendMode {
   Auto = 0,
   SurroundingText = 1,
+  ShiftSelect = 2,
+  Backspace = 3,
   UinputShiftSelect = 2,
+  NativeShiftSelect = 2,
   NativeXTest = 3,
-  UinputBackspace = 4,
-  ForwardKey = 5,
-  NativeShiftSelect = 6
+  UinputBackspace = 3,
+  ForwardKey = 3
 };
 FCITX_CONFIG_ENUM_NAME_WITH_I18N(AppBackendMode, N_("Tự động"),
-                                 N_("Surrounding Text"),
-                                 N_("Shift+Left (uinput)"),
-                                 N_("Native (Libei/XTest)"),
-                                 N_("Uinput Backspace"), N_("ForwardKey"),
-                                 N_("Shift+Left (Libei/XTest)"));
+                                 N_("Surrounding"),
+                                 N_("Shift select"),
+                                 N_("Backspace"));
 
 FCITX_CONFIGURATION(
     AppBackendOverrideEntry,
@@ -178,30 +178,15 @@ FCITX_CONFIGURATION(
         fcitx::IntConstrain(0, 5000)};
     fcitx::Option<bool> preciseTiming{this, "PreciseTiming",
                                       N_("Dùng timer độ chính xác cao"), true};
-    fcitx::Option<bool> forceUinput{
-        this, "ForceUinput", N_("Ép dùng uinput thay cho forward Backspace"),
-        false};
+    fcitx::Option<bool> useSurroundingV2InsteadOfSurroundingV1{
+        this, "UseSurroundingV2InsteadOfSurroundingV1",
+        N_("Dùng Surrounding v2 thay cho Surrounding v1"), false};
+    fcitx::Option<bool> useUinputInsteadOfForwardKey{
+        this, "UseUinputInsteadOfForwardKey",
+        N_("Dùng uinput thay cho ForwardKey"), false};
     fcitx::Option<bool> useXTestInsteadOfUinput{
         this, "UseXTestInsteadOfUinput",
         N_("Dùng Native (Libei/XTest) thay thế uinput"), false};
-    fcitx::Option<bool> useXTestInsteadOfForwardKey{
-        this, "UseXTestInsteadOfForwardKey",
-        N_("Dùng Native (Libei/XTest) thay thế ForwardKey"), false};
-    fcitx::Option<bool> useUinputShiftSelectForBrowser{
-        this, "UseUinputShiftSelectForBrowser",
-        N_("Ép uinput Shift+Left cho trình duyệt"), false};
-    fcitx::Option<bool> useUinputShiftSelectForLibreOffice{
-        this, "UseUinputShiftSelectForLibreOffice",
-        N_("Bật mode Shift Left cho LibreOffice/ONLYOFFICE"), false};
-    fcitx::Option<bool> useUinputShiftSelectForDiscordAndSignal{
-        this, "UseUinputShiftSelectForDiscordAndSignal",
-        N_("Bật mode Shift Left cho Discord/Signal"), false};
-    fcitx::Option<bool> useUinputShiftSelectForSurrounding{
-        this, "UseUinputShiftSelectForSurrounding",
-        N_("Bật mode Shift Left thay cho surrounding text"), false};
-    fcitx::Option<bool> useSurroundingV2ForBrowser{
-        this, "UseSurroundingV2ForBrowser",
-        N_("Ép surrounding text v2 cho trình duyệt"), false};
     fcitx::Option<bool> enableMouseTracking{
         this, "EnableMouseTracking", N_("Tự reset bộ gõ sau khi click chuột"),
         true};

@@ -233,10 +233,15 @@ int main() {
   assert(appProfiles.appOverrides.value().empty());
   areca::AppBackendOverrideEntry overrideEntry;
   overrideEntry.appName.setValue("discord");
-  overrideEntry.mode.setValue(areca::AppBackendMode::UinputShiftSelect);
+  overrideEntry.mode.setValue(areca::AppBackendMode::ShiftSelect);
   appProfiles.appOverrides.mutableValue()->push_back(std::move(overrideEntry));
   assert(appProfiles.appOverrides.value().size() == 1);
   assert(appProfiles.appOverrides.value()[0].appName.value() == "discord");
   assert(appProfiles.appOverrides.value()[0].mode.value() ==
-         areca::AppBackendMode::UinputShiftSelect);
+         areca::AppBackendMode::ShiftSelect);
+
+  areca::AdvancedConfig advancedConfig;
+  assert(!advancedConfig.useSurroundingV2InsteadOfSurroundingV1.value());
+  assert(!advancedConfig.useUinputInsteadOfForwardKey.value());
+  assert(!advancedConfig.useXTestInsteadOfUinput.value());
 }

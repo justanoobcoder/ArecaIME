@@ -486,16 +486,9 @@ namespace areca::settings {
             "CompatibilityCard", "Tương thích", "Các cơ chế fallback dành cho ứng dụng có hành vi nhập liệu đặc biệt."
         );
         checkbox("Dùng timer độ chính xác cao", config.advanced.preciseTiming);
-        checkbox("Ép dùng uinput thay cho forward Backspace", config.advanced.forceUinput);
+        checkbox("Dùng Surrounding v2 thay cho Surrounding v1", config.advanced.useSurroundingV2InsteadOfSurroundingV1);
+        checkbox("Dùng uinput thay cho ForwardKey", config.advanced.useUinputInsteadOfForwardKey);
         checkbox("Dùng Native (Libei, fallback XTest) thay thế uinput", config.advanced.useXTestInsteadOfUinput);
-        checkbox(
-            "Dùng Native (Libei, fallback XTest) thay thế ForwardKey", config.advanced.useXTestInsteadOfForwardKey
-        );
-        checkbox("Ép uinput Shift+Left cho trình duyệt", config.advanced.useUinputShiftSelectForBrowser);
-        checkbox("Bật mode Shift Left cho LibreOffice/ONLYOFFICE", config.advanced.useUinputShiftSelectForLibreOffice);
-        checkbox("Bật mode Shift Left cho Discord/Signal", config.advanced.useUinputShiftSelectForDiscordAndSignal);
-        checkbox("Bật mode Shift Left thay cho surrounding text", config.advanced.useUinputShiftSelectForSurrounding);
-        checkbox("Ép surrounding text v2 cho trình duyệt", config.advanced.useSurroundingV2ForBrowser);
         checkbox("Tự reset bộ gõ sau khi click chuột", config.advanced.enableMouseTracking);
         checkbox("Chuyển tiếp phím đầu để tương thích trình duyệt", config.advanced.forwardFirstCharacter);
         endSettingsCard();
@@ -556,9 +549,24 @@ namespace areca::settings {
                 ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 80.0F);
                 ImGui::TableHeadersRow();
 
+                std::string surName = "Surrounding (";
+                surName += config.advanced.useSurroundingV2InsteadOfSurroundingV1.value() ? "V2" : "V1";
+                surName += ")";
+
+                std::string shiftName = "Shift select (";
+                shiftName += config.advanced.useXTestInsteadOfUinput.value() ? "Native" : "Uinput";
+                shiftName += ")";
+
+                std::string bsName = "Backspace (";
+                if (config.advanced.useUinputInsteadOfForwardKey.value()) {
+                    bsName += config.advanced.useXTestInsteadOfUinput.value() ? "Native" : "Uinput";
+                } else {
+                    bsName += "ForwardKey";
+                }
+                bsName += ")";
+
                 const char* modeNames[] = {
-                    "Tự động",          "Surrounding Text", "Shift+Left (uinput)", "Native (Libei/XTest)",
-                    "Uinput Backspace", "ForwardKey",       "Shift+Left (Libei/XTest)"
+                    "Tự động", surName.c_str(), shiftName.c_str(), bsName.c_str()
                 };
 
                 for (size_t i = 0; i < overrides.size(); ++i) {
@@ -577,7 +585,7 @@ namespace areca::settings {
 
                     ImGui::TableSetColumnIndex(1);
                     int currentMode = static_cast<int>(overrides[i].mode.value());
-                    if (currentMode < 0 || currentMode > 6) {
+                    if (currentMode < 0 || currentMode > 3) {
                         currentMode = 0;
                     }
                     ImGui::SetNextItemWidth(-1.0F);

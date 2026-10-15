@@ -388,12 +388,9 @@ AfterSurroundingDeleteWaitMs=1
 PostCommitDelayMs=20
 BackspaceRecovery=True
 PreciseTiming=True
-ForceUinput=False
-UseUinputShiftSelectForBrowser=False
-UseUinputShiftSelectForLibreOffice=False
-UseUinputShiftSelectForDiscordAndSignal=False
-UseUinputShiftSelectForSurrounding=False
-UseSurroundingV2ForBrowser=False
+UseSurroundingV2InsteadOfSurroundingV1=False
+UseUinputInsteadOfForwardKey=False
+UseXTestInsteadOfUinput=False
 ```
 
 | Panel | Tuỳ chọn | Ý nghĩa |
@@ -430,14 +427,9 @@ UseSurroundingV2ForBrowser=False
 | Nâng cao | `PostCommitDelayMs` | Settling window độc lập sau mọi text commit. |
 | Nâng cao | `BackspaceRecovery` | Bật khôi phục lỗi chính tả khi nhấn Backspace trong lúc Bamboo còn composition ở cả `Rewrite` và `Preedit`, ví dụ `nhanhsh` + Backspace có thể khôi phục về `nhánh`. Mặc định `True`. |
 | Nâng cao | `PreciseTiming` | Dùng accuracy `1µs` cho timer Backspace và post-commit; nếu tắt sẽ dùng timer coalescing mặc định của event loop. |
-| Nâng cao | `ForceUinput` | Ép dùng uinput thay cho forward Backspace khi khả dụng, mặc định `False`. |
-| Nâng cao | `UseXTestInsteadOfUinput` | Dùng backend Native thay cho uinput: Libei + RemoteDesktop portal trên Wayland, XTest trên X11; tự fallback XTest nếu Libei lỗi. Với libportal ≥ 0.8, quyền được khôi phục bằng token lưu tại `~/.config/fcitx5/areca-libei-restore-token` khi compositor hỗ trợ. Tên key cũ được giữ để tương thích cấu hình. |
-| Nâng cao | `UseXTestInsteadOfForwardKey` | Dùng backend Native thay cho forward Backspace, với cùng thứ tự Libei → XTest fallback. Tên key cũ được giữ để tương thích cấu hình. |
-| Nâng cao | `UseUinputShiftSelectForBrowser` | Ép dùng uinput Shift+Left cho trình duyệt web thay vì surrounding text, mặc định `False`. |
-| Nâng cao | `UseUinputShiftSelectForLibreOffice` | Ép `soffice.bin`, `libreoffice`, `DesktopEditors` và `onlyoffice` dùng uinput Shift+Left khi khả dụng, mặc định `False`; nếu tắt hoặc uinput không khả dụng thì dùng forward Backspace. |
-| Nâng cao | `UseUinputShiftSelectForDiscordAndSignal` | Ép ứng dụng Discord và Signal dùng uinput Shift+Left khi khả dụng, mặc định `False`. |
-| Nâng cao | `UseUinputShiftSelectForSurrounding` | Ép dùng uinput Shift+Left cho mọi ứng dụng hỗ trợ surrounding text, mặc định `False`. |
-| Nâng cao | `UseSurroundingV2ForBrowser` | Ép dùng surrounding text v2 xóa từng ký tự khi ứng dụng là trình duyệt, mặc định `False`. |
+| Nâng cao | `UseSurroundingV2InsteadOfSurroundingV1` | Dùng Surrounding v2 xóa từng ký tự với delay thay cho Surrounding v1 xóa cả đoạn một lần, mặc định `False`. |
+| Nâng cao | `UseUinputInsteadOfForwardKey` | Dùng uinput thay cho forward Backspace khi khả dụng, mặc định `False`. Tương thích ngược với key `ForceUinput` cũ. |
+| Nâng cao | `UseXTestInsteadOfUinput` | Dùng backend Native thay cho uinput: Libei + RemoteDesktop portal trên Wayland, XTest trên X11; tự fallback XTest nếu Libei lỗi. Khi bật cùng `UseUinputInsteadOfForwardKey`, Backspace cũng chuyển sang dùng Native. |
 
 ## Cấu hình backend theo ứng dụng (App Overrides)
 
@@ -450,20 +442,18 @@ Mode="Surrounding Text"
 
 [AppOverrides/1]
 AppName=soffice.bin
-Mode="Shift+Left (uinput)"
+Mode="Shift select"
 ```
 
 ### Menu chọn nhanh backend bằng phím tắt
 1. Nhấn phím tắt được gán trong `SelectBackendKey` khi đang ở ứng dụng bất kỳ.
-2. Một danh sách ứng cử viên popup xuất hiện gồm 6 lựa chọn:
+2. Một danh sách ứng cử viên popup xuất hiện gồm 4 lựa chọn:
    - `1. Tự động`: Sử dụng logic heuristic tự động của Areca.
-   - `2. Surrounding Text`: Sử dụng surrounding text; tự động fallback sang uinput shift-select hoặc forward-key nếu app không hỗ trợ surrounding text.
-   - `3. Shift+Left (uinput)`: Sử dụng cơ chế bôi đen bằng phím Shift+Left ảo qua kernel uinput.
-   - `4. Native (Libei/XTest)`: Sử dụng cơ chế mô phỏng phím cấp display server Native.
-   - `5. Uinput Backspace`: Phát chuỗi Backspace mức kernel qua uinput.
-   - `6. ForwardKey`: Chuyển tiếp cặp phím Backspace qua API Fcitx5.
-3. Nhấn số `1` đến `6` hoặc dùng phím mũi tên và `Enter` để chọn. Lựa chọn được lưu tức thì vào cấu hình ứng dụng.
-4. Trường hợp ứng dụng không trả về program name qua frontend (như trên XIM hoặc Wayland text-input), Areca tự động định danh theo mã UUID của context `context-<uuid_hex>` để đảm bảo menu vẫn hoạt động bình thường.
+   - `2. Surrounding`: Sử dụng surrounding text, tự động fallback nếu app không hỗ trợ.
+   - `3. Shift select`: Bôi đen văn bản bằng Shift+Left. Mặc định dùng thiết bị uinput, nếu bật tuỳ chọn dùng Native thì chuyển sang Native device.
+   - `4. Backspace`: Xoá ký tự bằng Backspace. Tự động dùng uinput hoặc Native theo cấu hình thiết bị.
+3. Nhấn số `1` đến `4` hoặc dùng phím mũi tên và `Enter` để chọn. Lựa chọn được lưu tức thì vào cấu hình ứng dụng.
+4. Trường hợp ứng dụng không trả về program name qua frontend như trên XIM hoặc Wayland text-input, Areca tự động định danh theo mã UUID của context `context-<uuid_hex>` để đảm bảo menu vẫn hoạt động bình thường.
 
 Lưu ý: đổi giá trị mặc định trong source không ghi đè file cấu hình đã tồn tại.
 Khi nâng cấp từ bản cũ, Areca tự đọc timing còn nằm trong `areca.conf`;
