@@ -325,6 +325,34 @@ int main() {
       ic.setCapabilityFlags(fcitx::CapabilityFlag::KeyEventOrderFix);
       assert(!detector.canForwardBackspaces(ic));
     }
+    {
+      TestInputContext ic(manager, "sdl2-game", "wayland");
+      assert(!detector.canForwardBackspaces(ic));
+    }
+    {
+      TestInputContext ic(manager, "/usr/bin/SDL_Game", "xim");
+      assert(!detector.canForwardBackspaces(ic));
+    }
+    {
+      TestInputContext ic(manager, "SDL3_App.desktop", "ibus");
+      assert(!detector.canForwardBackspaces(ic));
+    }
+
+    // Frontend aliases use the same policy as their base frontend.
+    {
+      TestInputContext ic(manager, "app", "waylandfrontend");
+      assert(detector.canForwardBackspaces(ic));
+    }
+    {
+      TestInputContext ic(manager, "app", "dbusfrontend");
+      ic.setCapabilityFlags(fcitx::CapabilityFlag::KeyEventOrderFix);
+      assert(detector.canForwardBackspaces(ic));
+    }
+    {
+      TestInputContext ic(manager, "app", "fcitx4frontend");
+      ic.setCapabilityFlags(fcitx::CapabilityFlag::FormattedPreedit);
+      assert(detector.canForwardBackspaces(ic));
+    }
 
     // D-Bus without KeyEventOrderFix and without SurroundingText -> false
     {

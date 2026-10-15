@@ -1,5 +1,7 @@
 #include "input_type_detector.h"
 
+#include <algorithm>
+#include <cctype>
 #include <string_view>
 
 #include <fcitx-utils/capabilityflags.h>
@@ -11,6 +13,24 @@
 #include "window_focus_tracker.h"
 
 namespace areca {
+namespace {
+
+bool isSdlProgram(std::string program) {
+  const auto slash = program.find_last_of("/\\");
+  if (slash != std::string::npos) {
+    program.erase(0, slash + 1);
+  }
+  std::transform(
+      program.begin(), program.end(), program.begin(),
+      [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  constexpr std::string_view desktopSuffix = ".desktop";
+  if (program.ends_with(desktopSuffix)) {
+    program.resize(program.size() - desktopSuffix.size());
+  }
+  return program.starts_with("sdl");
+}
+
+} // namespace
 
 InputTypeDetector::InputTypeDetector(const WindowFocusTracker *tracker)
     : tracker_(tracker) {}
@@ -67,20 +87,20 @@ bool InputTypeDetector::canForwardBackspaces(
   const char *frontendCStr = inputContext.frontend();
   const std::string_view frontend = frontendCStr ? frontendCStr : "";
 
-  if (frontend == "wayland" || frontend == "wayland_v2" || frontend == "xim") {
-    return true;
-  }
-
   std::string prog = !program.empty() ? program : inputContext.program();
   if (prog.empty() && tracker_ && tracker_->isValid()) {
     prog = tracker_->focusProgram();
   }
 
-  if (prog.starts_with("SDL")) {
+  // SDL applications commonly render and process input themselves. Their
+  // frontend may still be Wayland, XIM or IBus, so this must precede the
+  // frontend allowlist and force a hardware-backed rewrite path.
+  if (isSdlProgram(prog)) {
     return false;
   }
 
-  if (frontend == "ibus") {
+  if (frontend.starts_with("wayland") || frontend == "xim" ||
+      frontend.starts_with("ibus")) {
     return true;
   }
 
@@ -90,11 +110,11 @@ bool InputTypeDetector::canForwardBackspaces(
   const bool hasSurrounding =
       capabilities.test(fcitx::CapabilityFlag::SurroundingText);
 
-  if (frontend == "dbus") {
+  if (frontend.starts_with("dbus")) {
     return hasKeyEventOrderFix || hasSurrounding;
   }
 
-  if (frontend == "fcitx4") {
+  if (frontend.starts_with("fcitx4")) {
     const bool hasFormattedPreedit =
         capabilities.test(fcitx::CapabilityFlag::FormattedPreedit);
     return hasFormattedPreedit || hasSurrounding;
