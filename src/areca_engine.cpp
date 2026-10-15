@@ -448,6 +448,10 @@ RewriteBackendSelection
 ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
                                   const BambooResult &result) {
   auto *state = inputContext.propertyFor(&rewriteStateFactory_);
+  if (!state) {
+    return {resolvePreferredBackspaceBackend(false)};
+  }
+
   const std::string program = resolveProgram(inputContext, state);
 
   const char *frontend = inputContext.frontend();
@@ -455,10 +459,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   const bool canForward =
       inputTypeDetector_.canForwardBackspaces(inputContext, program);
   const bool preferHardware = isTerminal || !canForward;
-
-  if (!state) {
-    return {resolvePreferredBackspaceBackend(preferHardware)};
-  }
 
   if (!backendVerdictContextKnown_ ||
       backendVerdictContextId_ != inputContext.uuid()) {
