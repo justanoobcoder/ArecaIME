@@ -44,6 +44,18 @@ std::string normalizedProgramName(std::string program) {
   return program;
 }
 
+bool isFirefoxFamilyProgram(const std::string &rawProgram) {
+  const std::string program = normalizedProgramName(rawProgram);
+  static constexpr std::array<const char *, 12> patterns = {
+      "firefox", "librewolf",   "waterfox",   "floorp",
+      "zen",     "tor-browser", "torbrowser", "mullvad",
+      "icecat",  "seamonkey",   "palemoon",   "basilisk"};
+  return std::any_of(patterns.begin(), patterns.end(),
+                     [&program](const char *pattern) {
+                       return program.find(pattern) != std::string::npos;
+                     });
+}
+
 } // namespace
 
 bool isBrowserLikeProgram(const std::string &rawProgram) {
@@ -124,6 +136,32 @@ bool isSelectionImmediatelyAfterText(const std::string &text,
   const size_t beginByte = utf8ByteOffsetForCharIndex(text, shownStart);
   const size_t endByte = utf8ByteOffsetForCharIndex(text, selectionStart);
   return text.compare(beginByte, endByte - beginByte, shownText) == 0;
+}
+
+bool isCollapsedFirefoxAutocomplete(const std::string &program,
+                                    const std::string &text,
+                                    unsigned int cursor, unsigned int anchor,
+                                    const std::string &shownText) {
+  if (!isFirefoxFamilyProgram(program) || cursor != anchor ||
+      shownText.empty() || !fcitx::utf8::validate(text) ||
+      !fcitx::utf8::validate(shownText)) {
+    return false;
+  }
+
+  const size_t textLength = fcitx::utf8::length(text);
+  const size_t shownLength = fcitx::utf8::length(shownText);
+  if (cursor != shownLength || cursor >= textLength ||
+      text.compare(0, shownText.size(), shownText) != 0) {
+    return false;
+  }
+
+  const size_t suffixByte = utf8ByteOffsetForCharIndex(text, cursor);
+  return std::all_of(text.begin() + suffixByte, text.end(), [](char c) {
+    const unsigned char ch = static_cast<unsigned char>(c);
+    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') ||
+           (ch >= 'A' && ch <= 'Z') ||
+           std::strchr("-._~:/?#[]@!$&'()*+,;=%", ch) != nullptr;
+  });
 }
 
 bool isBrowserAutocomplete(const std::string &text, unsigned int cursor,

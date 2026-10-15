@@ -129,21 +129,10 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
             backendVerdict_.known = true;
             backendVerdict_.reliable = false;
             backendVerdict_.probePending = false;
-            const std::string prog = resolveProgram(
-                inputContext, inputContext.propertyFor(&rewriteStateFactory_));
-            const bool isBrowser = inputTypeDetector_.isBrowser(prog);
-            const bool useShiftSelect =
-                config_.shiftSelectFallbackForBrowser.value() && isBrowser &&
-                resolvePreferredShiftSelectBackend();
-            if (!prog.empty()) {
-              lastAutoBackendByApp_[prog] =
-                  useShiftSelect ? AppBackendMode::ShiftSelect
-                                 : AppBackendMode::Backspace;
-            }
             if (debugEnabled()) {
-              FCITX_INFO() << "areca: surrounding probe failed, switched to "
-                           << (useShiftSelect ? "shift-select" : "backspace")
-                           << " program=" << prog;
+              FCITX_INFO()
+                  << "areca: surrounding probe failed, marked unreliable"
+                  << " program=" << inputContext.program();
             }
           },
           [this](fcitx::InputContext &inputContext) -> RewriteBackend * {
@@ -505,8 +494,14 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       hasActiveSelection &&
       isSelectionImmediatelyAfterText(surrounding.text(), surrounding.cursor(),
                                       surrounding.anchor(), result.currentText);
+  const bool collapsedFirefoxAutocomplete =
+      surrounding.isValid() &&
+      isCollapsedFirefoxAutocomplete(program, surrounding.text(),
+                                     surrounding.cursor(), surrounding.anchor(),
+                                     result.currentText);
 
-  if (decision.browserAutocomplete || hasActiveSelection || inAddressBar) {
+  if (decision.browserAutocomplete || collapsedFirefoxAutocomplete ||
+      hasActiveSelection || inAddressBar) {
     uint32_t additional = 0;
     bool fullReplace = false;
     // Bắt đầu: FullReplace và 1 Backspace phụ cho từ đầu tiên trong thanh địa
@@ -515,7 +510,8 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
         !state->addrBarHadSpace) {
       additional = 1;
       fullReplace = true;
-    } else if (selectionMatchesCurrentText || decision.browserAutocomplete) {
+    } else if (selectionMatchesCurrentText || decision.browserAutocomplete ||
+               collapsedFirefoxAutocomplete) {
       additional = 1;
     }
     RewriteBackend *backend = resolvePreferredBackspaceBackend(preferHardware);
@@ -526,6 +522,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       FCITX_INFO() << "areca: browser autocomplete or address bar strategy="
                    << backend->name() << " is_url=" << isUrl
                    << " in_address_bar=" << inAddressBar
+                   << " collapsed_autocomplete=" << collapsedFirefoxAutocomplete
                    << " active_selection=" << hasActiveSelection
                    << " selection_matches_current="
                    << selectionMatchesCurrentText
@@ -643,16 +640,8 @@ ArecaEngine::evaluateReliability(fcitx::InputContext &inputContext,
                             surrounding.anchor(), shownText);
 
   if (!backendVerdict_.known && !browserAutocomplete) {
-    auto autoIt = lastAutoBackendByApp_.find(programName);
-    if (autoIt != lastAutoBackendByApp_.end() &&
-        (autoIt->second == AppBackendMode::ShiftSelect ||
-         autoIt->second == AppBackendMode::Backspace)) {
-      backendVerdict_.reliable = false;
-      backendVerdict_.probePending = false;
-    } else {
-      backendVerdict_.reliable = !isInvalidSurrounding(surrounding);
-      backendVerdict_.probePending = backendVerdict_.reliable;
-    }
+    backendVerdict_.reliable = !isInvalidSurrounding(surrounding);
+    backendVerdict_.probePending = backendVerdict_.reliable;
     if (debugEnabled()) {
       FCITX_INFO() << "areca: reliability first-probe text="
                    << surrounding.text() << " cursor=" << surrounding.cursor()

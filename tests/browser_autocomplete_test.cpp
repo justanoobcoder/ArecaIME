@@ -5,6 +5,7 @@
 
 int main() {
   using areca::isBrowserAutocomplete;
+  using areca::isCollapsedFirefoxAutocomplete;
   using areca::isSelectionImmediatelyAfterText;
 
   assert(areca::isBrowserLikeProgram("google-chrome"));
@@ -37,6 +38,22 @@ int main() {
 
   // Autocomplete never spans a newline.
   assert(!isBrowserAutocomplete("go\nogle", 2, 7, "go"));
+
+  // Firefox exposes its address-bar suffix as a collapsed cursor. Recognize
+  // only a URL-shaped suffix after a word that starts the field.
+  assert(isCollapsedFirefoxAutocomplete("firefox", "gooogle.com/", 2, 2, "go"));
+  assert(isCollapsedFirefoxAutocomplete("firefox-esr", "gooogle.com/", 2, 2,
+                                        "go"));
+  assert(
+      isCollapsedFirefoxAutocomplete("librewolf", "gooogle.com/", 2, 2, "go"));
+  assert(isCollapsedFirefoxAutocomplete("app.zen_browser.zen", "gooogle.com/",
+                                        2, 2, "go"));
+  assert(!isCollapsedFirefoxAutocomplete("google-chrome", "gooogle.com/", 2, 2,
+                                         "go"));
+  assert(!isCollapsedFirefoxAutocomplete("firefox", "xxgoogle", 3, 3, "go"));
+  assert(!isCollapsedFirefoxAutocomplete("firefox", "go hello", 2, 2, "go"));
+  assert(
+      !isCollapsedFirefoxAutocomplete("firefox", "gooogle.com/", 2, 12, "go"));
 
   // Hyprland/Niri có thể tạm báo cursor/anchor lệch vào giữa composition sau
   // rewrite. Selection stale này không được làm tăng số Backspace từ 3 lên 4,

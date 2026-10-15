@@ -14,6 +14,11 @@ bool isSelectionImmediatelyAfterText(const std::string &surroundingText,
                                      unsigned int anchor,
                                      const std::string &shownText);
 
+bool isCollapsedFirefoxAutocomplete(const std::string &program,
+                                    const std::string &surroundingText,
+                                    unsigned int cursor, unsigned int anchor,
+                                    const std::string &shownText);
+
 bool isBrowserAutocomplete(const std::string &surroundingText,
                            unsigned int cursor, unsigned int anchor,
                            const std::string &shownText);
