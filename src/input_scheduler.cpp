@@ -256,6 +256,7 @@ void InputScheduler::applyResult(fcitx::InputContext &inputContext,
     plan.backspaceCount = result.deleteCount + selection.additionalBackspaces;
   }
   // Kết thúc: FullReplace xóa sạch từ cũ cùng gợi ý Omnibox và chèn lại toàn bộ từ mới
+  plan.probeSurrounding = selection.probeSurrounding;
   if (debugProvider_()) {
     FCITX_INFO() << "areca: rewrite select backend=" << backend.name()
                  << " tx=" << plan.transactionId

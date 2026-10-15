@@ -47,6 +47,7 @@ struct RewriteBackendSelection {
   // Bắt đầu: FullReplace xóa toàn bộ từ cũ và chèn trọn vẹn từ mới cho từ đầu tiên trong thanh địa chỉ Chromium
   bool fullReplace = false;
   // Kết thúc: FullReplace xóa toàn bộ từ cũ và chèn trọn vẹn từ mới cho từ đầu tiên trong thanh địa chỉ Chromium
+  bool probeSurrounding = false;
 };
 
 class InputScheduler {

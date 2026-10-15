@@ -287,14 +287,6 @@ bool isVSCodeFamilyProgram(const std::string &rawProgram) {
          isTerminalProgram(program);
 }
 
-bool requiresForwardBackspaceBackend(const std::string &rawProgram) {
-  const std::string program = normalizedProgramName(rawProgram);
-  static constexpr auto programs =
-      std::to_array<std::string_view>(
-          {"soffice.bin", "libreoffice", "desktopeditors", "onlyoffice"});
-  return std::find(programs.begin(), programs.end(), program) != programs.end();
-}
-
 bool requiresShiftSelectBackend(const std::string &rawProgram) {
   const std::string program = normalizedProgramName(rawProgram);
   static constexpr auto programs = std::to_array<std::string_view>(
@@ -315,11 +307,6 @@ bool isChromiumBrowser(const std::string &rawProgram) {
                      [&program](std::string_view pattern) {
                        return program.find(pattern) != std::string::npos;
                      });
-}
-
-bool isPlasmashellProgram(const std::string &rawProgram) {
-  const std::string program = normalizedProgramName(rawProgram);
-  return program == "plasmashell" || program == "org.kde.plasmashell";
 }
 
 } // namespace areca

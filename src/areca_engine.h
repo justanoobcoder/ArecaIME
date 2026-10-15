@@ -36,11 +36,13 @@ struct SurroundingReliabilityState {
   bool known = false;
   bool reliable = false;
   bool forceForwardBackspace = false;
+  bool probePending = false;
 
   void reset() {
     known = false;
     reliable = false;
     forceForwardBackspace = false;
+    probePending = false;
   }
 };
 

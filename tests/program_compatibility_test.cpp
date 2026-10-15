@@ -64,20 +64,6 @@ int main() {
   assert(!isVSCodeFamilyProgram("firefox"));
   assert(!isVSCodeFamilyProgram(""));
 
-  using areca::requiresForwardBackspaceBackend;
-  assert(requiresForwardBackspaceBackend("soffice.bin"));
-  assert(requiresForwardBackspaceBackend(
-      "/usr/lib/libreoffice/program/soffice.bin"));
-  assert(requiresForwardBackspaceBackend("libreoffice"));
-  assert(requiresForwardBackspaceBackend("LibreOffice.desktop"));
-  assert(requiresForwardBackspaceBackend("DesktopEditors"));
-  assert(requiresForwardBackspaceBackend("/usr/bin/DesktopEditors"));
-  assert(requiresForwardBackspaceBackend("onlyoffice"));
-  assert(requiresForwardBackspaceBackend("ONLYOFFICE.desktop"));
-  assert(!requiresForwardBackspaceBackend("soffice"));
-  assert(!requiresForwardBackspaceBackend("openoffice"));
-  assert(!requiresForwardBackspaceBackend(""));
-
   using areca::isTerminalProgram;
   assert(isTerminalProgram("ghostty"));
   assert(isTerminalProgram("com.mitchellh.ghostty"));
@@ -138,17 +124,6 @@ int main() {
   assert(!isChromiumBrowser("slack"));
   assert(!isChromiumBrowser("ghostty"));
   assert(!isChromiumBrowser(""));
-
-  using areca::isPlasmashellProgram;
-  assert(isPlasmashellProgram("plasmashell"));
-  assert(isPlasmashellProgram("/usr/bin/plasmashell"));
-  assert(isPlasmashellProgram("org.kde.plasmashell"));
-  assert(isPlasmashellProgram("org.kde.plasmashell.desktop"));
-  assert(isPlasmashellProgram("PlasmaShell"));
-  assert(!isPlasmashellProgram("kwin_wayland"));
-  assert(!isPlasmashellProgram("dolphin"));
-  assert(!isPlasmashellProgram("firefox"));
-  assert(!isPlasmashellProgram(""));
 
   using areca::resolveAfterBackspaceWaitMs;
   using areca::resolveAfterUinputShiftSelectWaitMs;

@@ -36,6 +36,8 @@
 namespace areca {
 namespace {
 
+constexpr uint64_t kBackendVerdictProtectionUsec = 1ULL * 1000 * 1000;
+
 using SurroundingRule = bool (*)(const fcitx::SurroundingText &);
 
 constexpr std::array<SurroundingRule, 4> kInvalidSurroundingRules = {
@@ -65,7 +67,6 @@ std::string icUuidToHex(const fcitx::ICUUID &uuid) {
 constexpr const char *kMacroConfigPath = "conf/areca-macro-table.conf";
 constexpr const char *kAppsConfigPath = "conf/areca-apps.conf";
 constexpr const char *kAdvancedConfigPath = "conf/areca-advanced.conf";
-constexpr uint64_t kBackendVerdictProtectionUsec = 1ULL * 1000 * 1000;
 #if defined(ARECA_HAS_STANDARD_PATHS)
 constexpr auto kPkgConfigPath = fcitx::StandardPathsType::PkgConfig;
 #else
@@ -115,8 +116,53 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       }),
       adaptiveWaitMonitor_(instance_->eventLoop(), adaptiveWait_,
                            [this]() { return debugEnabled(); }),
-      surroundingBackend_(instance_->eventLoop(),
-                          [this]() { return debugEnabled(); }),
+      surroundingBackend_(
+          instance_->eventLoop(), [this]() { return debugEnabled(); },
+          [this](fcitx::InputContext &inputContext) {
+            backendVerdict_.probePending = false;
+            if (debugEnabled()) {
+              FCITX_INFO() << "areca: surrounding probe succeeded program="
+                           << inputContext.program();
+            }
+          },
+          [this](fcitx::InputContext &inputContext) {
+            backendVerdict_.known = true;
+            backendVerdict_.reliable = false;
+            backendVerdict_.probePending = false;
+            const std::string prog = resolveProgram(
+                inputContext, inputContext.propertyFor(&rewriteStateFactory_));
+            const bool isBrowser = inputTypeDetector_.isBrowser(prog);
+            const bool useShiftSelect =
+                config_.shiftSelectFallbackForBrowser.value() && isBrowser &&
+                resolvePreferredShiftSelectBackend();
+            if (!prog.empty()) {
+              lastAutoBackendByApp_[prog] =
+                  useShiftSelect ? AppBackendMode::ShiftSelect
+                                 : AppBackendMode::Backspace;
+            }
+            if (debugEnabled()) {
+              FCITX_INFO() << "areca: surrounding probe failed, switched to "
+                           << (useShiftSelect ? "shift-select" : "backspace")
+                           << " program=" << prog;
+            }
+          },
+          [this](fcitx::InputContext &inputContext) -> RewriteBackend * {
+            const std::string prog = resolveProgram(
+                inputContext, inputContext.propertyFor(&rewriteStateFactory_));
+            if (config_.shiftSelectFallbackForBrowser.value() &&
+                inputTypeDetector_.isBrowser(prog)) {
+              if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
+                return shiftBackend;
+              }
+            }
+            const char *frontend = inputContext.frontend();
+            const bool isTerminal =
+                inputTypeDetector_.isTerminal(prog, frontend);
+            const bool canForward =
+                inputTypeDetector_.canForwardBackspaces(inputContext, prog);
+            const bool preferHardware = isTerminal || !canForward;
+            return resolvePreferredBackspaceBackend(preferHardware);
+          }),
       surroundingV2Backend_(instance_->eventLoop(),
                             [this]() { return debugEnabled(); }),
       forwardBackspaceBackend_(instance_->eventLoop(), adaptiveWait_,
@@ -182,6 +228,11 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
         if (!inputContext) {
           return;
         }
+        // Nếu backend đang ở giai đoạn probe, thông báo để nó xác nhận thành công
+        // và hủy deadline timer 150ms.
+        if (surroundingBackend_.isProbing()) {
+          surroundingBackend_.notifySurroundingTextUpdated(*inputContext);
+        }
         // Callback chỉ ghi nhận rằng frontend đã đổi text hoặc cursor. Việc đọc
         // và phục hồi được hoãn tới key press để không sửa Bamboo trong event
         // lifecycle và để nhận snapshot surrounding mới nhất.
@@ -246,7 +297,8 @@ void ArecaEngine::clearBackendVerdictForLifecycle(
       backendVerdictContextId_ != inputContext.uuid()) {
     return;
   }
-  if (backendVerdictProtected(inputContext)) {
+  if (std::string_view(eventName) != "reset" &&
+      backendVerdictProtected(inputContext)) {
     if (debugEnabled()) {
       FCITX_INFO() << "areca: backend verdict cache preserved"
                    << " event=" << eventName
@@ -256,6 +308,13 @@ void ArecaEngine::clearBackendVerdictForLifecycle(
   }
   backendVerdict_.reset();
   backendVerdictProtectedUntil_ = 0;
+  if (std::string_view(eventName) == "reset") {
+    const std::string prog = resolveProgram(
+        inputContext, inputContext.propertyFor(&rewriteStateFactory_));
+    if (!prog.empty()) {
+      lastAutoBackendByApp_.erase(prog);
+    }
+  }
   if (debugEnabled()) {
     FCITX_INFO() << "areca: backend verdict cache cleared"
                  << " event=" << eventName
@@ -424,18 +483,6 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     return {backend};
   }
 
-  if (isPlasmashellProgram(program)) {
-    RewriteBackend *backend = resolvePreferredBackspaceBackend(preferHardware);
-    if (!program.empty()) {
-      lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
-    }
-    if (debugEnabled()) {
-      FCITX_INFO() << "areca: plasmashell selected backend=" << backend->name()
-                   << " program=" << program;
-    }
-    return {backend};
-  }
-
   const auto capabilities = inputContext.capabilityFlags();
   const auto &surrounding = inputContext.surroundingText();
   const bool hasSurrounding =
@@ -495,12 +542,15 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       switch (it->second) {
       case AppBackendMode::SurroundingText:
         if (decision.useSurrounding) {
-          auto *surBackend = resolvePreferredSurroundingBackend();
+          auto *surBackend = backendVerdict_.probePending
+                                 ? static_cast<RewriteBackend *>(
+                                       &surroundingBackend_)
+                                 : resolvePreferredSurroundingBackend();
           if (debugEnabled()) {
             FCITX_INFO() << "areca: app-override selected surrounding backend="
                          << surBackend->name() << " program=" << program;
           }
-          return {surBackend};
+          return {surBackend, 0, false, backendVerdict_.probePending};
         }
         if (!isTerminal) {
           if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
@@ -540,50 +590,36 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
     }
   }
 
-  if (requiresForwardBackspaceBackend(program)) {
-    auto *bsBackend = resolvePreferredBackspaceBackend(preferHardware);
-    if (!program.empty()) {
-      lastAutoBackendByApp_[program] = AppBackendMode::Backspace;
-    }
-    if (debugEnabled()) {
-      FCITX_INFO() << "areca: office compatibility selected backspace backend="
-                   << bsBackend->name() << " program=" << program;
-    }
-    return {bsBackend};
-  }
-
-  const bool isBrowserForShiftSelect =
-      !program.empty() && !isTerminal && inputTypeDetector_.isBrowser(program);
-
-  RewriteBackend *preferredShiftBackend =
-      isBrowserForShiftSelect ? resolvePreferredShiftSelectBackend() : nullptr;
-
   if (decision.useSurrounding) {
-    auto *surBackend = resolvePreferredSurroundingBackend();
+    auto *surBackend = backendVerdict_.probePending
+                           ? static_cast<RewriteBackend *>(&surroundingBackend_)
+                           : resolvePreferredSurroundingBackend();
     if (!program.empty()) {
       lastAutoBackendByApp_[program] = AppBackendMode::SurroundingText;
     }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: auto selected surrounding backend="
-                   << surBackend->name() << " program=" << program;
+                   << surBackend->name() << " program=" << program
+                   << " probe=" << backendVerdict_.probePending;
     }
-    return {surBackend};
+    return {surBackend, 0, false, backendVerdict_.probePending};
   }
 
-  // Fallback: nếu browser không hỗ trợ surrounding text thì dùng shift-select
-  // thay vì backspace.
-  if (config_.shiftSelectFallbackForBrowser.value() && preferredShiftBackend) {
-    if (!program.empty()) {
-      lastAutoBackendByApp_[program] = AppBackendMode::ShiftSelect;
+  if (config_.shiftSelectFallbackForBrowser.value() && !isTerminal &&
+      inputTypeDetector_.isBrowser(program)) {
+    if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
+      if (!program.empty()) {
+        lastAutoBackendByApp_[program] = AppBackendMode::ShiftSelect;
+      }
+      if (debugEnabled()) {
+        FCITX_INFO()
+            << "areca: browser surrounding disabled or failed, fallback to shift-select"
+            << " program=" << program
+            << " frontend=" << (frontend ? frontend : "")
+            << " backend=" << shiftBackend->name();
+      }
+      return {shiftBackend};
     }
-    if (debugEnabled()) {
-      FCITX_INFO()
-          << "areca: browser no surrounding text, fallback to shift-select"
-          << " program=" << program
-          << " frontend=" << (frontend ? frontend : "")
-          << " backend=" << preferredShiftBackend->name();
-    }
-    return {preferredShiftBackend};
   }
 
   if (!program.empty()) {
@@ -606,12 +642,22 @@ ArecaEngine::evaluateReliability(fcitx::InputContext &inputContext,
                             surrounding.anchor(), shownText);
 
   if (!backendVerdict_.known && !browserAutocomplete) {
-    backendVerdict_.reliable = !isInvalidSurrounding(surrounding);
+    auto autoIt = lastAutoBackendByApp_.find(programName);
+    if (autoIt != lastAutoBackendByApp_.end() &&
+        (autoIt->second == AppBackendMode::ShiftSelect ||
+         autoIt->second == AppBackendMode::Backspace)) {
+      backendVerdict_.reliable = false;
+      backendVerdict_.probePending = false;
+    } else {
+      backendVerdict_.reliable = !isInvalidSurrounding(surrounding);
+      backendVerdict_.probePending = backendVerdict_.reliable;
+    }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: reliability first-probe text="
                    << surrounding.text() << " cursor=" << surrounding.cursor()
                    << " anchor=" << surrounding.anchor()
-                   << " reliable=" << backendVerdict_.reliable;
+                   << " reliable=" << backendVerdict_.reliable
+                   << " probe_pending=" << backendVerdict_.probePending;
     }
 
     backendVerdict_.forceForwardBackspace = false;

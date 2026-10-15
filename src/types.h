@@ -43,6 +43,7 @@ struct RewritePlan {
 
   uint64_t timerAccuracyUsec = 1;
   std::string commitText;
+  bool probeSurrounding = false;
 };
 
 inline uint32_t resolveAfterXTestBackspaceWaitMs(const char *frontendName,
