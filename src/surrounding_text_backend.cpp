@@ -12,9 +12,9 @@ namespace areca {
 SurroundingTextBackend::SurroundingTextBackend(
     fcitx::EventLoop &eventLoop, DebugProvider debugProvider,
     ProbeSucceededHandler onProbeSucceeded, ProbeFailedHandler onProbeFailed,
-    FallbackBackendProvider fallbackBackendProvider)
+    FallbackBackendProvider fallbackBackendProvider, AdaptiveWait *adaptiveWait)
     : eventLoop_(eventLoop), commitPost_(eventLoop),
-      debugProvider_(std::move(debugProvider)),
+      adaptiveWait_(adaptiveWait), debugProvider_(std::move(debugProvider)),
       onProbeSucceeded_(std::move(onProbeSucceeded)),
       onProbeFailed_(std::move(onProbeFailed)),
       fallbackBackendProvider_(std::move(fallbackBackendProvider)) {}
@@ -37,6 +37,10 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
       onDone(plan.transactionId, RewriteOutcome::Succeeded);
     }
     return ApplyStatus::Completed;
+  }
+
+  if (adaptiveWait_) {
+    adaptiveWait_->beginTransaction();
   }
 
   const bool isProbe = plan.probeSurrounding;
@@ -63,9 +67,9 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
   if (!isProbe) {
     inputContext.deleteSurroundingText(-static_cast<int>(plan.backspaceCount),
                                        plan.backspaceCount);
-    updateSurroundingCacheAfterDelete(
-        inputContext, -static_cast<int>(plan.backspaceCount),
-        plan.backspaceCount);
+    updateSurroundingCacheAfterDelete(inputContext,
+                                      -static_cast<int>(plan.backspaceCount),
+                                      plan.backspaceCount);
   } else {
     inputContext.deleteSurroundingText(-static_cast<int>(plan.backspaceCount),
                                        plan.backspaceCount);
@@ -74,8 +78,7 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
   if (debugProvider_()) {
     const char *frontend = inputContext.frontend();
     FCITX_INFO() << "areca: surrounding-text start tx=" << transactionId_
-                 << " delete=" << plan.backspaceCount
-                 << " wait_ms=" << waitMs_
+                 << " delete=" << plan.backspaceCount << " wait_ms=" << waitMs_
                  << " probe=" << isProbe_
                  << " frontend=" << (frontend ? frontend : "");
   }
@@ -118,8 +121,9 @@ void SurroundingTextBackend::notifySurroundingTextUpdated(
   }
 
   if (debugProvider_()) {
-    FCITX_INFO() << "areca: surrounding probe succeeded via SurroundingTextUpdated event"
-                 << " tx=" << transactionId_;
+    FCITX_INFO()
+        << "areca: surrounding probe succeeded via SurroundingTextUpdated event"
+        << " tx=" << transactionId_;
   }
 
   isProbe_ = false;
@@ -134,11 +138,40 @@ void SurroundingTextBackend::notifySurroundingTextUpdated(
 }
 
 void SurroundingTextBackend::scheduleCommit() {
-  schedule(waitMs_, [this]() {
-    // Không commit ngay trong callback timer. Đưa sang pha post để event loop
-    // phản ánh backlog của hệ thống trước khi chèn text mới.
-    commitPost_.schedule([this]() { commitAndComplete(); });
-  });
+  const uint32_t extraWaitMs =
+      adaptiveWait_ ? adaptiveWait_->effectiveExtraWaitMs(waitMs_) : 0;
+  const uint32_t effectiveWaitMs =
+      adaptiveWait_ ? adaptiveWait_->effectiveWaitMs(waitMs_) : waitMs_;
+  if (debugProvider_() && extraWaitMs > 0) {
+    FCITX_INFO() << "areca: surrounding-text adaptive commit wait tx="
+                 << transactionId_ << " base_ms=" << waitMs_
+                 << " extra_ms=" << extraWaitMs
+                 << " effective_ms=" << effectiveWaitMs;
+  }
+  schedule(effectiveWaitMs, TimerDispatch::PostEvent,
+           [this, extraWaitMs]() { commitAfterAdaptiveWait(extraWaitMs); });
+}
+
+void SurroundingTextBackend::commitAfterAdaptiveWait(
+    uint32_t appliedExtraWaitMs) {
+  if (adaptiveWait_) {
+    const uint32_t currentExtraWaitMs =
+        adaptiveWait_->effectiveExtraWaitMs(waitMs_);
+    if (currentExtraWaitMs > appliedExtraWaitMs) {
+      const uint32_t additionalWaitMs = currentExtraWaitMs - appliedExtraWaitMs;
+      if (debugProvider_()) {
+        FCITX_INFO() << "areca: surrounding-text lag before commit tx="
+                     << transactionId_
+                     << " additional_wait_ms=" << additionalWaitMs;
+      }
+      schedule(additionalWaitMs, TimerDispatch::PostEvent,
+               [this, currentExtraWaitMs]() {
+                 commitAfterAdaptiveWait(currentExtraWaitMs);
+               });
+      return;
+    }
+  }
+  commitAndComplete();
 }
 
 void SurroundingTextBackend::commitAndComplete() {
@@ -155,6 +188,14 @@ void SurroundingTextBackend::commitAndComplete() {
 
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
+  if (adaptiveWait_) {
+    const auto adjustment = adaptiveWait_->completeTransaction();
+    if (debugProvider_() && adjustment == AdaptiveWait::Adjustment::Decreased) {
+      FCITX_INFO() << "areca: surrounding-text adaptive wait decayed tx="
+                   << transactionId << " extra_ms="
+                   << adaptiveWait_->effectiveExtraWaitMs(waitMs_);
+    }
+  }
   if (debugProvider_()) {
     FCITX_INFO() << "areca: surrounding-text complete tx=" << transactionId
                  << " commit=" << commitText_;
@@ -168,6 +209,9 @@ void SurroundingTextBackend::commitAndComplete() {
 void SurroundingTextBackend::completeWithoutCommit() {
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
+  if (adaptiveWait_) {
+    adaptiveWait_->cancelTransaction();
+  }
   if (debugProvider_()) {
     FCITX_INFO() << "areca: surrounding-text context lost tx=" << transactionId;
   }
@@ -177,30 +221,64 @@ void SurroundingTextBackend::completeWithoutCommit() {
   }
 }
 
-void SurroundingTextBackend::schedule(uint32_t delayMs,
+void SurroundingTextBackend::schedule(uint32_t delayMs, TimerDispatch dispatch,
                                       std::function<void()> callback) {
   timer_.reset();
   const uint64_t deadline =
       fcitx::now(CLOCK_MONOTONIC) + static_cast<uint64_t>(delayMs) * 1000;
-  timer_ =
-      eventLoop_.addTimeEvent(CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
-                              [this, callback = std::move(callback)](
-                                  fcitx::EventSourceTime *, uint64_t) mutable {
-                                auto completedTimer = std::move(timer_);
-                                callback();
-                                return false;
-                              });
+  timer_ = eventLoop_.addTimeEvent(
+      CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
+      [this, deadline, dispatch, callback = std::move(callback)](
+          fcitx::EventSourceTime *, uint64_t) mutable {
+        auto completedTimer = std::move(timer_);
+        if (dispatch == TimerDispatch::PostEvent) {
+          dispatchPostEvent(deadline, std::move(callback));
+        } else {
+          observeAndRun(deadline, std::move(callback));
+        }
+        return false;
+      });
   if (!timer_) {
-    callback();
+    if (dispatch == TimerDispatch::PostEvent) {
+      dispatchPostEvent(deadline, std::move(callback));
+    } else {
+      observeAndRun(deadline, std::move(callback));
+    }
     return;
   }
   timer_->setOneShot();
 }
 
+void SurroundingTextBackend::dispatchPostEvent(uint64_t deadlineUsec,
+                                               std::function<void()> callback) {
+  commitPost_.schedule(
+      [this, deadlineUsec, callback = std::move(callback)]() mutable {
+        observeAndRun(deadlineUsec, std::move(callback));
+      });
+}
+
+void SurroundingTextBackend::observeAndRun(uint64_t deadlineUsec,
+                                           std::function<void()> callback) {
+  if (adaptiveWait_) {
+    const uint64_t firedAtUsec = fcitx::now(CLOCK_MONOTONIC);
+    const auto adjustment =
+        adaptiveWait_->observeTimer(deadlineUsec, firedAtUsec);
+    if (debugProvider_() && adjustment != AdaptiveWait::Adjustment::None) {
+      FCITX_INFO() << "areca: surrounding-text adaptive wait changed tx="
+                   << transactionId_ << " lateness_us="
+                   << (firedAtUsec > deadlineUsec ? firedAtUsec - deadlineUsec
+                                                  : 0)
+                   << " extra_ms="
+                   << adaptiveWait_->effectiveExtraWaitMs(waitMs_);
+    }
+  }
+  callback();
+}
+
 void SurroundingTextBackend::scheduleProbeDeadline() {
   // Đặt deadline 150ms. Nếu không nhận được SurroundingTextUpdated event
   // trong thời gian này thì đánh giá ứng dụng không hỗ trợ và chuyển backend.
-  schedule(150, [this]() {
+  schedule(150, TimerDispatch::TimerCallback, [this]() {
     if (!isProbe_) {
       return;
     }
@@ -217,9 +295,8 @@ void SurroundingTextBackend::scheduleProbeDeadline() {
       return;
     }
     if (debugProvider_()) {
-      FCITX_INFO()
-          << "areca: surrounding delete unconfirmed after 150ms tx="
-          << transactionId_;
+      FCITX_INFO() << "areca: surrounding delete unconfirmed after 150ms tx="
+                   << transactionId_;
     }
     handleProbeFailure();
   });
@@ -230,6 +307,10 @@ void SurroundingTextBackend::handleProbeFailure() {
   if (!inputContext) {
     completeWithoutCommit();
     return;
+  }
+
+  if (adaptiveWait_) {
+    adaptiveWait_->cancelTransaction();
   }
 
   if (onProbeFailed_) {
@@ -258,8 +339,9 @@ void SurroundingTextBackend::handleProbeFailure() {
 
   if (fallbackBackend) {
     if (debugProvider_()) {
-      FCITX_INFO() << "areca: fallback from unconfirmed surrounding delete to backend="
-                   << fallbackBackend->name() << " tx=" << plan.transactionId;
+      FCITX_INFO()
+          << "areca: fallback from unconfirmed surrounding delete to backend="
+          << fallbackBackend->name() << " tx=" << plan.transactionId;
     }
     // Keep our callback until apply() confirms ownership. A backend returning
     // Failed is not required to retain or invoke the callback.

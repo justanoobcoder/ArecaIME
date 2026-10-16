@@ -119,41 +119,27 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
       surroundingBackend_(
           instance_->eventLoop(), [this]() { return debugEnabled(); },
           [this](fcitx::InputContext &inputContext) {
-            backendVerdict_.probePending = false;
-            if (debugEnabled()) {
-              FCITX_INFO() << "areca: surrounding probe succeeded program="
-                           << inputContext.program();
-            }
+            handleSurroundingProbeSucceeded(inputContext);
           },
           [this](fcitx::InputContext &inputContext) {
-            backendVerdict_.known = true;
-            backendVerdict_.reliable = false;
-            backendVerdict_.probePending = false;
-            if (debugEnabled()) {
-              FCITX_INFO()
-                  << "areca: surrounding probe failed, marked unreliable"
-                  << " program=" << inputContext.program();
-            }
+            handleSurroundingProbeFailed(inputContext);
           },
           [this](fcitx::InputContext &inputContext) -> RewriteBackend * {
-            const std::string prog = resolveProgram(
-                inputContext, inputContext.propertyFor(&rewriteStateFactory_));
-            if (config_.shiftSelectFallbackForBrowser.value() &&
-                inputTypeDetector_.isBrowser(prog)) {
-              if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
-                return shiftBackend;
-              }
-            }
-            const char *frontend = inputContext.frontend();
-            const bool isTerminal =
-                inputTypeDetector_.isTerminal(prog, frontend);
-            const bool canForward =
-                inputTypeDetector_.canForwardBackspaces(inputContext, prog);
-            const bool preferHardware = isTerminal || !canForward;
-            return resolvePreferredBackspaceBackend(preferHardware);
-          }),
-      surroundingV2Backend_(instance_->eventLoop(),
-                            [this]() { return debugEnabled(); }),
+            return resolveSurroundingFallbackBackend(inputContext);
+          },
+          &adaptiveWait_),
+      surroundingV2Backend_(
+          instance_->eventLoop(), [this]() { return debugEnabled(); },
+          [this](fcitx::InputContext &inputContext) {
+            handleSurroundingProbeSucceeded(inputContext);
+          },
+          [this](fcitx::InputContext &inputContext) {
+            handleSurroundingProbeFailed(inputContext);
+          },
+          [this](fcitx::InputContext &inputContext) -> RewriteBackend * {
+            return resolveSurroundingFallbackBackend(inputContext);
+          },
+          &adaptiveWait_),
       forwardBackspaceBackend_(instance_->eventLoop(), adaptiveWait_,
                                [this]() { return debugEnabled(); }),
       uinputDevice_([this]() { return debugEnabled(); }),
@@ -222,6 +208,9 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
         // và hủy deadline timer 150ms.
         if (surroundingBackend_.isProbing()) {
           surroundingBackend_.notifySurroundingTextUpdated(*inputContext);
+        }
+        if (surroundingV2Backend_.isProbing()) {
+          surroundingV2Backend_.notifySurroundingTextUpdated(*inputContext);
         }
         // Callback chỉ ghi nhận rằng frontend đã đổi text hoặc cursor. Việc đọc
         // và phục hồi được hoãn tới key press để không sửa Bamboo trong event
@@ -351,6 +340,43 @@ RewriteBackend *ArecaEngine::resolvePreferredSurroundingBackend() {
     return &surroundingV2Backend_;
   }
   return &surroundingBackend_;
+}
+
+void ArecaEngine::handleSurroundingProbeSucceeded(
+    fcitx::InputContext &inputContext) {
+  backendVerdict_.probePending = false;
+  if (debugEnabled()) {
+    FCITX_INFO() << "areca: surrounding probe succeeded program="
+                 << inputContext.program();
+  }
+}
+
+void ArecaEngine::handleSurroundingProbeFailed(
+    fcitx::InputContext &inputContext) {
+  backendVerdict_.known = true;
+  backendVerdict_.reliable = false;
+  backendVerdict_.probePending = false;
+  if (debugEnabled()) {
+    FCITX_INFO() << "areca: surrounding probe failed, marked unreliable"
+                 << " program=" << inputContext.program();
+  }
+}
+
+RewriteBackend *ArecaEngine::resolveSurroundingFallbackBackend(
+    fcitx::InputContext &inputContext) {
+  const std::string prog = resolveProgram(
+      inputContext, inputContext.propertyFor(&rewriteStateFactory_));
+  if (config_.shiftSelectFallbackForBrowser.value() &&
+      inputTypeDetector_.isBrowser(prog)) {
+    if (auto *shiftBackend = resolvePreferredShiftSelectBackend()) {
+      return shiftBackend;
+    }
+  }
+  const char *frontend = inputContext.frontend();
+  const bool isTerminal = inputTypeDetector_.isTerminal(prog, frontend);
+  const bool canForward =
+      inputTypeDetector_.canForwardBackspaces(inputContext, prog);
+  return resolvePreferredBackspaceBackend(isTerminal || !canForward);
 }
 
 RewriteBackend *ArecaEngine::resolvePreferredShiftSelectBackend() {
@@ -540,10 +566,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
       switch (it->second) {
       case AppBackendMode::SurroundingText:
         if (decision.useSurrounding) {
-          auto *surBackend = backendVerdict_.probePending
-                                 ? static_cast<RewriteBackend *>(
-                                       &surroundingBackend_)
-                                 : resolvePreferredSurroundingBackend();
+          auto *surBackend = resolvePreferredSurroundingBackend();
           if (debugEnabled()) {
             FCITX_INFO() << "areca: app-override selected surrounding backend="
                          << surBackend->name() << " program=" << program;
@@ -589,9 +612,7 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
   }
 
   if (decision.useSurrounding) {
-    auto *surBackend = backendVerdict_.probePending
-                           ? static_cast<RewriteBackend *>(&surroundingBackend_)
-                           : resolvePreferredSurroundingBackend();
+    auto *surBackend = resolvePreferredSurroundingBackend();
     if (!program.empty()) {
       lastAutoBackendByApp_[program] = AppBackendMode::SurroundingText;
     }

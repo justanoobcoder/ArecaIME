@@ -312,6 +312,41 @@ void testProbeSuccessViaSynchronousEvent() {
   assert(inputContext.surroundingText().text() == "vietnam");
 }
 
+void testAdaptiveWaitIntegration() {
+  fcitx::EventLoop eventLoop;
+  fcitx::InputContextManager manager;
+  std::vector<std::string> events;
+  DummyInputContext inputContext(manager, events);
+  inputContext.surroundingText().setText("go", 2, 2);
+
+  areca::AdaptiveWait adaptiveWait;
+  adaptiveWait.observeSystemStress(20);
+  assert(adaptiveWait.extraWaitMs() == 20);
+
+  bool doneCalled = false;
+  areca::SurroundingTextBackend backend(
+      eventLoop, []() { return false; }, nullptr, nullptr, nullptr,
+      &adaptiveWait);
+
+  const auto status = backend.apply(
+      inputContext, makePlan(201, 1, "õ", false),
+      [&](uint64_t transactionId, areca::RewriteOutcome outcome) {
+        assert(transactionId == 201);
+        assert(outcome == areca::RewriteOutcome::Succeeded);
+        doneCalled = true;
+        eventLoop.exit();
+      });
+
+  assert(status == areca::ApplyStatus::Pending);
+  eventLoop.exec();
+
+  assert(doneCalled);
+  assert(inputContext.committedText == "õ");
+  assert(events.size() == 2);
+  assert(events[0] == "deleteSurrounding:-1:1");
+  assert(events[1] == "commit:õ");
+}
+
 } // namespace
 
 int main() {
@@ -319,6 +354,7 @@ int main() {
   testProbeFailureFallbackToBackspace();
   testProbeSuccessViaEvent();
   testProbeSuccessViaSynchronousEvent();
+  testAdaptiveWaitIntegration();
   std::cout << "All surrounding text probe tests passed\n";
   return 0;
 }

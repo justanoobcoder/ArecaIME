@@ -94,6 +94,10 @@ private:
   selectRewriteBackend(fcitx::InputContext &inputContext,
                        const BambooResult &result);
   RewriteBackend *resolvePreferredSurroundingBackend();
+  void handleSurroundingProbeSucceeded(fcitx::InputContext &inputContext);
+  void handleSurroundingProbeFailed(fcitx::InputContext &inputContext);
+  RewriteBackend *resolveSurroundingFallbackBackend(
+      fcitx::InputContext &inputContext);
   RewriteBackend *resolvePreferredShiftSelectBackend();
   RewriteBackend *resolvePreferredBackspaceBackend(bool preferHardware = false);
   std::string describeAutoBackend(const std::string &appName);

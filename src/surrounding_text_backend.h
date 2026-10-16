@@ -8,6 +8,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/trackableobject.h>
 
+#include "adaptive_wait.h"
 #include "event_loop_post.h"
 #include "rewrite_backend.h"
 
@@ -25,7 +26,8 @@ public:
       fcitx::EventLoop &eventLoop, DebugProvider debugProvider,
       ProbeSucceededHandler onProbeSucceeded = nullptr,
       ProbeFailedHandler onProbeFailed = nullptr,
-      FallbackBackendProvider fallbackBackendProvider = nullptr);
+      FallbackBackendProvider fallbackBackendProvider = nullptr,
+      AdaptiveWait *adaptiveWait = nullptr);
   ~SurroundingTextBackend() override;
 
   const char *name() const override { return "surrounding-text"; }
@@ -35,20 +37,28 @@ public:
   bool hasPending() const { return transactionId_ != 0; }
   bool isProbing() const { return isProbe_; }
 
-  // Gọi từ ArecaEngine khi nhận InputContextSurroundingTextUpdated trong lúc probe.
+  // Gọi từ ArecaEngine khi nhận InputContextSurroundingTextUpdated trong lúc
+  // probe.
   void notifySurroundingTextUpdated(fcitx::InputContext &inputContext);
 
 private:
+  enum class TimerDispatch { TimerCallback, PostEvent };
+
   void scheduleCommit();
+  void commitAfterAdaptiveWait(uint32_t appliedExtraWaitMs);
   void commitAndComplete();
   void completeWithoutCommit();
-  void schedule(uint32_t delayMs, std::function<void()> callback);
+  void schedule(uint32_t delayMs, TimerDispatch dispatch,
+                std::function<void()> callback);
+  void dispatchPostEvent(uint64_t deadlineUsec, std::function<void()> callback);
+  void observeAndRun(uint64_t deadlineUsec, std::function<void()> callback);
   void scheduleProbeDeadline();
   void handleProbeFailure();
   void clearPending();
 
   fcitx::EventLoop &eventLoop_;
   EventLoopPostTask commitPost_;
+  AdaptiveWait *adaptiveWait_ = nullptr;
   DebugProvider debugProvider_;
   ProbeSucceededHandler onProbeSucceeded_;
   ProbeFailedHandler onProbeFailed_;

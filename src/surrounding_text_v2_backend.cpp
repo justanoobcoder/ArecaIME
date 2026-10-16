@@ -9,10 +9,15 @@
 
 namespace areca {
 
-SurroundingTextV2Backend::SurroundingTextV2Backend(fcitx::EventLoop &eventLoop,
-                                                   DebugProvider debugProvider)
+SurroundingTextV2Backend::SurroundingTextV2Backend(
+    fcitx::EventLoop &eventLoop, DebugProvider debugProvider,
+    ProbeSucceededHandler onProbeSucceeded, ProbeFailedHandler onProbeFailed,
+    FallbackBackendProvider fallbackBackendProvider, AdaptiveWait *adaptiveWait)
     : eventLoop_(eventLoop), commitPost_(eventLoop),
-      debugProvider_(std::move(debugProvider)) {}
+      adaptiveWait_(adaptiveWait), debugProvider_(std::move(debugProvider)),
+      onProbeSucceeded_(std::move(onProbeSucceeded)),
+      onProbeFailed_(std::move(onProbeFailed)),
+      fallbackBackendProvider_(std::move(fallbackBackendProvider)) {}
 
 SurroundingTextV2Backend::~SurroundingTextV2Backend() { clearPending(); }
 
@@ -34,6 +39,20 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
     return ApplyStatus::Completed;
   }
 
+  if (adaptiveWait_) {
+    adaptiveWait_->beginTransaction();
+  }
+
+  const bool isProbe = plan.probeSurrounding;
+  if (isProbe) {
+    auto expected = inputContext.surroundingText();
+    expected.deleteText(-static_cast<int>(plan.backspaceCount),
+                        plan.backspaceCount);
+    expectedProbeText_ = expected.text();
+    expectedProbeCursor_ = expected.cursor();
+    expectedProbeAnchor_ = expected.anchor();
+  }
+
   transactionId_ = plan.transactionId;
   inputContext_ = inputContext.watch();
   onDone_ = std::move(onDone);
@@ -44,12 +63,15 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
   afterDeleteWaitMs_ = plan.afterSurroundingDeleteWaitMs;
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
+  isProbe_ = isProbe;
+  savedPlan_ = plan;
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: surrounding-text-v2 start tx=" << transactionId_
                  << " total_deletes=" << totalDeletes_
                  << " delete_delay_ms=" << deleteDelayMs_
                  << " after_wait_ms=" << afterDeleteWaitMs_
+                 << " probe=" << isProbe_
                  << " frontend=" << (frontend ? frontend : "");
   }
 
@@ -57,9 +79,7 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
   return ApplyStatus::Pending;
 }
 
-void SurroundingTextV2Backend::beginIncrementalDelete() {
-  sendNextDelete();
-}
+void SurroundingTextV2Backend::beginIncrementalDelete() { sendNextDelete(); }
 
 void SurroundingTextV2Backend::sendNextDelete() {
   auto *inputContext = inputContext_.get();
@@ -68,8 +88,11 @@ void SurroundingTextV2Backend::sendNextDelete() {
     return;
   }
 
+  const bool probingThisDelete = isProbe_;
   inputContext->deleteSurroundingText(-1, 1);
-  updateSurroundingCacheAfterDeleteV2(*inputContext, -1, 1);
+  if (!probingThisDelete) {
+    updateSurroundingCacheAfterDeleteV2(*inputContext, -1, 1);
+  }
   --remainingDeletes_;
 
   if (debugProvider_()) {
@@ -79,16 +102,88 @@ void SurroundingTextV2Backend::sendNextDelete() {
   }
 
   if (remainingDeletes_ > 0) {
-    schedule(deleteDelayMs_, TimerDispatch::TimerCallback,
+    const uint32_t effectiveDelay =
+        adaptiveWait_ ? adaptiveWait_->effectiveBackspaceDelayMs(deleteDelayMs_)
+                      : deleteDelayMs_;
+    schedule(effectiveDelay, TimerDispatch::TimerCallback,
              [this]() { sendNextDelete(); });
+  } else if (isProbe_) {
+    scheduleProbeDeadline();
   } else {
     scheduleCommit();
   }
 }
 
+void SurroundingTextV2Backend::notifySurroundingTextUpdated(
+    fcitx::InputContext &inputContext) {
+  if (!isProbe_ || inputContext_.get() != &inputContext) {
+    return;
+  }
+
+  const auto &surrounding = inputContext.surroundingText();
+  if (!surrounding.isValid() || surrounding.text() != expectedProbeText_ ||
+      surrounding.cursor() != expectedProbeCursor_ ||
+      surrounding.anchor() != expectedProbeAnchor_) {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: surrounding-v2 probe ignored unmatched update"
+                   << " tx=" << transactionId_
+                   << " expected_text=" << expectedProbeText_
+                   << " actual_text=" << surrounding.text();
+    }
+    return;
+  }
+
+  if (debugProvider_()) {
+    FCITX_INFO() << "areca: surrounding-v2 probe succeeded tx="
+                 << transactionId_;
+  }
+  isProbe_ = false;
+  timer_.reset();
+  if (onProbeSucceeded_) {
+    onProbeSucceeded_(inputContext);
+  }
+  if (remainingDeletes_ == 0) {
+    scheduleCommit();
+  }
+}
+
 void SurroundingTextV2Backend::scheduleCommit() {
-  schedule(afterDeleteWaitMs_, TimerDispatch::PostEvent,
-           [this]() { commitAndComplete(); });
+  const uint32_t extraWaitMs =
+      adaptiveWait_ ? adaptiveWait_->effectiveExtraWaitMs(afterDeleteWaitMs_)
+                    : 0;
+  const uint32_t effectiveWaitMs =
+      adaptiveWait_ ? adaptiveWait_->effectiveWaitMs(afterDeleteWaitMs_)
+                    : afterDeleteWaitMs_;
+  if (debugProvider_() && extraWaitMs > 0) {
+    FCITX_INFO() << "areca: surrounding-text-v2 adaptive commit wait tx="
+                 << transactionId_ << " base_ms=" << afterDeleteWaitMs_
+                 << " extra_ms=" << extraWaitMs
+                 << " effective_ms=" << effectiveWaitMs;
+  }
+  schedule(effectiveWaitMs, TimerDispatch::PostEvent,
+           [this, extraWaitMs]() { commitAfterAdaptiveWait(extraWaitMs); });
+}
+
+void SurroundingTextV2Backend::commitAfterAdaptiveWait(
+    uint32_t appliedExtraWaitMs) {
+  if (adaptiveWait_) {
+    const uint32_t currentExtraWaitMs =
+        adaptiveWait_->effectiveExtraWaitMs(afterDeleteWaitMs_);
+    if (currentExtraWaitMs > appliedExtraWaitMs) {
+      const uint32_t additionalWaitMs = currentExtraWaitMs - appliedExtraWaitMs;
+      if (debugProvider_()) {
+        FCITX_INFO() << "areca: surrounding-text-v2 lag before commit tx="
+                     << transactionId_
+                     << " additional_wait_ms=" << additionalWaitMs;
+      }
+      schedule(additionalWaitMs, TimerDispatch::PostEvent,
+               [this, currentExtraWaitMs]() {
+                 commitAfterAdaptiveWait(currentExtraWaitMs);
+               });
+      return;
+    }
+  }
+  commitAndComplete();
 }
 
 void SurroundingTextV2Backend::commitAndComplete() {
@@ -105,6 +200,14 @@ void SurroundingTextV2Backend::commitAndComplete() {
 
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
+  if (adaptiveWait_) {
+    const auto adjustment = adaptiveWait_->completeTransaction();
+    if (debugProvider_() && adjustment == AdaptiveWait::Adjustment::Decreased) {
+      FCITX_INFO() << "areca: surrounding-text-v2 adaptive wait decayed tx="
+                   << transactionId << " extra_ms="
+                   << adaptiveWait_->effectiveExtraWaitMs(afterDeleteWaitMs_);
+    }
+  }
   if (debugProvider_()) {
     FCITX_INFO() << "areca: surrounding-text-v2 complete tx=" << transactionId
                  << " commit=" << commitText_;
@@ -118,6 +221,9 @@ void SurroundingTextV2Backend::commitAndComplete() {
 void SurroundingTextV2Backend::completeWithoutCommit() {
   const uint64_t transactionId = transactionId_;
   auto onDone = std::move(onDone_);
+  if (adaptiveWait_) {
+    adaptiveWait_->cancelTransaction();
+  }
   if (debugProvider_()) {
     FCITX_INFO() << "areca: surrounding-text-v2 context lost tx="
                  << transactionId;
@@ -134,27 +240,122 @@ void SurroundingTextV2Backend::schedule(uint32_t delayMs,
   timer_.reset();
   const uint64_t deadline =
       fcitx::now(CLOCK_MONOTONIC) + static_cast<uint64_t>(delayMs) * 1000;
-  timer_ =
-      eventLoop_.addTimeEvent(CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
-                              [this, dispatch, callback = std::move(callback)](
-                                  fcitx::EventSourceTime *, uint64_t) mutable {
-                                auto completedTimer = std::move(timer_);
-                                if (dispatch == TimerDispatch::PostEvent) {
-                                  commitPost_.schedule(std::move(callback));
-                                } else {
-                                  callback();
-                                }
-                                return false;
-                              });
+  timer_ = eventLoop_.addTimeEvent(
+      CLOCK_MONOTONIC, deadline, timerAccuracyUsec_,
+      [this, deadline, dispatch, callback = std::move(callback)](
+          fcitx::EventSourceTime *, uint64_t) mutable {
+        auto completedTimer = std::move(timer_);
+        if (dispatch == TimerDispatch::PostEvent) {
+          dispatchPostEvent(deadline, std::move(callback));
+        } else {
+          observeAndRun(deadline, std::move(callback));
+        }
+        return false;
+      });
   if (!timer_) {
     if (dispatch == TimerDispatch::PostEvent) {
-      commitPost_.schedule(std::move(callback));
+      dispatchPostEvent(deadline, std::move(callback));
     } else {
-      callback();
+      observeAndRun(deadline, std::move(callback));
     }
     return;
   }
   timer_->setOneShot();
+}
+
+void SurroundingTextV2Backend::dispatchPostEvent(
+    uint64_t deadlineUsec, std::function<void()> callback) {
+  commitPost_.schedule(
+      [this, deadlineUsec, callback = std::move(callback)]() mutable {
+        observeAndRun(deadlineUsec, std::move(callback));
+      });
+}
+
+void SurroundingTextV2Backend::observeAndRun(uint64_t deadlineUsec,
+                                             std::function<void()> callback) {
+  if (adaptiveWait_) {
+    const uint64_t firedAtUsec = fcitx::now(CLOCK_MONOTONIC);
+    const auto adjustment =
+        adaptiveWait_->observeTimer(deadlineUsec, firedAtUsec);
+    if (debugProvider_() && adjustment != AdaptiveWait::Adjustment::None) {
+      FCITX_INFO() << "areca: surrounding-text-v2 adaptive wait changed tx="
+                   << transactionId_ << " lateness_us="
+                   << (firedAtUsec > deadlineUsec ? firedAtUsec - deadlineUsec
+                                                  : 0)
+                   << " extra_ms="
+                   << adaptiveWait_->effectiveExtraWaitMs(afterDeleteWaitMs_);
+    }
+  }
+  callback();
+}
+
+void SurroundingTextV2Backend::scheduleProbeDeadline() {
+  schedule(150, TimerDispatch::TimerCallback, [this]() {
+    if (!isProbe_) {
+      return;
+    }
+    auto *inputContext = inputContext_.get();
+    if (!inputContext) {
+      completeWithoutCommit();
+      return;
+    }
+    notifySurroundingTextUpdated(*inputContext);
+    if (!isProbe_) {
+      return;
+    }
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: surrounding-v2 delete unconfirmed after 150ms tx="
+                   << transactionId_;
+    }
+    handleProbeFailure();
+  });
+}
+
+void SurroundingTextV2Backend::handleProbeFailure() {
+  auto *inputContext = inputContext_.get();
+  if (!inputContext) {
+    completeWithoutCommit();
+    return;
+  }
+
+  if (adaptiveWait_) {
+    adaptiveWait_->cancelTransaction();
+  }
+  if (onProbeFailed_) {
+    onProbeFailed_(*inputContext);
+  }
+
+  RewriteBackend *fallbackBackend =
+      fallbackBackendProvider_ ? fallbackBackendProvider_(*inputContext)
+                               : nullptr;
+  RewritePlan plan = savedPlan_;
+  plan.probeSurrounding = false;
+  auto onDone = std::move(onDone_);
+  auto icWatch = inputContext->watch();
+  clearPending();
+
+  auto *ic = icWatch.get();
+  if (!ic) {
+    if (onDone) {
+      onDone(plan.transactionId, RewriteOutcome::Failed);
+    }
+    return;
+  }
+  if (fallbackBackend) {
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: fallback from unconfirmed surrounding-v2 delete "
+                      "to backend="
+                   << fallbackBackend->name() << " tx=" << plan.transactionId;
+    }
+    const auto status = fallbackBackend->apply(*ic, plan, onDone);
+    if (status == ApplyStatus::Failed && onDone) {
+      onDone(plan.transactionId, RewriteOutcome::Failed);
+    }
+    return;
+  }
+  if (onDone) {
+    onDone(plan.transactionId, RewriteOutcome::Failed);
+  }
 }
 
 void SurroundingTextV2Backend::clearPending() {
@@ -169,6 +370,11 @@ void SurroundingTextV2Backend::clearPending() {
   afterDeleteWaitMs_ = 0;
   timerAccuracyUsec_ = 1;
   commitText_.clear();
+  isProbe_ = false;
+  savedPlan_ = {};
+  expectedProbeText_.clear();
+  expectedProbeCursor_ = 0;
+  expectedProbeAnchor_ = 0;
 }
 
 } // namespace areca
