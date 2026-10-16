@@ -75,10 +75,12 @@ BambooEngineAdapter::BambooEngineAdapter(std::string inputMethod,
                                          std::string outputCharset,
                                          bool macroEnabled,
                                          bool capitalizeMacro,
-                                         std::vector<MacroDefinition> macros)
+                                         std::vector<MacroDefinition> macros,
+                                         bool revertMacroOnBackspace)
     : spellCheck_(spellCheck), realtimeSpellcheck_(realtimeSpellcheck),
       outputCharset_(std::move(outputCharset)),
-      macroEnabled_(macroEnabled), capitalizeMacro_(capitalizeMacro) {
+      macroEnabled_(macroEnabled), capitalizeMacro_(capitalizeMacro),
+      revertMacroOnBackspace_(revertMacroOnBackspace) {
   handle_ = ArecaBambooCreate(inputMethod.data(), modernStyle ? 1 : 0);
   if (!handle_) {
     throw std::runtime_error("unknown Bamboo input method: " + inputMethod);
@@ -152,7 +154,7 @@ BambooResult BambooEngineAdapter::process(uint32_t codepoint,
       macroRecoveryAvailable_ = false;
       macroExpandedTextWithBoundary_.clear();
       macroRawKeyWithBoundary_.clear();
-    } else if (result.macroExpanded) {
+    } else if (result.macroExpanded && revertMacroOnBackspace_) {
       finalizedRenderedText_.clear();
       finalizedWordAvailable_ = false;
       trailingBoundaryCount_ = 0;

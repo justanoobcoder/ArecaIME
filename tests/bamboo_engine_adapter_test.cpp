@@ -335,6 +335,18 @@ int main() {
   type(undoEngine, 'a');
   assert(!undoEngine.canUndoMacro());
 
+  // Test macro undo disabled when revertMacroOnBackspace is false:
+  areca::BambooEngineAdapter disabledUndoEngine(
+      "Telex 2", true, true, true, "Unicode", true, true,
+      {{"k", "không"}}, false);
+
+  display = "50";
+  for (char key : std::string("k.")) {
+    applyToDisplay(display, type(disabledUndoEngine, key));
+  }
+  assert(display == "50không.");
+  assert(!disabledUndoEngine.canUndoMacro());
+
   // Test spellcheck mistake recovery on Backspace:
   // Typing "nhanhsh", calling processBackspace restores "nhánh"
   engine.reset();

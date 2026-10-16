@@ -74,16 +74,19 @@ RewriteInputState::RewriteInputState(std::string inputMethod, bool spellCheck,
                                      std::string outputCharset,
                                      bool macroEnabled, bool capitalizeMacro,
                                      uint64_t macroRevision,
-                                     std::vector<MacroDefinition> macros)
+                                     std::vector<MacroDefinition> macros,
+                                     bool revertMacroOnBackspace)
     : inputMethod(std::move(inputMethod)), spellCheck(spellCheck),
       realtimeSpellcheck(realtimeSpellcheck),
       modernStyle(modernStyle), outputCharset(std::move(outputCharset)),
       macroEnabled(macroEnabled), capitalizeMacro(capitalizeMacro),
+      revertMacroOnBackspace(revertMacroOnBackspace),
       macroRevision(macroRevision),
       engine(std::make_unique<BambooEngineAdapter>(
           this->inputMethod, this->spellCheck, this->realtimeSpellcheck,
           this->modernStyle, this->outputCharset, this->macroEnabled,
-          this->capitalizeMacro, std::move(macros))) {}
+          this->capitalizeMacro, std::move(macros),
+          this->revertMacroOnBackspace)) {}
 
 RewriteModeHandler::RewriteModeHandler(fcitx::EventLoop &eventLoop,
                                        StateFactory &stateFactory,
