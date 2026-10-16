@@ -251,6 +251,13 @@ void testProbeSuccessViaEvent() {
   assert(backend.isProbing());
   assert(!probeSucceededCalled);
 
+  // Một số client dời cursor trước rồi mới xoá. Ký tự cần xoá vẫn còn ngay
+  // sau cursor nên update trung gian này chưa được coi là hoàn tất.
+  inputContext.surroundingText().setText("vietnam", 4, 4);
+  backend.notifySurroundingTextUpdated(inputContext);
+  assert(backend.isProbing());
+  assert(!probeSucceededCalled);
+
   // Giả lập client xác nhận đúng trạng thái sau khi xoá 3 ký tự.
   inputContext.surroundingText().setText("viet", 4, 4);
   backend.notifySurroundingTextUpdated(inputContext);

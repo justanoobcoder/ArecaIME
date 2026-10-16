@@ -44,7 +44,10 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
     adaptiveWait_->beginTransaction();
   }
 
-  auto expected = inputContext.surroundingText();
+  const auto &original = inputContext.surroundingText();
+  originalProbeText_ = original.text();
+  originalProbeCursor_ = original.cursor();
+  auto expected = original;
   expected.deleteText(-static_cast<int>(plan.backspaceCount),
                       plan.backspaceCount);
   expectedProbeText_ = expected.text();
@@ -122,9 +125,9 @@ void SurroundingTextV2Backend::notifySurroundingTextUpdated(
 
   const auto &surrounding = inputContext.surroundingText();
   if (!surroundingProbeMatches(
-          surrounding.isValid(), expectedProbeText_, expectedProbeCursor_,
-          expectedProbeAnchor_, surrounding.text(), surrounding.cursor(),
-          surrounding.anchor(), fromUpdateEvent)) {
+          surrounding.isValid(), originalProbeText_, originalProbeCursor_,
+          expectedProbeText_, expectedProbeCursor_, surrounding.text(),
+          surrounding.cursor(), surrounding.anchor(), fromUpdateEvent)) {
     if (debugProvider_()) {
       FCITX_INFO() << "areca: surrounding-v2 probe ignored unmatched update"
                    << " tx=" << transactionId_
@@ -377,6 +380,8 @@ void SurroundingTextV2Backend::clearPending() {
   isProbe_ = false;
   probeDeletePending_ = false;
   savedPlan_ = {};
+  originalProbeText_.clear();
+  originalProbeCursor_ = 0;
   expectedProbeText_.clear();
   expectedProbeCursor_ = 0;
   expectedProbeAnchor_ = 0;

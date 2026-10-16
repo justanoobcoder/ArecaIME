@@ -76,6 +76,8 @@ private:
   bool isProbe_ = false;
   bool probeDeletePending_ = false;
   RewritePlan savedPlan_;
+  std::string originalProbeText_;
+  unsigned int originalProbeCursor_ = 0;
   std::string expectedProbeText_;
   unsigned int expectedProbeCursor_ = 0;
   unsigned int expectedProbeAnchor_ = 0;

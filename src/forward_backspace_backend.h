@@ -66,6 +66,8 @@ private:
   uint64_t timerAccuracyUsec_ = 1;
   std::string commitText_;
   bool probePending_ = false;
+  std::string originalProbeText_;
+  unsigned int originalProbeCursor_ = 0;
   std::string expectedProbeText_;
   unsigned int expectedProbeCursor_ = 0;
   unsigned int expectedProbeAnchor_ = 0;
