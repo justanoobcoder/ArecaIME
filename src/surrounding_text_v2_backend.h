@@ -73,6 +73,7 @@ private:
   uint64_t timerAccuracyUsec_ = 1;
   std::string commitText_;
   bool isProbe_ = false;
+  bool probeDeletePending_ = false;
   RewritePlan savedPlan_;
   std::string expectedProbeText_;
   unsigned int expectedProbeCursor_ = 0;

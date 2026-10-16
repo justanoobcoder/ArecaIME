@@ -322,7 +322,7 @@ void SurroundingTextBackend::handleProbeFailure() {
                                : nullptr;
 
   RewritePlan plan = savedPlan_;
-  plan.probeSurrounding = false;
+  plan.probeSurrounding = true;
   auto onDone = std::move(onDone_);
   fcitx::TrackableObjectReference<fcitx::InputContext> icWatch =
       inputContext->watch();

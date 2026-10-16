@@ -43,15 +43,12 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
     adaptiveWait_->beginTransaction();
   }
 
-  const bool isProbe = plan.probeSurrounding;
-  if (isProbe) {
-    auto expected = inputContext.surroundingText();
-    expected.deleteText(-static_cast<int>(plan.backspaceCount),
-                        plan.backspaceCount);
-    expectedProbeText_ = expected.text();
-    expectedProbeCursor_ = expected.cursor();
-    expectedProbeAnchor_ = expected.anchor();
-  }
+  auto expected = inputContext.surroundingText();
+  expected.deleteText(-static_cast<int>(plan.backspaceCount),
+                      plan.backspaceCount);
+  expectedProbeText_ = expected.text();
+  expectedProbeCursor_ = expected.cursor();
+  expectedProbeAnchor_ = expected.anchor();
 
   transactionId_ = plan.transactionId;
   inputContext_ = inputContext.watch();
@@ -63,7 +60,10 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
   afterDeleteWaitMs_ = plan.afterSurroundingDeleteWaitMs;
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
-  isProbe_ = isProbe;
+  // Incremental surrounding deletion must confirm its final step on every
+  // rewrite. A one-time capability probe cannot guarantee that a later async
+  // delete has reached the application before commit.
+  isProbe_ = true;
   savedPlan_ = plan;
 
   if (debugProvider_()) {
@@ -71,7 +71,7 @@ ApplyStatus SurroundingTextV2Backend::apply(fcitx::InputContext &inputContext,
                  << " total_deletes=" << totalDeletes_
                  << " delete_delay_ms=" << deleteDelayMs_
                  << " after_wait_ms=" << afterDeleteWaitMs_
-                 << " probe=" << isProbe_
+                 << " verify_final_delete=" << isProbe_
                  << " frontend=" << (frontend ? frontend : "");
   }
 
@@ -88,12 +88,16 @@ void SurroundingTextV2Backend::sendNextDelete() {
     return;
   }
 
-  const bool probingThisDelete = isProbe_;
-  inputContext->deleteSurroundingText(-1, 1);
-  if (!probingThisDelete) {
-    updateSurroundingCacheAfterDeleteV2(*inputContext, -1, 1);
-  }
+  const bool probeFinalDelete = remainingDeletes_ == 1;
   --remainingDeletes_;
+  if (probeFinalDelete) {
+    probeDeletePending_ = true;
+    scheduleProbeDeadline();
+    inputContext->deleteSurroundingText(-1, 1);
+    return;
+  }
+
+  inputContext->deleteSurroundingText(-1, 1);
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: surrounding-text-v2 delete step tx="
@@ -101,22 +105,17 @@ void SurroundingTextV2Backend::sendNextDelete() {
                  << " total=" << totalDeletes_;
   }
 
-  if (remainingDeletes_ > 0) {
-    const uint32_t effectiveDelay =
-        adaptiveWait_ ? adaptiveWait_->effectiveBackspaceDelayMs(deleteDelayMs_)
-                      : deleteDelayMs_;
-    schedule(effectiveDelay, TimerDispatch::TimerCallback,
-             [this]() { sendNextDelete(); });
-  } else if (isProbe_) {
-    scheduleProbeDeadline();
-  } else {
-    scheduleCommit();
-  }
+  const uint32_t effectiveDelay =
+      adaptiveWait_ ? adaptiveWait_->effectiveBackspaceDelayMs(deleteDelayMs_)
+                    : deleteDelayMs_;
+  schedule(effectiveDelay, TimerDispatch::TimerCallback,
+           [this]() { sendNextDelete(); });
 }
 
 void SurroundingTextV2Backend::notifySurroundingTextUpdated(
     fcitx::InputContext &inputContext) {
-  if (!isProbe_ || inputContext_.get() != &inputContext) {
+  if (!isProbe_ || !probeDeletePending_ ||
+      inputContext_.get() != &inputContext) {
     return;
   }
 
@@ -137,14 +136,13 @@ void SurroundingTextV2Backend::notifySurroundingTextUpdated(
     FCITX_INFO() << "areca: surrounding-v2 probe succeeded tx="
                  << transactionId_;
   }
-  isProbe_ = false;
+  probeDeletePending_ = false;
   timer_.reset();
+  isProbe_ = false;
   if (onProbeSucceeded_) {
     onProbeSucceeded_(inputContext);
   }
-  if (remainingDeletes_ == 0) {
-    scheduleCommit();
-  }
+  scheduleCommit();
 }
 
 void SurroundingTextV2Backend::scheduleCommit() {
@@ -329,7 +327,8 @@ void SurroundingTextV2Backend::handleProbeFailure() {
       fallbackBackendProvider_ ? fallbackBackendProvider_(*inputContext)
                                : nullptr;
   RewritePlan plan = savedPlan_;
-  plan.probeSurrounding = false;
+  plan.backspaceCount = remainingDeletes_ + (probeDeletePending_ ? 1U : 0U);
+  plan.probeSurrounding = true;
   auto onDone = std::move(onDone_);
   auto icWatch = inputContext->watch();
   clearPending();
@@ -371,6 +370,7 @@ void SurroundingTextV2Backend::clearPending() {
   timerAccuracyUsec_ = 1;
   commitText_.clear();
   isProbe_ = false;
+  probeDeletePending_ = false;
   savedPlan_ = {};
   expectedProbeText_.clear();
   expectedProbeCursor_ = 0;

@@ -50,6 +50,7 @@ public:
                            const areca::RewritePlan &plan,
                            areca::RewriteDone onDone) override {
     called_ = true;
+    backspaceCount_ = plan.backspaceCount;
     inputContext.commitString(plan.commitText);
     if (onDone) {
       onDone(plan.transactionId, areca::RewriteOutcome::Succeeded);
@@ -57,12 +58,16 @@ public:
     return areca::ApplyStatus::Completed;
   }
 
+  uint32_t backspaceCount() const { return backspaceCount_; }
+
 private:
   bool &called_;
+  uint32_t backspaceCount_ = 0;
 };
 
 areca::RewritePlan makeProbePlan(uint64_t transactionId,
-                                 uint32_t backspaceCount = 1) {
+                                 uint32_t backspaceCount = 1,
+                                 bool probeSurrounding = true) {
   areca::RewritePlan plan;
   plan.transactionId = transactionId;
   plan.backspaceCount = backspaceCount;
@@ -70,7 +75,7 @@ areca::RewritePlan makeProbePlan(uint64_t transactionId,
   plan.waylandSurroundingDeleteDelayMs = 0;
   plan.afterSurroundingDeleteWaitMs = 1;
   plan.commitText = "õ";
-  plan.probeSurrounding = true;
+  plan.probeSurrounding = probeSurrounding;
   return plan;
 }
 
@@ -97,7 +102,7 @@ void testProbeSuccess() {
   };
 
   const auto status =
-      backend.apply(inputContext, makeProbePlan(301),
+      backend.apply(inputContext, makeProbePlan(301, 1, false),
                     [&](uint64_t transactionId, areca::RewriteOutcome outcome) {
                       assert(transactionId == 301);
                       assert(outcome == areca::RewriteOutcome::Succeeded);
@@ -109,6 +114,37 @@ void testProbeSuccess() {
 
   assert(probeSucceeded);
   assert(!fallbackCalled);
+  assert(doneCalled);
+  assert(events == std::vector<std::string>({"delete:-1:1", "commit:õ"}));
+}
+
+void testCommitWaitsForFinalDeleteUpdate() {
+  fcitx::EventLoop eventLoop;
+  fcitx::InputContextManager manager;
+  std::vector<std::string> events;
+  DummyInputContext inputContext(manager, events);
+  inputContext.surroundingText().setText("go", 2, 2);
+
+  bool doneCalled = false;
+  areca::SurroundingTextV2Backend backend(eventLoop, []() { return false; });
+  const auto status =
+      backend.apply(inputContext, makeProbePlan(305, 1, false),
+                    [&](uint64_t transactionId, areca::RewriteOutcome outcome) {
+                      assert(transactionId == 305);
+                      assert(outcome == areca::RewriteOutcome::Succeeded);
+                      doneCalled = true;
+                      eventLoop.exit();
+                    });
+
+  assert(status == areca::ApplyStatus::Pending);
+  assert(backend.isProbing());
+  assert(!doneCalled);
+  assert(events == std::vector<std::string>({"delete:-1:1"}));
+
+  inputContext.surroundingText().setText("g", 1, 1);
+  backend.notifySurroundingTextUpdated(inputContext);
+  eventLoop.exec();
+
   assert(doneCalled);
   assert(events == std::vector<std::string>({"delete:-1:1", "commit:õ"}));
 }
@@ -144,11 +180,12 @@ void testProbeFailureFallsBack() {
 
   assert(probeFailed);
   assert(fallbackCalled);
+  assert(fallback.backspaceCount() == 1);
   assert(doneCalled);
   assert(events == std::vector<std::string>({"delete:-1:1", "commit:õ"}));
 }
 
-void testProbeIgnoresIntermediateUpdates() {
+void testProbeChecksFinalDelete() {
   fcitx::EventLoop eventLoop;
   fcitx::InputContextManager manager;
   std::vector<std::string> events;
@@ -163,13 +200,13 @@ void testProbeIgnoresIntermediateUpdates() {
       [&](fcitx::InputContext &) { probeSucceeded = true; });
   inputContext.onDelete = [&]() {
     ++deletes;
-    inputContext.surroundingText().setText(deletes == 1 ? "go" : "g",
-                                           3 - deletes, 3 - deletes);
-    backend.notifySurroundingTextUpdated(inputContext);
     if (deletes == 1) {
       assert(backend.isProbing());
       assert(!probeSucceeded);
+      return;
     }
+    inputContext.surroundingText().setText("g", 1, 1);
+    backend.notifySurroundingTextUpdated(inputContext);
   };
 
   const auto status =
@@ -184,6 +221,46 @@ void testProbeIgnoresIntermediateUpdates() {
   eventLoop.exec();
 
   assert(probeSucceeded);
+  assert(doneCalled);
+  assert(events ==
+         std::vector<std::string>({"delete:-1:1", "delete:-1:1", "commit:õ"}));
+}
+
+void testPartialProbeFallsBackOnlyRemainingDelete() {
+  fcitx::EventLoop eventLoop;
+  fcitx::InputContextManager manager;
+  std::vector<std::string> events;
+  DummyInputContext inputContext(manager, events);
+  inputContext.surroundingText().setText("goo", 3, 3);
+
+  areca::AdaptiveWait adaptiveWait;
+  adaptiveWait.observeSystemStress(20);
+  bool probeFailed = false;
+  bool fallbackCalled = false;
+  bool doneCalled = false;
+  FakeFallbackBackend fallback(fallbackCalled);
+  areca::SurroundingTextV2Backend backend(
+      eventLoop, []() { return false; }, nullptr,
+      [&](fcitx::InputContext &) { probeFailed = true; },
+      [&](fcitx::InputContext &) -> areca::RewriteBackend * {
+        return &fallback;
+      },
+      &adaptiveWait);
+
+  const auto status =
+      backend.apply(inputContext, makeProbePlan(304, 2),
+                    [&](uint64_t transactionId, areca::RewriteOutcome outcome) {
+                      assert(transactionId == 304);
+                      assert(outcome == areca::RewriteOutcome::Succeeded);
+                      doneCalled = true;
+                      eventLoop.exit();
+                    });
+  assert(status == areca::ApplyStatus::Pending);
+  eventLoop.exec();
+
+  assert(probeFailed);
+  assert(fallbackCalled);
+  assert(fallback.backspaceCount() == 1);
   assert(doneCalled);
   assert(events ==
          std::vector<std::string>({"delete:-1:1", "delete:-1:1", "commit:õ"}));
@@ -210,8 +287,10 @@ int main() {
   assert(std::string(backendWithAdaptive.name()) == "surrounding-text-v2");
 
   testProbeSuccess();
+  testCommitWaitsForFinalDeleteUpdate();
   testProbeFailureFallsBack();
-  testProbeIgnoresIntermediateUpdates();
+  testProbeChecksFinalDelete();
+  testPartialProbeFallsBackOnlyRemainingDelete();
 
   std::cout << "SurroundingTextV2Backend test passed\n";
   return 0;

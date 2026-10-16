@@ -319,6 +319,18 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     add_test(NAME program-compatibility COMMAND areca-program-compatibility-test)
 
+    add_executable(areca-forward-backspace-probe-test
+        tests/forward_backspace_probe_test.cpp
+        src/forward_backspace_backend.cpp)
+    target_compile_features(areca-forward-backspace-probe-test PRIVATE cxx_std_20)
+    target_compile_options(areca-forward-backspace-probe-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-forward-backspace-probe-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-forward-backspace-probe-test PRIVATE
+        Fcitx5::Core Fcitx5::Utils)
+    add_test(NAME forward-backspace-probe COMMAND areca-forward-backspace-probe-test)
+
     add_executable(areca-uinput-backspace-test
         tests/uinput_backspace_backend_test.cpp
         src/uinput_backspace_backend.cpp

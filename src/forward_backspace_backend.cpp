@@ -34,6 +34,15 @@ ApplyStatus ForwardBackspaceBackend::apply(fcitx::InputContext &inputContext,
   afterBackspaceWaitMs_ = resolveAfterBackspaceWaitMs(frontend, plan);
   timerAccuracyUsec_ = plan.timerAccuracyUsec;
   commitText_ = plan.commitText;
+  probePending_ = plan.probeSurrounding;
+  if (probePending_) {
+    auto expected = inputContext.surroundingText();
+    expected.deleteText(-static_cast<int>(plan.backspaceCount),
+                        plan.backspaceCount);
+    expectedProbeText_ = expected.text();
+    expectedProbeCursor_ = expected.cursor();
+    expectedProbeAnchor_ = expected.anchor();
+  }
 
   if (debugProvider_()) {
     FCITX_INFO() << "areca: forward-backspace start tx=" << transactionId_
@@ -42,6 +51,7 @@ ApplyStatus ForwardBackspaceBackend::apply(fcitx::InputContext &inputContext,
                  << " after_wait_ms=" << afterBackspaceWaitMs_
                  << " adaptive_extra_ms="
                  << adaptiveWait_.effectiveExtraWaitMs(afterBackspaceWaitMs_)
+                 << " verify_delete=" << probePending_
                  << " frontend=" << (frontend ? frontend : "")
                  << " accuracy_us=" << timerAccuracyUsec_;
   }
@@ -61,6 +71,11 @@ void ForwardBackspaceBackend::sendNextBackspace() {
     return;
   }
 
+  const bool verifyThisBackspace = probePending_ && remainingBackspaces_ == 1;
+  if (verifyThisBackspace) {
+    scheduleProbeDeadline();
+  }
+
   const fcitx::Key backspace(FcitxKey_BackSpace);
   inputContext->forwardKey(backspace, false);
   inputContext->forwardKey(backspace, true);
@@ -75,9 +90,55 @@ void ForwardBackspaceBackend::sendNextBackspace() {
 
   if (remainingBackspaces_) {
     scheduleNextBackspace();
-  } else {
+  } else if (!verifyThisBackspace) {
     scheduleCommit();
   }
+}
+
+void ForwardBackspaceBackend::notifySurroundingTextUpdated(
+    fcitx::InputContext &inputContext) {
+  if (!probePending_ || inputContext_.get() != &inputContext) {
+    return;
+  }
+
+  const auto &surrounding = inputContext.surroundingText();
+  if (!surrounding.isValid() || surrounding.text() != expectedProbeText_ ||
+      surrounding.cursor() != expectedProbeCursor_ ||
+      surrounding.anchor() != expectedProbeAnchor_) {
+    return;
+  }
+
+  if (debugProvider_()) {
+    FCITX_INFO() << "areca: forward-backspace delete confirmed tx="
+                 << transactionId_;
+  }
+  probePending_ = false;
+  timer_.reset();
+  scheduleCommit();
+}
+
+void ForwardBackspaceBackend::scheduleProbeDeadline() {
+  schedule(150, TimerDispatch::TimerCallback, [this]() {
+    if (!probePending_) {
+      return;
+    }
+    auto *inputContext = inputContext_.get();
+    if (!inputContext) {
+      completeWithoutCommit();
+      return;
+    }
+    notifySurroundingTextUpdated(*inputContext);
+    if (!probePending_) {
+      return;
+    }
+    if (debugProvider_()) {
+      FCITX_INFO() << "areca: forward-backspace delete unconfirmed after "
+                      "150ms tx="
+                   << transactionId_;
+    }
+    probePending_ = false;
+    scheduleCommit();
+  });
 }
 
 void ForwardBackspaceBackend::scheduleNextBackspace() {
@@ -234,6 +295,10 @@ void ForwardBackspaceBackend::clearPending() {
   afterBackspaceWaitMs_ = 0;
   timerAccuracyUsec_ = 1;
   commitText_.clear();
+  probePending_ = false;
+  expectedProbeText_.clear();
+  expectedProbeCursor_ = 0;
+  expectedProbeAnchor_ = 0;
 }
 
 } // namespace areca

@@ -212,6 +212,9 @@ ArecaEngine::ArecaEngine(fcitx::Instance *instance)
         if (surroundingV2Backend_.isProbing()) {
           surroundingV2Backend_.notifySurroundingTextUpdated(*inputContext);
         }
+        if (forwardBackspaceBackend_.isProbing()) {
+          forwardBackspaceBackend_.notifySurroundingTextUpdated(*inputContext);
+        }
         // Callback chỉ ghi nhận rằng frontend đã đổi text hoặc cursor. Việc đọc
         // và phục hồi được hoãn tới key press để không sửa Bamboo trong event
         // lifecycle và để nhận snapshot surrounding mới nhất.
