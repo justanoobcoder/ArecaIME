@@ -85,7 +85,9 @@ public:
   void save() override;
 
 private:
-  InputModeHandler &activeHandler();
+  InputModeHandler &handlerFor(fcitx::InputContext &inputContext);
+  PresentationMode
+  effectivePresentationMode(fcitx::InputContext &inputContext);
   static const char *presentationModeName(PresentationMode mode);
   void switchPresentationMode(fcitx::InputContext &inputContext);
   SchedulerTiming timing() const;

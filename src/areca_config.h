@@ -44,18 +44,39 @@ enum class AppBackendMode {
   NativeShiftSelect = 2,
   NativeXTest = 3,
   UinputBackspace = 3,
-  ForwardKey = 3
+  ForwardKey = 3,
+  Preedit = 4,
+  Redirect = 5
 };
 FCITX_CONFIG_ENUM_NAME_WITH_I18N(AppBackendMode, N_("Tự động"),
                                  N_("Surrounding"),
                                  N_("Shift select"),
-                                 N_("Backspace"));
+                                 N_("Backspace"), N_("Preedit"),
+                                 N_("Redirect (EN)"));
+
+inline PresentationMode
+presentationModeForAppSetting(AppBackendMode mode,
+                              PresentationMode fallback) {
+  switch (mode) {
+  case AppBackendMode::Preedit:
+    return PresentationMode::Preedit;
+  case AppBackendMode::Redirect:
+    return PresentationMode::Redirect;
+  case AppBackendMode::SurroundingText:
+  case AppBackendMode::ShiftSelect:
+  case AppBackendMode::Backspace:
+    return PresentationMode::Rewrite;
+  case AppBackendMode::Auto:
+    return fallback;
+  }
+  return fallback;
+}
 
 FCITX_CONFIGURATION(
     AppBackendOverrideEntry,
     fcitx::Option<std::string> appName{this, "AppName", N_("Tên ứng dụng"), ""};
     fcitx::OptionWithAnnotation<AppBackendMode, fcitx::EnumAnnotation> mode{
-        this, "Mode", N_("Backend"), AppBackendMode::Auto};);
+        this, "Mode", N_("Chế độ / backend"), AppBackendMode::Auto};);
 
 FCITX_CONFIGURATION(MacroEntry,
                     fcitx::Option<std::string> key{this, "Key",
@@ -69,7 +90,7 @@ FCITX_CONFIGURATION(
                                 fcitx::ListDisplayOptionAnnotation>
         appOverrides{this,
                      "AppOverrides",
-                     N_("Cấu hình backend theo ứng dụng"),
+                     N_("Cấu hình chế độ / backend theo ứng dụng"),
                      {},
                      {},
                      {},
@@ -209,7 +230,7 @@ FCITX_CONFIGURATION(
     fcitx::KeyListOption selectBackendKey{
         this,
         "SelectBackendKey",
-        N_("Phím tắt chọn backend cho ứng dụng"),
+        N_("Phím tắt chọn chế độ / backend cho ứng dụng"),
         {fcitx::Key("grave")},
         fcitx::KeyListConstrain(fcitx::KeyConstrainFlag::AllowModifierLess)};
     fcitx::HiddenOption<int, fcitx::IntConstrain> legacyBackspaceDelayMs{

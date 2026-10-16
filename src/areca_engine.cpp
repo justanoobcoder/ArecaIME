@@ -423,6 +423,9 @@ std::string ArecaEngine::describeAutoBackend(const std::string &appName) {
       return "Tự động (Shift select)";
     case AppBackendMode::Backspace:
       return "Tự động (Backspace)";
+    case AppBackendMode::Preedit:
+    case AppBackendMode::Redirect:
+      break;
     default:
       break;
     }
@@ -608,6 +611,12 @@ ArecaEngine::selectRewriteBackend(fcitx::InputContext &inputContext,
         }
         return {bsBackend};
       }
+      case AppBackendMode::Preedit:
+      case AppBackendMode::Redirect:
+        // Mode routing happens before key handling, so these entries must not
+        // normally reach the rewrite scheduler. Fall through to auto as a
+        // safe fallback if an already queued transaction outlives a switch.
+        break;
       case AppBackendMode::Auto:
         break;
       }
@@ -743,8 +752,23 @@ void ArecaEngine::scheduleDeviceWarmup() {
   }
 }
 
-InputModeHandler &ArecaEngine::activeHandler() {
-  switch (activePresentationMode_) {
+PresentationMode
+ArecaEngine::effectivePresentationMode(fcitx::InputContext &inputContext) {
+  auto *state = inputContext.propertyFor(&rewriteStateFactory_);
+  const std::string program = resolveProgram(inputContext, state);
+  if (!program.empty()) {
+    const auto it = appBackendOverridesMap_.find(program);
+    if (it != appBackendOverridesMap_.end()) {
+      return presentationModeForAppSetting(it->second,
+                                           activePresentationMode_);
+    }
+  }
+  return activePresentationMode_;
+}
+
+InputModeHandler &ArecaEngine::handlerFor(
+    fcitx::InputContext &inputContext) {
+  switch (effectivePresentationMode(inputContext)) {
   case PresentationMode::Preedit:
     return preeditHandler_;
   case PresentationMode::Redirect:
@@ -768,8 +792,8 @@ const char *ArecaEngine::presentationModeName(PresentationMode mode) {
 }
 
 std::string ArecaEngine::subMode(const fcitx::InputMethodEntry &,
-                                 fcitx::InputContext &) {
-  return presentationModeName(activePresentationMode_);
+                                 fcitx::InputContext &inputContext) {
+  return presentationModeName(effectivePresentationMode(inputContext));
 }
 
 std::string ArecaEngine::subModeIconImpl(const fcitx::InputMethodEntry &,
@@ -778,9 +802,9 @@ std::string ArecaEngine::subModeIconImpl(const fcitx::InputMethodEntry &,
 }
 
 std::string ArecaEngine::subModeLabelImpl(const fcitx::InputMethodEntry &,
-                                          fcitx::InputContext &) {
+                                          fcitx::InputContext &inputContext) {
   return "Ă  " + config_.bambooInputMethod.value() + " \xC2\xB7 " +
-         presentationModeName(activePresentationMode_);
+         presentationModeName(effectivePresentationMode(inputContext));
 }
 
 void ArecaEngine::switchPresentationMode(fcitx::InputContext &inputContext) {
@@ -809,7 +833,7 @@ void ArecaEngine::switchPresentationMode(fcitx::InputContext &inputContext) {
   preeditHandler_.resetContext(inputContext);
   config_.presentationMode.setValue(next);
   applyConfig();
-  activeHandler().activate(inputContext);
+  handlerFor(inputContext).activate(inputContext);
   save();
 
   if (debugEnabled()) {
@@ -846,8 +870,8 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
 
   auto candList = std::make_unique<fcitx::CommonCandidateList>();
   candList->setLayoutHint(fcitx::CandidateLayoutHint::Vertical);
-  candList->setLabels({"1. ", "2. ", "3. ", "4. "});
-  candList->setPageSize(4);
+  candList->setLabels({"1. ", "2. ", "3. ", "4. ", "A. ", "E. "});
+  candList->setPageSize(6);
 
   const char *frontend = inputContext.frontend();
   const bool isTerminal = inputTypeDetector_.isTerminal(appName, frontend);
@@ -855,7 +879,12 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
       inputTypeDetector_.canForwardBackspaces(inputContext, appName);
   const bool preferHardware = isTerminal || !canForward;
 
-  const std::string autoTitle = describeAutoBackend(appName);
+  const std::string autoTitle =
+      activePresentationMode_ == PresentationMode::Rewrite
+          ? describeAutoBackend(appName)
+          : "Mặc định (" +
+                std::string(presentationModeName(activePresentationMode_)) +
+                ")";
   const std::string surroundingTitle =
       "Surrounding (" + describeSurroundingBackend() + ")";
   const std::string shiftTitle =
@@ -867,11 +896,13 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
     AppBackendMode mode;
     std::string title;
   };
-  const std::array<BackendOption, 4> options = {{
+  const std::array<BackendOption, 6> options = {{
       {AppBackendMode::Auto, autoTitle},
       {AppBackendMode::SurroundingText, surroundingTitle},
       {AppBackendMode::ShiftSelect, shiftTitle},
       {AppBackendMode::Backspace, backspaceTitle},
+      {AppBackendMode::Preedit, "Preedit"},
+      {AppBackendMode::Redirect, "Redirect (EN)"},
   }};
 
   int initialCursor = 0;
@@ -898,7 +929,7 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
 
   auto &panel = inputContext.inputPanel();
   panel.reset();
-  panel.setAuxUp(fcitx::Text("Chọn backend cho: " + appName));
+  panel.setAuxUp(fcitx::Text("Chọn chế độ / backend cho: " + appName));
   panel.setCandidateList(std::move(candList));
   inputContext.updateUserInterface(fcitx::UserInterfaceComponent::InputPanel,
                                    true);
@@ -907,6 +938,9 @@ void ArecaEngine::showBackendSelectionMenu(fcitx::InputContext &inputContext) {
 void ArecaEngine::selectBackendForApp(fcitx::InputContext &inputContext,
                                       std::string appName,
                                       AppBackendMode mode) {
+  const PresentationMode previousPresentationMode =
+      effectivePresentationMode(inputContext);
+
   auto &overrides = *appProfiles_.appOverrides.mutableValue();
   auto it = std::find_if(overrides.begin(), overrides.end(),
                          [&appName](const AppBackendOverrideEntry &entry) {
@@ -924,6 +958,13 @@ void ArecaEngine::selectBackendForApp(fcitx::InputContext &inputContext,
 
   applyConfig();
   save();
+
+  const PresentationMode nextPresentationMode =
+      effectivePresentationMode(inputContext);
+  if (previousPresentationMode != nextPresentationMode) {
+    clearBackendVerdictForLifecycle(inputContext, "app-mode-switch");
+    handlerFor(inputContext).activate(inputContext);
+  }
 
   inputContext.inputPanel().reset();
   inputContext.updateUserInterface(fcitx::UserInterfaceComponent::InputPanel,
@@ -949,9 +990,16 @@ void ArecaEngine::selectBackendForApp(fcitx::InputContext &inputContext,
   case AppBackendMode::Backspace:
     modeDesc = "Backspace (" + describeBackspaceBackend(preferHardware) + ")";
     break;
+  case AppBackendMode::Preedit:
+    modeDesc = "Preedit";
+    break;
+  case AppBackendMode::Redirect:
+    modeDesc = "Redirect (EN)";
+    break;
   }
 
   const std::string infoMsg = appName + " -> " + modeDesc;
+  updateUI(&inputContext);
 #ifdef ARECA_HAVE_SHOW_CUSTOM_INFO
   instance_->showCustomInputMethodInformation(&inputContext, infoMsg);
 #else
@@ -988,11 +1036,21 @@ bool ArecaEngine::handleBackendSelectionKey(fcitx::InputContext &inputContext,
     return true;
   }
 
-  if (sym >= FcitxKey_1 && sym <= FcitxKey_6) {
+  if (sym >= FcitxKey_1 && sym <= FcitxKey_4) {
     const int idx = sym - FcitxKey_1;
     if (idx < commonList->size()) {
       commonList->candidate(idx).select(&inputContext);
     }
+    return true;
+  }
+
+  if (sym == FcitxKey_a || sym == FcitxKey_A) {
+    commonList->candidate(4).select(&inputContext);
+    return true;
+  }
+
+  if (sym == FcitxKey_e || sym == FcitxKey_E) {
+    commonList->candidate(5).select(&inputContext);
     return true;
   }
 
@@ -1029,7 +1087,9 @@ void ArecaEngine::activate(const fcitx::InputMethodEntry &,
   if (!inputContext) {
     return;
   }
-  if (activePresentationMode_ == PresentationMode::Rewrite) {
+  const PresentationMode presentationMode =
+      effectivePresentationMode(*inputContext);
+  if (presentationMode == PresentationMode::Rewrite) {
     clearBackendVerdictForLifecycle(*inputContext, "activate");
   }
   // Thử lại nếu helper đã mất kết nối. Bỏ click đã nhận trước activation để
@@ -1040,10 +1100,10 @@ void ArecaEngine::activate(const fcitx::InputMethodEntry &,
       FCITX_INFO() << "areca: discard pending mouse click on activation";
     mouseTracker_->clearPendingClick();
   }
-  activeHandler().activate(*inputContext);
+  handlerFor(*inputContext).activate(*inputContext);
   if (debugEnabled()) {
     FCITX_INFO() << "areca: activate presentation_mode="
-                 << presentationModeName(activePresentationMode_)
+                 << presentationModeName(presentationMode)
                  << " program=" << inputContext->program();
   }
   auto &statusArea = inputContext->statusArea();
@@ -1075,7 +1135,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
       inputContext->updateUserInterface(
           fcitx::UserInterfaceComponent::InputPanel, true);
     }
-    activeHandler().handleKeyEvent(event);
+    handlerFor(*inputContext).handleKeyEvent(event);
     return;
   }
   if (isBackendSelecting(*inputContext)) {
@@ -1119,8 +1179,9 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
       } else {
         if (debugEnabled())
           FCITX_INFO() << "areca: applying mouse reset mode="
-                       << presentationModeName(activePresentationMode_);
-        activeHandler().resetContext(*inputContext);
+                       << presentationModeName(
+                              effectivePresentationMode(*inputContext));
+        handlerFor(*inputContext).resetContext(*inputContext);
         clearBackendVerdictForLifecycle(*inputContext, "mouse-click");
         mouseTracker_->clearPendingClick();
       }
@@ -1136,7 +1197,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
         key.checkKeyList(config_.switchModeKey.value())) {
       if (inputContext->capabilityFlags().test(
               fcitx::CapabilityFlag::Password)) {
-        activeHandler().handleKeyEvent(event);
+        handlerFor(*inputContext).handleKeyEvent(event);
         return;
       }
       event.filterAndAccept();
@@ -1148,15 +1209,17 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
         key.checkKeyList(config_.selectBackendKey.value())) {
       if (inputContext->capabilityFlags().test(
               fcitx::CapabilityFlag::Password)) {
-        activeHandler().handleKeyEvent(event);
+        handlerFor(*inputContext).handleKeyEvent(event);
         return;
       }
       bool isComposing = false;
-      if (activePresentationMode_ == PresentationMode::Rewrite) {
+      const PresentationMode presentationMode =
+          effectivePresentationMode(*inputContext);
+      if (presentationMode == PresentationMode::Rewrite) {
         if (state && state->engine && !state->engine->currentText().empty()) {
           isComposing = true;
         }
-      } else if (activePresentationMode_ == PresentationMode::Preedit) {
+      } else if (presentationMode == PresentationMode::Preedit) {
         auto *preState = inputContext->propertyFor(&preeditStateFactory_);
         if (preState && !preState->composing.empty()) {
           isComposing = true;
@@ -1169,7 +1232,7 @@ void ArecaEngine::keyEvent(const fcitx::InputMethodEntry &,
       }
     }
   }
-  activeHandler().handleKeyEvent(event);
+  handlerFor(*inputContext).handleKeyEvent(event);
 }
 
 void ArecaEngine::deactivate(const fcitx::InputMethodEntry &,
@@ -1184,10 +1247,12 @@ void ArecaEngine::deactivate(const fcitx::InputMethodEntry &,
     inputContext->updateUserInterface(
         fcitx::UserInterfaceComponent::InputPanel, true);
   }
-  if (activePresentationMode_ == PresentationMode::Rewrite) {
+  const PresentationMode presentationMode =
+      effectivePresentationMode(*inputContext);
+  if (presentationMode == PresentationMode::Rewrite) {
     clearBackendVerdictForLifecycle(*inputContext, "deactivate");
   }
-  activeHandler().deactivate(*inputContext);
+  handlerFor(*inputContext).deactivate(*inputContext);
 }
 
 void ArecaEngine::reset(const fcitx::InputMethodEntry &,
@@ -1200,13 +1265,14 @@ void ArecaEngine::reset(const fcitx::InputMethodEntry &,
       }
       return;
     }
-    if (activePresentationMode_ == PresentationMode::Rewrite) {
+    if (effectivePresentationMode(*inputContext) ==
+        PresentationMode::Rewrite) {
       clearBackendVerdictForLifecycle(*inputContext, "reset");
     }
     if (debugEnabled()) {
       FCITX_INFO() << "areca: app reset requested; arm protected reset";
     }
-    activeHandler().requestProtectedReset(*inputContext);
+    handlerFor(*inputContext).requestProtectedReset(*inputContext);
   }
 }
 
@@ -1348,6 +1414,9 @@ void ArecaEngine::rebuildAppBackendOverridesMap() {
 }
 
 void ArecaEngine::applyConfig() {
+  const auto previousOverrides = appBackendOverridesMap_;
+  const PresentationMode previousDefaultMode = activePresentationMode_;
+  const PresentationMode requestedMode = config_.presentationMode.value();
   rebuildAppBackendOverridesMap();
   // Start the Native transport before the first rewrite whenever either
   // legacy XTest policy key is enabled. Wayland requests Libei permission;
@@ -1385,14 +1454,26 @@ void ArecaEngine::applyConfig() {
   const bool macroEnabled = config_.enableMacro.value();
   const bool capitalizeMacro = config_.capitalizeMacro.value();
   const bool autoCapitalize = config_.autoCapitalizeAfterPunctuation.value();
-  const auto requestedMode = config_.presentationMode.value();
-  const bool modeChanged = requestedMode != activePresentationMode_;
   const auto macros = macroDefinitions();
   instance_->inputContextManager().foreach (
       [this, &inputMethod, spellCheck, realtimeSpellcheck, modernStyle,
        &outputCharset, macroEnabled, capitalizeMacro, autoCapitalize,
-       modeChanged, &macros](fcitx::InputContext *inputContext) {
-        if (modeChanged) {
+       &macros, &previousOverrides, previousDefaultMode,
+       requestedMode](fcitx::InputContext *inputContext) {
+        auto *rewriteState = rewriteHandler_.stateFor(*inputContext);
+        const std::string program = resolveProgram(*inputContext, rewriteState);
+        auto modeFor = [&program](const auto &overrides,
+                                  PresentationMode fallback) {
+          const auto it = overrides.find(program);
+          return it == overrides.end()
+                     ? fallback
+                     : presentationModeForAppSetting(it->second, fallback);
+        };
+        const PresentationMode previousMode =
+            modeFor(previousOverrides, previousDefaultMode);
+        const PresentationMode nextMode =
+            modeFor(appBackendOverridesMap_, requestedMode);
+        if (previousMode != nextMode) {
           rewriteHandler_.resetContext(*inputContext);
           preeditHandler_.resetContext(*inputContext);
         }
@@ -1548,7 +1629,7 @@ void ArecaEngine::initActions() {
                 config_.presentationMode.setValue(mode);
                 applyConfig();
                 if (ic) {
-                  activeHandler().activate(*ic);
+                  handlerFor(*ic).activate(*ic);
                 }
                 save();
                 updateUI(ic);

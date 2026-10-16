@@ -319,6 +319,17 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
     add_test(NAME program-compatibility COMMAND areca-program-compatibility-test)
 
+    add_executable(areca-app-mode-routing-test
+        tests/app_mode_routing_test.cpp)
+    target_compile_features(areca-app-mode-routing-test PRIVATE cxx_std_20)
+    target_compile_options(areca-app-mode-routing-test PRIVATE
+        -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(areca-app-mode-routing-test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_link_libraries(areca-app-mode-routing-test PRIVATE
+        Fcitx5::Config Fcitx5::Utils)
+    add_test(NAME app-mode-routing COMMAND areca-app-mode-routing-test)
+
     add_executable(areca-forward-backspace-probe-test
         tests/forward_backspace_probe_test.cpp
         src/forward_backspace_backend.cpp)
