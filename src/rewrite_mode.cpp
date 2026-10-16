@@ -394,6 +394,16 @@ void RewriteModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
       event.filterAndAccept();
       return;
     }
+    if (state->engine && state->engine->canUndoMacro()) {
+      if (debugProvider_()) {
+        FCITX_INFO() << "areca: backspace route=macro-undo"
+                     << " queue=" << scheduler_.queuedKeyCount()
+                     << " program=" << inputContext->program();
+      }
+      event.filterAndAccept();
+      scheduler_.enqueueBackspace(*inputContext);
+      return;
+    }
     if (shouldRecoverBackspace(*inputContext, *state)) {
       deferBackspaceRecoveryUntilRelease(event, *state);
       return;

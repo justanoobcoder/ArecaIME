@@ -149,6 +149,27 @@ void PreeditModeHandler::handleKeyEvent(fcitx::KeyEvent &event) {
 
   if (isBackspace) {
     state->sentenceCapitalization.reset();
+    if (state->engine && state->engine->canUndoMacro()) {
+      try {
+        const auto result = state->engine->processBackspace();
+        auto &surrounding = inputContext->surroundingText();
+        if (surrounding.isValid() && result.deleteCount > 0) {
+          inputContext->deleteSurroundingText(
+              -static_cast<int>(result.deleteCount), result.deleteCount);
+          updateSurroundingCacheAfterDelete(
+              *inputContext, -static_cast<int>(result.deleteCount),
+              result.deleteCount);
+          if (!result.commitText.empty()) {
+            inputContext->commitString(result.commitText);
+            updateSurroundingCacheAfterCommit(*inputContext, result.commitText);
+          }
+          event.filterAndAccept();
+          return;
+        }
+      } catch (const std::exception &error) {
+        FCITX_ERROR() << "areca: preedit macro undo failed: " << error.what();
+      }
+    }
     if (state->composing.empty()) {
       try {
         // Adapter đếm các boundary đã commit. Backspace qua boundary trung gian

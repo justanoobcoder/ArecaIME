@@ -26,6 +26,7 @@ public:
   // Nạp lại text đã có trước con trỏ. Implement mặc định từ chối để các engine
   // giả trong test và engine khác không vô tình nhận một trạng thái không hỗ trợ.
   virtual bool restoreFromRenderedText(const std::string &) { return false; }
+  virtual bool canUndoMacro() const { return false; }
 };
 
 class BambooEngineAdapter final : public VietnameseEngine {
@@ -51,6 +52,7 @@ public:
   void reset() override;
   bool restoreFromRenderedText(const std::string &text) override;
   const std::string &currentText() const override { return renderedText_; }
+  bool canUndoMacro() const override { return macroRecoveryAvailable_; }
   bool valid() const { return handle_ != 0; }
   static std::vector<std::string> inputMethodNames();
   static std::vector<std::string> charsetNames();
@@ -68,6 +70,9 @@ private:
   std::string finalizedRenderedText_;
   uint32_t trailingBoundaryCount_ = 0;
   bool finalizedWordAvailable_ = false;
+  bool macroRecoveryAvailable_ = false;
+  std::string macroExpandedTextWithBoundary_;
+  std::string macroRawKeyWithBoundary_;
 };
 
 } // namespace areca

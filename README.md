@@ -524,6 +524,9 @@ BT<Space>  → BE THERE␠
 Bt<Space>  → Be There␠
 ```
 
+Nếu nhấn Backspace ngay sau khi macro mở rộng, Areca hoàn tác nội dung mở rộng
+về lại key viết tắt gốc kèm boundary thay vì xóa từng ký tự.
+
 Expansion chạy trước spell-check, được encode theo `OutputCharset`, sau đó đi
 qua cùng scheduler và rewrite backend như kết quả Bamboo bình thường. Dữ liệu
 được lưu tại `~/.config/fcitx5/conf/areca-macro-table.conf`.

@@ -214,6 +214,8 @@ thường tạo replacement viết thường, key toàn chữ hoa tạo replacem
 hoa, còn kiểu mixed-case giữ nguyên value cấu hình. Adapter reset Bamboo sau
 match, nối boundary, encode theo charset rồi tính delta rewrite. Vì thế macro
 không có đường commit đặc biệt và vẫn tuân thủ mọi queue/pending invariant.
+Nếu nhấn Backspace ngay sau khi macro mở rộng, adapter hoàn tác nội dung mở
+rộng về lại key viết tắt ban đầu kèm boundary qua delta rewrite.
 
 Nếu `AutoCapitalizeAfterPunctuation` bật, state theo từng input context theo dõi
 `.`, `!`, `?` rồi khoảng trắng. Chữ ASCII thường kế tiếp được đổi thành keysym
