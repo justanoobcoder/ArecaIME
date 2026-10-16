@@ -5,6 +5,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/log.h>
 
+#include "surrounding_probe_match.h"
 #include "surrounding_text_cache.h"
 
 namespace areca {
@@ -113,21 +114,25 @@ void SurroundingTextV2Backend::sendNextDelete() {
 }
 
 void SurroundingTextV2Backend::notifySurroundingTextUpdated(
-    fcitx::InputContext &inputContext) {
+    fcitx::InputContext &inputContext, bool fromUpdateEvent) {
   if (!isProbe_ || !probeDeletePending_ ||
       inputContext_.get() != &inputContext) {
     return;
   }
 
   const auto &surrounding = inputContext.surroundingText();
-  if (!surrounding.isValid() || surrounding.text() != expectedProbeText_ ||
-      surrounding.cursor() != expectedProbeCursor_ ||
-      surrounding.anchor() != expectedProbeAnchor_) {
+  if (!surroundingProbeMatches(
+          surrounding.isValid(), expectedProbeText_, expectedProbeCursor_,
+          expectedProbeAnchor_, surrounding.text(), surrounding.cursor(),
+          surrounding.anchor(), fromUpdateEvent)) {
     if (debugProvider_()) {
       FCITX_INFO() << "areca: surrounding-v2 probe ignored unmatched update"
                    << " tx=" << transactionId_
                    << " expected_text=" << expectedProbeText_
-                   << " actual_text=" << surrounding.text();
+                   << " actual_text=" << surrounding.text()
+                   << " expected_size=" << expectedProbeText_.size()
+                   << " actual_size=" << surrounding.text().size()
+                   << " actual_valid=" << surrounding.isValid();
     }
     return;
   }
@@ -297,7 +302,7 @@ void SurroundingTextV2Backend::scheduleProbeDeadline() {
       completeWithoutCommit();
       return;
     }
-    notifySurroundingTextUpdated(*inputContext);
+    notifySurroundingTextUpdated(*inputContext, false);
     if (!isProbe_) {
       return;
     }

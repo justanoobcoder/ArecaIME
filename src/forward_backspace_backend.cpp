@@ -6,6 +6,8 @@
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
 
+#include "surrounding_probe_match.h"
+
 namespace areca {
 
 ForwardBackspaceBackend::ForwardBackspaceBackend(fcitx::EventLoop &eventLoop,
@@ -96,15 +98,16 @@ void ForwardBackspaceBackend::sendNextBackspace() {
 }
 
 void ForwardBackspaceBackend::notifySurroundingTextUpdated(
-    fcitx::InputContext &inputContext) {
+    fcitx::InputContext &inputContext, bool fromUpdateEvent) {
   if (!probePending_ || inputContext_.get() != &inputContext) {
     return;
   }
 
   const auto &surrounding = inputContext.surroundingText();
-  if (!surrounding.isValid() || surrounding.text() != expectedProbeText_ ||
-      surrounding.cursor() != expectedProbeCursor_ ||
-      surrounding.anchor() != expectedProbeAnchor_) {
+  if (!surroundingProbeMatches(
+          surrounding.isValid(), expectedProbeText_, expectedProbeCursor_,
+          expectedProbeAnchor_, surrounding.text(), surrounding.cursor(),
+          surrounding.anchor(), fromUpdateEvent)) {
     return;
   }
 
@@ -127,7 +130,7 @@ void ForwardBackspaceBackend::scheduleProbeDeadline() {
       completeWithoutCommit();
       return;
     }
-    notifySurroundingTextUpdated(*inputContext);
+    notifySurroundingTextUpdated(*inputContext, false);
     if (!probePending_) {
       return;
     }

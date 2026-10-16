@@ -39,7 +39,8 @@ public:
 
   // Gọi từ ArecaEngine khi nhận InputContextSurroundingTextUpdated trong lúc
   // probe.
-  void notifySurroundingTextUpdated(fcitx::InputContext &inputContext);
+  void notifySurroundingTextUpdated(fcitx::InputContext &inputContext,
+                                    bool fromUpdateEvent = true);
 
 private:
   enum class TimerDispatch { TimerCallback, PostEvent };

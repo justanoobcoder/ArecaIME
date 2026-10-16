@@ -36,7 +36,8 @@ public:
 
   bool hasPending() const { return transactionId_ != 0; }
   bool isProbing() const { return isProbe_; }
-  void notifySurroundingTextUpdated(fcitx::InputContext &inputContext);
+  void notifySurroundingTextUpdated(fcitx::InputContext &inputContext,
+                                    bool fromUpdateEvent = true);
 
 private:
   enum class TimerDispatch { TimerCallback, PostEvent };

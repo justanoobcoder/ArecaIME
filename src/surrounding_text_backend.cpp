@@ -5,6 +5,7 @@
 #include <fcitx-utils/event.h>
 #include <fcitx-utils/log.h>
 
+#include "surrounding_probe_match.h"
 #include "surrounding_text_cache.h"
 
 namespace areca {
@@ -94,7 +95,7 @@ ApplyStatus SurroundingTextBackend::apply(fcitx::InputContext &inputContext,
 }
 
 void SurroundingTextBackend::notifySurroundingTextUpdated(
-    fcitx::InputContext &inputContext) {
+    fcitx::InputContext &inputContext, bool fromUpdateEvent) {
   if (!isProbe_) {
     return;
   }
@@ -104,14 +105,18 @@ void SurroundingTextBackend::notifySurroundingTextUpdated(
   }
 
   const auto &surrounding = inputContext.surroundingText();
-  if (!surrounding.isValid() || surrounding.text() != expectedProbeText_ ||
-      surrounding.cursor() != expectedProbeCursor_ ||
-      surrounding.anchor() != expectedProbeAnchor_) {
+  if (!surroundingProbeMatches(
+          surrounding.isValid(), expectedProbeText_, expectedProbeCursor_,
+          expectedProbeAnchor_, surrounding.text(), surrounding.cursor(),
+          surrounding.anchor(), fromUpdateEvent)) {
     if (debugProvider_()) {
       FCITX_INFO() << "areca: surrounding probe ignored unmatched update"
                    << " tx=" << transactionId_
                    << " expected_text=" << expectedProbeText_
                    << " actual_text=" << surrounding.text()
+                   << " expected_size=" << expectedProbeText_.size()
+                   << " actual_size=" << surrounding.text().size()
+                   << " actual_valid=" << surrounding.isValid()
                    << " expected_cursor=" << expectedProbeCursor_
                    << " actual_cursor=" << surrounding.cursor()
                    << " expected_anchor=" << expectedProbeAnchor_
@@ -290,7 +295,7 @@ void SurroundingTextBackend::scheduleProbeDeadline() {
     // The snapshot may already be current even when the corresponding event
     // was delayed in the frontend queue. Validate once more before falling
     // back to an input-emulation backend.
-    notifySurroundingTextUpdated(*inputContext);
+    notifySurroundingTextUpdated(*inputContext, false);
     if (!isProbe_) {
       return;
     }

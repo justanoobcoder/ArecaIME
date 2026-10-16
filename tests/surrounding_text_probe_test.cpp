@@ -312,6 +312,76 @@ void testProbeSuccessViaSynchronousEvent() {
   assert(inputContext.surroundingText().text() == "vietnam");
 }
 
+// Some single-line clients append a newline sentinel, then invalidate and
+// report an empty snapshot when deleting the final visible character.
+void testProbeAcceptsInvalidEmptyUpdateEvent() {
+  fcitx::EventLoop eventLoop;
+  fcitx::InputContextManager manager;
+  std::vector<std::string> events;
+  DummyInputContext inputContext(manager, events, "microsoft-edge");
+  inputContext.setCapabilityFlags(fcitx::CapabilityFlag::SurroundingText);
+  inputContext.surroundingText().setText("y\n", 1, 1);
+
+  bool probeSucceededCalled = false;
+  bool doneCalled = false;
+  areca::SurroundingTextBackend backend(
+      eventLoop, []() { return false; },
+      [&](fcitx::InputContext &) { probeSucceededCalled = true; });
+
+  const auto status =
+      backend.apply(inputContext, makePlan(105, 1, "ý", true),
+                    [&](uint64_t transactionId, areca::RewriteOutcome outcome) {
+                      assert(transactionId == 105);
+                      assert(outcome == areca::RewriteOutcome::Succeeded);
+                      doneCalled = true;
+                      eventLoop.exit();
+                    });
+
+  assert(status == areca::ApplyStatus::Pending);
+  inputContext.surroundingText().invalidate();
+  backend.notifySurroundingTextUpdated(inputContext);
+  assert(!backend.isProbing());
+  eventLoop.exec();
+
+  assert(probeSucceededCalled);
+  assert(doneCalled);
+  assert(inputContext.committedText == "ý");
+}
+
+void testProbeAcceptsNormalizedLineEndingSentinel() {
+  fcitx::EventLoop eventLoop;
+  fcitx::InputContextManager manager;
+  std::vector<std::string> events;
+  DummyInputContext inputContext(manager, events, "code-oss");
+  inputContext.setCapabilityFlags(fcitx::CapabilityFlag::SurroundingText);
+  inputContext.surroundingText().setText("a\n\n", 1, 1);
+
+  bool probeSucceededCalled = false;
+  bool doneCalled = false;
+  areca::SurroundingTextBackend backend(
+      eventLoop, []() { return false; },
+      [&](fcitx::InputContext &) { probeSucceededCalled = true; });
+
+  const auto status =
+      backend.apply(inputContext, makePlan(106, 1, "á", true),
+                    [&](uint64_t transactionId, areca::RewriteOutcome outcome) {
+                      assert(transactionId == 106);
+                      assert(outcome == areca::RewriteOutcome::Succeeded);
+                      doneCalled = true;
+                      eventLoop.exit();
+                    });
+
+  assert(status == areca::ApplyStatus::Pending);
+  inputContext.surroundingText().setText("\n", 0, 0);
+  backend.notifySurroundingTextUpdated(inputContext);
+  assert(!backend.isProbing());
+  eventLoop.exec();
+
+  assert(probeSucceededCalled);
+  assert(doneCalled);
+  assert(inputContext.committedText == "á");
+}
+
 void testAdaptiveWaitIntegration() {
   fcitx::EventLoop eventLoop;
   fcitx::InputContextManager manager;
@@ -354,6 +424,8 @@ int main() {
   testProbeFailureFallbackToBackspace();
   testProbeSuccessViaEvent();
   testProbeSuccessViaSynchronousEvent();
+  testProbeAcceptsInvalidEmptyUpdateEvent();
+  testProbeAcceptsNormalizedLineEndingSentinel();
   testAdaptiveWaitIntegration();
   std::cout << "All surrounding text probe tests passed\n";
   return 0;
